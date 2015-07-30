@@ -14,6 +14,33 @@ defmodule Extreme do
     GenServer.call server, :ping
   end
 
+  def append(server, stream_id, expected_version, events) do 
+    write_events = Extreme.Messages.WriteEvents.new(
+      event_stream_id: stream_id, 
+      expected_version: expected_version,
+      events: translate_to_events(events),
+      require_master: false
+    )
+    message = Extreme.Messages.WriteEvents.encode(write_events)
+    cmd = Extreme.MessageResolver.encode_cmd(:write_events)
+    GenServer.call server, {:send, cmd, message}    
+  end
+
+  def translate_to_events(events) do
+    res = Enum.map(events, fn e -> 
+      data = Poison.encode!(e)
+      Extreme.Messages.NewEvent.new(
+        event_id: gen_uuid(),
+        event_type: to_string(e.__struct__),
+        data_content_type: 1,
+        metadata_content_type: 1,
+        data: data,
+        meta: "{}"
+      ) end)
+    IO.puts inspect res
+    res
+  end
+
   def command(server, command) do
     GenServer.call server, {:command, command}
   end
@@ -57,6 +84,23 @@ defmodule Extreme do
     {message_type, auth, correlation_id, data}
   end
 
+  def handle_call({:send, cmd, data}, from, state) do
+    correlation_id = gen_uuid
+    message = to_binary(cmd, correlation_id, {"admin", "changeit"}, data)
+    size = byte_size(message)
+    
+    :ok = :gen_tcp.send state.socket, <<size::32-unsigned-little-integer>> <> message
+    state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
+    {:noreply, state}
+  end
+
+  def to_binary(cmd, correlation_id, {login, password}, data) do
+    login_len = byte_size(login)
+    pass_len = byte_size(password)
+    res = <<cmd, 1>> <> correlation_id <> <<login_len::size(8)>>
+    res = res <> login <> <<pass_len::size(8)>> <> password <> data
+  end
+
   def handle_call({:command, cmd}, from, state) do
     {message, correlation_id} = create_message cmd
     :ok = :gen_tcp.send state.socket, message
@@ -79,19 +123,32 @@ defmodule Extreme do
     #rand3 :: size(62)>>
     #IO.inspect res
     #res
-    <<149, 114, 41, 78, 53, 250, 17, 229, 179, 123, 160, 211, 193, 157, 86, 216>>
+    #<<149, 114, 41, 78, 53, 250, 17, 229, 179, 123, 160, 211, 193, 157, 86, 216>>
+    Keyword.get(UUID.info!(UUID.uuid1()), :binary, :undefined)
   end
+
+
 
   def handle_info({:tcp, socket, msg}, %{socket: socket} = state) do
     # Allow the socket to send us the next message
     :inet.setopts(socket, active: :once)
-    {message_type, auth, correlation_id, data} = parse_response msg
+    a = parse_response msg
+    respond(a, state)  
+    
+    {:noreply, state}
+  end
+
+  defp respond({1, _auth, _correlation_id, _data}, _state) do
+    IO.puts "heartbeat"
+  end
+
+  defp respond({message_type, _auth, correlation_id, data}, state) do
+    IO.puts inspect data
+    #TODO: Figure out when to remove correlation_id from pending_responses
     case Map.get(state.pending_responses, correlation_id) do
       nil -> :error
       from -> :ok = GenServer.reply(from, decode(message_type, data))
     end
-    #TODO: Figure out when to remove correlation_id from pending_responses
-    {:noreply, state}
   end
     
   def decode(message_type, data) do

@@ -17,6 +17,10 @@ defmodule Extreme.Mixfile do
   end
 
   defp deps do
-    [{:exprotobuf, "~> 0.10.2"}]
+    [
+      {:exprotobuf, "~> 0.10.2"},
+      {:uuid, "~> 1.0" },
+      {:poison, "~> 1.4.0"}
+    ]
   end
 end
