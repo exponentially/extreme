@@ -23,8 +23,10 @@ defmodule Extreme.MessageResolver do
     # def encode_cmd(:create_stream), do: 0x80
     # def encode_cmd(:create_stream_completed), do: 0x81
 
-    def encode_cmd(:write_events), do: 0x82
-    def encode_cmd(:write_events_completed), do: 0x83
+    def encode_cmd(Extreme.Messages.WriteEvents), do: 0x82
+    #def decode_cmd(0x82), do: Extreme.Messages.WriteEvents
+    #def encode_cmd(Extreme.Messages.WriteEventsCompleted), do: 0x83
+    def decode_cmd(0x83), do: Extreme.Messages.WriteEventsCompleted
 
     def encode_cmd(:transaction_start), do: 0x84
     def encode_cmd(:transaction_start_completed), do: 0x85
