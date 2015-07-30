@@ -30,7 +30,7 @@ defmodule Extreme do
   ## Server Callbacks
 
   def init({host, port}) do
-    opts = [:binary, active: false]
+    opts = [:binary, active: :once]
     {:ok, socket} = String.to_char_list(host)
                     |> :gen_tcp.connect(port, opts)
     {:ok, %{socket: socket, pending_responses: %{}}}
@@ -38,15 +38,13 @@ defmodule Extreme do
 
   def handle_call(:ping, from, state) do
     data = <<1>>
-    message = <<3, 0>> <> gen_uuid <> data
+    correlation_id = gen_uuid
+    message = <<3, 0>> <> correlation_id <> data
     message_length = byte_size message
     IO.puts "#{inspect message_length}: #{inspect message}"
+    state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
     :ok = :gen_tcp.send state.socket, <<message_length :: 32-unsigned-little-integer>> <> message
-    #{:noreply, state}
-    {:ok, msg} = :gen_tcp.recv(state.socket, 0)
-    IO.inspect msg
-    parse_response msg, state
-    {:reply, msg, state}
+    {:noreply, state}
   end
 
   #defp parse_response(msg, state) do
@@ -54,8 +52,9 @@ defmodule Extreme do
                         message_type,
                         auth,
                         correlation_id :: 16-binary,
-                        data :: binary>>, state) do
+                        data :: binary>>) do
     IO.puts "#{message_length} - #{message_type} (#{auth}) [#{inspect correlation_id}]: #{inspect data}"
+    {message_type, auth, correlation_id, data}
   end
 
   def handle_call({:command, cmd}, from, state) do
@@ -84,17 +83,21 @@ defmodule Extreme do
   end
 
   def handle_info({:tcp, socket, msg}, %{socket: socket} = state) do
-    case Map.get(state.pending_responses, "correlation_id") do
+    # Allow the socket to send us the next message
+    :inet.setopts(socket, active: :once)
+    {message_type, auth, correlation_id, data} = parse_response msg
+    case Map.get(state.pending_responses, correlation_id) do
       nil -> :error
-      from -> :ok = GenServer.reply(from, decode(msg))
+      from -> :ok = GenServer.reply(from, decode(message_type, data))
     end
+    #TODO: Figure out when to remove correlation_id from pending_responses
     {:noreply, state}
   end
     
-  def decode(msg) do
-    IO.puts inspect msg
-    decoded = Extreme.Messages.ReadAllEventsCompleted.decode msg
-    IO.puts inspect decoded
-    decoded
+  def decode(message_type, data) do
+    IO.puts inspect data
+    #decoded = Extreme.Messages.ReadAllEventsCompleted.decode msg
+    #IO.puts inspect decoded
+    #decoded
   end
 end
