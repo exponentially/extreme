@@ -15,15 +15,7 @@ defmodule ExtremeTest do
     {:ok, %{server: server}}
   end
 
-  #test "reads all events", %{server: server} do
-  #  Extreme.read_all_events server
-  #end
-
-  # test "ping", %{server: server} do
-  #   Extreme.ping server
-  # end
-
-  test "append", %{server: server} do 
-    Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
+  test ".append is success", %{server: server} do 
+    assert {:Success, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
   end
 end
