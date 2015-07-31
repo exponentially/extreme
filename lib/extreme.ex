@@ -66,21 +66,25 @@ defmodule Extreme do
   def handle_info({:tcp, socket, msg}, %{socket: socket} = state) do
     msg
     |> Request.parse_response
-    |> respond(state.pending_responses)
+    |> respond(state)
     :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
     {:noreply, state}
   end
 
-  defp respond({:error, :not_authenticated, correlation_id}, pending_responses) do
-    case Map.get(pending_responses, correlation_id) do
+  defp respond({:heartbeat_request, correlation_id}, state) do
+    message = Request.prepare :heartbeat_response, correlation_id
+    :ok = :gen_tcp.send state.socket, message
+  end
+  defp respond({:error, :not_authenticated, correlation_id}, state) do
+    case Map.get(state.pending_responses, correlation_id) do
       nil -> 
         Logger.error "Can't find correlation_id #{correlation_id}"
         {:error, :correlation_id_not_found, correlation_id}
       from -> :ok = GenServer.reply(from, {:error, :not_authenticated})
     end
   end
-  defp respond({auth, correlation_id, response}, pending_responses) do
-    case Map.get(pending_responses, correlation_id) do
+  defp respond({auth, correlation_id, response}, state) do
+    case Map.get(state.pending_responses, correlation_id) do
       nil -> 
         Logger.error "Can't find correlation_id #{correlation_id} for response #{inspect response}"
         {:error, :correlation_id_not_found, correlation_id}

@@ -2,6 +2,11 @@ defmodule Extreme.Request do
   alias Extreme.Tools
   require Logger
 
+  def prepare(:heartbeat_response=cmd, correlation_id) do
+    res = <<Extreme.MessageResolver.encode_cmd(cmd), 0>> <> correlation_id
+    size = byte_size(res)
+    <<size::32-unsigned-little-integer>> <> res
+  end
   def prepare(protobuf_msg, credentials) do
     cmd = protobuf_msg.__struct__
     data = protobuf_msg.__struct__.encode protobuf_msg
@@ -11,13 +16,14 @@ defmodule Extreme.Request do
     {message, correlation_id}
   end
 
-  def parse_response(<<message_length :: 32-unsigned-little-integer,
+  def parse_response(<<_message_length :: 32-unsigned-little-integer,
                         message_type,
                         auth,
                         correlation_id :: 16-binary,
                         data :: binary>>) do
     case Extreme.MessageResolver.decode_cmd(message_type) do
       :not_authenticated -> {:error, :not_authenticated, correlation_id}
+      :heartbeat_request_command -> {:heartbeat_request, correlation_id}
       response_struct    -> 
         data = response_struct.decode data
         {auth, correlation_id, data}

@@ -1,7 +1,7 @@
 defmodule Extreme.MessageResolver do
 	# _Hartbeat command
 	def encode_cmd(:heartbeat_request_command), do: 0x01
-	def encode_cmd(:heartbeat_response_command), do: 0x02
+	def encode_cmd(:heartbeat_response), do: 0x02
 	# _Ping command
 	def encode_cmd(:ping), do: 0x03
 	def encode_cmd(:pong), do: 0x04
