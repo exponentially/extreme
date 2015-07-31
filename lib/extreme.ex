@@ -36,7 +36,9 @@ defmodule Extreme do
 
   @doc """
   Reads events from given `stream_id` from specified position `from_event_number` with given `batch_size` (which is by default is 4096 events). 
-  It is possible to state if linked events should be resolved. By default linked events won't be resolved
+  It is possible to state if linked events should be resolved. By default linked events won't be resolved.
+
+  Returns :no_stream if `stream_id` doesn't exist.
   """
   def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
     protobuf_msg = Extreme.Messages.ReadStreamEvents.new(
@@ -103,28 +105,26 @@ defmodule Extreme do
       nil -> 
         Logger.error "Can't find correlation_id #{correlation_id} for response #{inspect response}"
         {:error, :correlation_id_not_found, correlation_id}
-      from -> :ok = GenServer.reply(from, reply(response, auth))
+      from -> :ok = GenServer.reply(from, reply(response))
     end
   end
 
-  defp reply(%Msg.WriteEventsCompleted{}=data, _auth) do
+  defp reply(%{result: :NoStream}), do: :no_stream
+  defp reply(%Msg.WriteEventsCompleted{}=data) do
     {data.result, data.first_event_number, data.last_event_number}
   end
-  defp reply(%Msg.ReadStreamEventsCompleted{}=data, _auth) do
+  defp reply(%Msg.ReadStreamEventsCompleted{}=data) do
     events = Enum.map(data.events, fn e -> 
       event_type = String.to_atom(e.event.event_type)
       Poison.decode!(e.event.data, as: event_type)
     end)
     last_event_number = data.last_event_number
-
-
-
     {data.result, events, last_event_number}
   end
-  defp reply(1, _auth) do
+  defp reply(1) do
     Logger.debug "HEARTBEAT"
   end
-  defp reply(response, _auth) do
+  defp reply(response) do
     Logger.error "Unhandled response: #{inspect response}"
     {:unhandled_response_type, response.__struct__}
   end
