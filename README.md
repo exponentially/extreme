@@ -31,3 +31,6 @@ Dependencies
 
 
 Licensed under The MIT License.
+=======
+# extreme
+Elixir Adapter for EventStore
