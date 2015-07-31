@@ -27,4 +27,15 @@ defmodule ExtremeTest do
   test ".append is success", %{server: server} do 
     assert {:Success, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
   end
+
+  test ".read_stream_events_forward is success", %{server: server} do
+    test_stream_name = "people-reading_#{UUID.uuid1}"
+    events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+    
+    Extreme.append server, test_stream_name, events
+    {:Success, events_from_store, last_event_number} = Extreme.read_stream_events_forward server, test_stream_name, 0
+    
+    assert events == events_from_store
+    assert last_event_number = 1
+  end
 end

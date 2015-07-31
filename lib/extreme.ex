@@ -34,6 +34,21 @@ defmodule Extreme do
     GenServer.call server, {:send, protobuf_msg}    
   end
 
+  @doc """
+  Reads events from given `stream_id` from specified position `from_event_number` with given `batch_size` (which is by default is 4096 events). 
+  It is possible to state if linked events should be resolved. By default linked events won't be resolved
+  """
+  def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
+    protobuf_msg = Extreme.Messages.ReadStreamEvents.new(
+        event_stream_id: stream_id,
+        from_event_number: from_event_number,
+        max_count: batch_size,
+        resolve_link_tos: resolve_link_tos,
+        require_master: false
+      )
+    GenServer.call server, {:send, protobuf_msg}
+  end
+
   defp translate_to_events(events) do
     Enum.map(events, fn e -> 
       data = Poison.encode!(e)
@@ -94,6 +109,17 @@ defmodule Extreme do
 
   defp reply(%Msg.WriteEventsCompleted{}=data, _auth) do
     {data.result, data.first_event_number, data.last_event_number}
+  end
+  defp reply(%Msg.ReadStreamEventsCompleted{}=data, _auth) do
+    events = Enum.map(data.events, fn e -> 
+      event_type = String.to_atom(e.event.event_type)
+      Poison.decode!(e.event.data, as: event_type)
+    end)
+    last_event_number = data.last_event_number
+
+
+
+    {data.result, events, last_event_number}
   end
   defp reply(1, _auth) do
     Logger.debug "HEARTBEAT"
