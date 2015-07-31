@@ -38,4 +38,8 @@ defmodule ExtremeTest do
     assert events == events_from_store
     assert last_event_number = 1
   end
+
+  test ".read_stream_events_forward returns :no_stream for not existing stream", %{server: server} do
+    :no_stream = Extreme.read_stream_events_forward server, "non_existing", 0
+  end
 end
