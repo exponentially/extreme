@@ -2,11 +2,11 @@ defmodule Extreme.Request do
   alias Extreme.Tools
   require Logger
 
-  def prepare(protobuf_msg) do
+  def prepare(protobuf_msg, credentials) do
     cmd = protobuf_msg.__struct__
     data = protobuf_msg.__struct__.encode protobuf_msg
     correlation_id = Tools.gen_uuid
-    message = to_binary(cmd, correlation_id, {"admin", "changeit"}, data)
+    message = to_binary(cmd, correlation_id, {credentials.user, credentials.pass}, data)
 
     {message, correlation_id}
   end
@@ -16,9 +16,12 @@ defmodule Extreme.Request do
                         auth,
                         correlation_id :: 16-binary,
                         data :: binary>>) do
-    response_struct = Extreme.MessageResolver.decode_cmd message_type
-    data = response_struct.decode data
-    {auth, correlation_id, data}
+    case Extreme.MessageResolver.decode_cmd(message_type) do
+      :not_authenticated -> {:error, :not_authenticated, correlation_id}
+      response_struct    -> 
+        data = response_struct.decode data
+        {auth, correlation_id, data}
+    end
   end
 
   defp to_binary(cmd, correlation_id, {login, password}, data) do

@@ -8,14 +8,21 @@ defmodule Extreme do
   ## Client API
 
   @doc """
-  Starts connection with EventStore `node` @ `host`:`port` with optional `opts`.
+  Starts connection to EventStore using `connection_settings` and optional `opts`.
   """
-  def start_link(_connection_type \\ :node, host \\ "localhost", port \\ 1113, opts \\[]) do
-    GenServer.start_link __MODULE__, {host, port}, opts
+  def start_link(connection_settings, opts \\[]) do
+    host = Keyword.fetch! connection_settings, :host
+    port = Keyword.fetch! connection_settings, :port
+    user = Keyword.fetch! connection_settings, :username
+    pass = Keyword.fetch! connection_settings, :password
+    GenServer.start_link __MODULE__, {host, port, user, pass}, opts
   end
 
   @doc """
   Appends new `events` to `stream_id`. `expected_version` is defaulted to -2 (any). -1 stands for no stream.
+
+  Returns {:Success, first_event_version, last_event_version} on success.
+  On wrong credentials returns {:error, :not_authenticated}.
   """
   def append(server, stream_id, expected_version \\ -2, events) do 
     protobuf_msg = Extreme.Messages.WriteEvents.new(
@@ -42,15 +49,15 @@ defmodule Extreme do
 
   ## Server Callbacks
 
-  def init({host, port}) do
+  def init({host, port, user, pass}) do
     opts = [:binary, active: :once]
     {:ok, socket} = String.to_char_list(host)
                     |> :gen_tcp.connect(port, opts)
-    {:ok, %{socket: socket, pending_responses: %{}}}
+    {:ok, %{socket: socket, pending_responses: %{}, credentials: %{user: user, pass: pass}}}
   end
 
   def handle_call({:send, protobuf_msg}, from, state) do
-    {message, correlation_id} = Request.prepare protobuf_msg
+    {message, correlation_id} = Request.prepare protobuf_msg, state.credentials
     :ok = :gen_tcp.send state.socket, message
     state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
     {:noreply, state}
@@ -64,9 +71,19 @@ defmodule Extreme do
     {:noreply, state}
   end
 
+  defp respond({:error, :not_authenticated, correlation_id}, pending_responses) do
+    case Map.get(pending_responses, correlation_id) do
+      nil -> 
+        Logger.error "Can't find correlation_id #{correlation_id}"
+        {:error, :correlation_id_not_found, correlation_id}
+      from -> :ok = GenServer.reply(from, {:error, :not_authenticated})
+    end
+  end
   defp respond({auth, correlation_id, response}, pending_responses) do
     case Map.get(pending_responses, correlation_id) do
-      nil -> Logger.error "Can't find correlation_id #{correlation_id} for response #{inspect response}"; :error
+      nil -> 
+        Logger.error "Can't find correlation_id #{correlation_id} for response #{inspect response}"
+        {:error, :correlation_id_not_found, correlation_id}
       from -> :ok = GenServer.reply(from, reply(response, auth))
     end
   end
