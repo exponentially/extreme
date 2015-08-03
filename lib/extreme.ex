@@ -98,7 +98,7 @@ defmodule Extreme do
     opts = [:binary, active: :once]
     {:ok, socket} = String.to_char_list(host)
                     |> :gen_tcp.connect(port, opts)
-    {:ok, %{socket: socket, pending_responses: %{}, credentials: %{user: user, pass: pass}}}
+    {:ok, %{socket: socket, pending_responses: %{}, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
   end
 
   def handle_call({:send, protobuf_msg}, from, state) do
@@ -108,12 +108,28 @@ defmodule Extreme do
     {:noreply, state}
   end
 
-  def handle_info({:tcp, socket, msg}, %{socket: socket} = state) do
+  def handle_info({:tcp, socket, <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg}, %{socket: socket, received_data: <<>>} = state) do
+    :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
+    if message_length == byte_size(rest) + byte_size(state.received_data) do 
+      process_message(msg, state)
+    else
+      {:noreply, %{state | received_data: msg, should_receive: message_length + 4}}
+    end
+  end
+  def handle_info({:tcp, socket, msg}, state) do
+    :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
+    if state.should_receive == byte_size(msg) + byte_size(state.received_data) do 
+      process_message(state.received_data <> msg, state)
+    else
+      {:noreply, %{state | received_data: state.received_data <> msg}}
+    end
+  end
+
+  defp process_message(msg, state) do
     msg
     |> Request.parse_response
     |> respond(state)
-    :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
-    {:noreply, state}
+    {:noreply, %{state | received_data: <<>>, should_receive: nil}}
   end
 
   defp respond({:heartbeat_request, correlation_id}, state) do

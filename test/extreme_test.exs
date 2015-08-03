@@ -28,18 +28,18 @@ defmodule ExtremeTest do
     assert {:ok, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
   end
 
-  test ".read_stream_events_forward is success", %{server: server} do
+  test ".read_stream_events_forward is success even when response data is received in more tcp packages", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
-    events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
-    
+    events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}]
+
     Extreme.append server, test_stream_name, events
-    assert {:ok, ^events, 1} = Extreme.read_stream_events_forward server, test_stream_name, 0
+    assert {:ok, ^events, 18} = Extreme.read_stream_events_forward server, test_stream_name, 0
   end
 
   test ".read_stream_events_forward is success with empty list if events after specified position do not exist.", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
-    
+
     Extreme.append server, test_stream_name, events
     assert {:ok, [], 1} = Extreme.read_stream_events_forward server, test_stream_name, 2
   end
@@ -60,7 +60,7 @@ defmodule ExtremeTest do
   test ".read_event is NotFound if reading from non existing poistion in existing stream.", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
-    
+
     Extreme.append server, test_stream_name, events
     assert {:error, :not_found} = Extreme.read_event server, test_stream_name, 2
   end
