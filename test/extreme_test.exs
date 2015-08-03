@@ -25,23 +25,25 @@ defmodule ExtremeTest do
   end
 
   test ".append is success", %{server: server} do 
-    assert {:ok, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
+    events = [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}] 
+    assert {:ok, _, _} = Extreme.append server, "people", Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
   end
 
   test ".read_stream_events_forward is success even when response data is received in more tcp packages", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}, %PersonChangedName{name: "Reading Test"}]
 
-    Extreme.append server, test_stream_name, events
-    assert {:ok, ^events, 18} = Extreme.read_stream_events_forward server, test_stream_name, 0
+    Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
+    assert {:ok, stored_events, 18, true} = Extreme.read_stream_events_forward server, test_stream_name, 0
+    assert events == Enum.map stored_events, fn {_event_type, event} -> :erlang.binary_to_term event end
   end
 
   test ".read_stream_events_forward is success with empty list if events after specified position do not exist.", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
 
-    Extreme.append server, test_stream_name, events
-    assert {:ok, [], 1} = Extreme.read_stream_events_forward server, test_stream_name, 2
+    Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
+    assert {:ok, [], 1, true} = Extreme.read_stream_events_forward server, test_stream_name, 2
   end
 
   test ".read_stream_events_forward returns :no_stream for not existing stream", %{server: server} do
@@ -53,15 +55,16 @@ defmodule ExtremeTest do
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
     [expected_event] = tl(events)
 
-    Extreme.append server, test_stream_name, events
-    assert {:ok, ^expected_event} = Extreme.read_event server, test_stream_name, 1
+    Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
+    assert {:ok, _, stored_event} = Extreme.read_event server, test_stream_name, 1
+    assert expected_event == :erlang.binary_to_term stored_event
   end
 
   test ".read_event is NotFound if reading from non existing poistion in existing stream.", %{server: server} do
     test_stream_name = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
 
-    Extreme.append server, test_stream_name, events
+    Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
     assert {:error, :not_found} = Extreme.read_event server, test_stream_name, 2
   end
 end

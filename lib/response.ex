@@ -24,11 +24,10 @@ defmodule Extreme.Response do
 
 	def reply(%Msg.ReadStreamEventsCompleted{result: :Success}=data) do
 		events = Enum.map(data.events, fn e -> 
-			event_type = String.to_atom(e.event.event_type)
-			Poison.decode!(e.event.data, as: event_type)
+			event_type = e.event.event_type
+            {event_type, e.event.data}
 		end)
-		last_event_number = data.last_event_number
-		{:ok, events, last_event_number}
+		{:ok, events, data.last_event_number, data.is_end_of_stream}
 	end
 
 	def reply(%{result: :NoStream}), do: {:error, :no_stream}
@@ -38,8 +37,7 @@ defmodule Extreme.Response do
 	def reply(%Msg.ReadEventCompleted{event: indexed_event, result: :Success}) do 
 		# todo: linked events!!!
 		event_type = String.to_atom(indexed_event.event.event_type)
-		event = Poison.decode!(indexed_event.event.data, as: event_type)
-		{:ok, event}
+		{:ok, event_type, indexed_event.event.data}
 	end
 
 	def reply(1) do

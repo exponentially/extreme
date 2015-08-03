@@ -55,7 +55,7 @@ defmodule Extreme do
   Reads events from given `stream_id` from specified position `from_event_number` with given `batch_size` (which is by default is 4096 events). 
   It is possible to state if linked events should be resolved. By default linked events won't be resolved.
 
-  Returns {:ok, events, last_event_id} on success.
+  Returns {:ok, events, last_event_id} on success, where events is list of {event_type, event_data}
   Returns {:error, :no_stream} if `stream_id` doesn't exist.
   """
   def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
@@ -80,14 +80,13 @@ defmodule Extreme do
   end
 
   defp translate_to_events(events) do
-    Enum.map(events, fn e -> 
-      data = Poison.encode!(e)
+    Enum.map(events, fn {event_type, event} -> 
       Msg.NewEvent.new(
         event_id: Tools.gen_uuid(),
-        event_type: to_string(e.__struct__),
+        event_type: event_type,
         data_content_type: 1,
         metadata_content_type: 1,
-        data: data,
+        data: event,
         meta: "{}"
       ) end)
   end
