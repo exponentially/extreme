@@ -29,15 +29,15 @@ defmodule Extreme.MessageResolver do
     #def encode_cmd(Extreme.Messages.WriteEventsCompleted), do: 0x83
     def decode_cmd(0x83), do: Msg.WriteEventsCompleted
 
-    def encode_cmd(:transaction_start), do: 0x84
-    def encode_cmd(:transaction_start_completed), do: 0x85
-    def encode_cmd(:transaction_write), do: 0x86
-    def encode_cmd(:transaction_write_completed), do: 0x87
-    def encode_cmd(:transaction_commit), do: 0x88
-    def encode_cmd(:transaction_commit_completed), do: 0x89
+    def encode_cmd(Msg.TransactionStart), do: 0x84
+    def decode_cmd(0x85), do: Msg.TransactionStartCompleted
+    def encode_cmd(Msg.TransactionWrite), do: 0x86
+    def decode_cmd(0x87), do: Msg.TransactionWriteCompleted
+    def encode_cmd(Msg.TransactionCommit), do: 0x88
+    def decode_cmd(0x89), do: Msg.TransactionCommitCompleted
 
-    def encode_cmd(:delete_stream), do: 0x8A
-    def encode_cmd(:delete_stream_completed), do: 0x8B
+    def encode_cmd(Msg.DeleteStream), do: 0x8A
+    def decode_cmd(0x8B), do: Msg.DeleteStreamCompleted
 
     def encode_cmd(Msg.ReadEvent), do: 0xB0
     def decode_cmd(0xB1), do: Msg.ReadEventCompleted
