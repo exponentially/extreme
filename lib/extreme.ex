@@ -26,7 +26,7 @@ defmodule Extreme do
   On wrong credentials returns {:error, :not_authenticated}.
   """
   def append(server, stream_id, expected_version \\ -2, events) do 
-    protobuf_msg = Extreme.Messages.WriteEvents.new(
+    protobuf_msg = Msg.WriteEvents.new(
       event_stream_id: stream_id, 
       expected_version: expected_version,
       events: translate_to_events(events),
@@ -39,7 +39,7 @@ defmodule Extreme do
   Reads single event from stream at given position
   """
   def read_event(server, stream_id, event_number, resolve_link_tos\\false) do
-    protobuf_msg = Extreme.Messages.ReadEvent.new(
+    protobuf_msg = Msg.ReadEvent.new(
         event_stream_id: stream_id,
         event_number: event_number,
         resolve_link_tos: resolve_link_tos,
@@ -52,7 +52,7 @@ defmodule Extreme do
   It is possible to state if linked events should be resolved. By default linked events won't be resolved
   """
   def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
-    protobuf_msg = Extreme.Messages.ReadStreamEvents.new(
+    protobuf_msg = Msg.ReadStreamEvents.new(
         event_stream_id: stream_id,
         from_event_number: from_event_number,
         max_count: batch_size,
@@ -65,7 +65,7 @@ defmodule Extreme do
   defp translate_to_events(events) do
     Enum.map(events, fn e -> 
       data = Poison.encode!(e)
-      Extreme.Messages.NewEvent.new(
+      Msg.NewEvent.new(
         event_id: Tools.gen_uuid(),
         event_type: to_string(e.__struct__),
         data_content_type: 1,

@@ -32,10 +32,14 @@ defmodule Extreme.Response do
 	end
 
 	def reply(%Msg.ReadEventCompleted{}=data, _auth) do 
-		#IO.puts inspect data
-		event_type = String.to_atom(data.event.event.event_type)
-		event = Poison.decode!(data.event.event.data, as: event_type)
-		{data.result, event}
+		case data do
+			%{error: nil, event: indexed_event, result: :Success} -> 
+				event_type = String.to_atom(indexed_event.event.event_type)
+				event = Poison.decode!(indexed_event.event.data, as: event_type)
+				{:Success, event}
+			%{error: nil, event: _indexed_event, result: :NotFound} ->  
+				{:NotFound, []}
+		end
 	end
 
 	def reply(1, _auth) do
