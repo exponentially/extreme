@@ -35,10 +35,13 @@ defmodule Extreme.Response do
 		case data do
 			%{error: nil, event: indexed_event, result: :Success} -> 
 				event_type = String.to_atom(indexed_event.event.event_type)
+				# todo: linked events!!!
 				event = Poison.decode!(indexed_event.event.data, as: event_type)
 				{:Success, event}
 			%{error: nil, event: _indexed_event, result: :NotFound} ->  
 				{:NotFound, []}
+			%{error: nil, event: _indexed_event, result: :StreamDeleted} ->  
+				{:StreamDeleted, []}
 		end
 	end
 

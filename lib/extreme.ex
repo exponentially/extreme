@@ -62,6 +62,16 @@ defmodule Extreme do
     GenServer.call server, {:send, protobuf_msg}
   end
 
+  def delete_stream(server, stream_id, expected_version, hard_delete\\true) do
+    protobuf_msg = Msg.DeleteStream.new(
+        event_stream_id: stream_id,
+        expected_version: expected_version,
+        require_master: false,
+        hard_delete: hard_delete
+      )
+    GenServer.call server, {:send, protobuf_msg}
+  end
+
   defp translate_to_events(events) do
     Enum.map(events, fn e -> 
       data = Poison.encode!(e)

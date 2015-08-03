@@ -64,4 +64,5 @@ defmodule ExtremeTest do
     Extreme.append server, test_stream_name, events
     assert {:NotFound, []} = Extreme.read_event server, test_stream_name, 2
   end
+
 end
