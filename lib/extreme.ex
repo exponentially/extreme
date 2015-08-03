@@ -4,6 +4,7 @@ defmodule Extreme do
   alias Extreme.Tools
   alias Extreme.Messages, as: Msg
   require Logger
+  import Extreme.Response
 
   ## Client API
 
@@ -25,7 +26,7 @@ defmodule Extreme do
   On wrong credentials returns {:error, :not_authenticated}.
   """
   def append(server, stream_id, expected_version \\ -2, events) do 
-    protobuf_msg = Extreme.Messages.WriteEvents.new(
+    protobuf_msg = Msg.WriteEvents.new(
       event_stream_id: stream_id, 
       expected_version: expected_version,
       events: translate_to_events(events),
@@ -35,13 +36,25 @@ defmodule Extreme do
   end
 
   @doc """
+  Reads single event from stream at given position
+  """
+  def read_event(server, stream_id, event_number, resolve_link_tos\\false) do
+    protobuf_msg = Msg.ReadEvent.new(
+        event_stream_id: stream_id,
+        event_number: event_number,
+        resolve_link_tos: resolve_link_tos,
+        require_master: false
+      )
+    GenServer.call server, {:send, protobuf_msg}
+  end
+  @doc """
   Reads events from given `stream_id` from specified position `from_event_number` with given `batch_size` (which is by default is 4096 events). 
   It is possible to state if linked events should be resolved. By default linked events won't be resolved.
 
   Returns :no_stream if `stream_id` doesn't exist.
   """
   def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
-    protobuf_msg = Extreme.Messages.ReadStreamEvents.new(
+    protobuf_msg = Msg.ReadStreamEvents.new(
         event_stream_id: stream_id,
         from_event_number: from_event_number,
         max_count: batch_size,
@@ -51,10 +64,20 @@ defmodule Extreme do
     GenServer.call server, {:send, protobuf_msg}
   end
 
+  def delete_stream(server, stream_id, expected_version, hard_delete\\true) do
+    protobuf_msg = Msg.DeleteStream.new(
+        event_stream_id: stream_id,
+        expected_version: expected_version,
+        require_master: false,
+        hard_delete: hard_delete
+      )
+    GenServer.call server, {:send, protobuf_msg}
+  end
+
   defp translate_to_events(events) do
     Enum.map(events, fn e -> 
       data = Poison.encode!(e)
-      Extreme.Messages.NewEvent.new(
+      Msg.NewEvent.new(
         event_id: Tools.gen_uuid(),
         event_type: to_string(e.__struct__),
         data_content_type: 1,
@@ -109,23 +132,4 @@ defmodule Extreme do
     end
   end
 
-  defp reply(%{result: :NoStream}), do: :no_stream
-  defp reply(%Msg.WriteEventsCompleted{}=data) do
-    {data.result, data.first_event_number, data.last_event_number}
-  end
-  defp reply(%Msg.ReadStreamEventsCompleted{}=data) do
-    events = Enum.map(data.events, fn e -> 
-      event_type = String.to_atom(e.event.event_type)
-      Poison.decode!(e.event.data, as: event_type)
-    end)
-    last_event_number = data.last_event_number
-    {data.result, events, last_event_number}
-  end
-  defp reply(1) do
-    Logger.debug "HEARTBEAT"
-  end
-  defp reply(response) do
-    Logger.error "Unhandled response: #{inspect response}"
-    {:unhandled_response_type, response.__struct__}
-  end
 end

@@ -7,7 +7,7 @@ Driver supports:
 
 * Write event(s) to regular stream.
 * Authenticated communication with EventStore server. (Partial... driver is still in prototype phase)
-
+* Read event(s) from stream
 
 TODO
 ====
