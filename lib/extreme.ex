@@ -22,8 +22,8 @@ defmodule Extreme do
   @doc """
   Appends new `events` to `stream_id`. `expected_version` is defaulted to -2 (any). -1 stands for no stream.
 
-  Returns {:Success, first_event_version, last_event_version} on success.
-  On wrong credentials returns {:error, :not_authenticated}.
+  Returns {:ok, first_event_version, last_event_version} on success.
+  Returns {:error, :not_authenticated} on wrong credentials.
   """
   def append(server, stream_id, expected_version \\ -2, events) do 
     protobuf_msg = Msg.WriteEvents.new(
@@ -36,7 +36,10 @@ defmodule Extreme do
   end
 
   @doc """
-  Reads single event from stream at given position
+  Reads single event from `stream_id` at given `event_number` position.
+
+  Returns {:ok, expected_event} on success.
+  Returns {:error, :not_found} when reading from non existing position in existing `stream_id`.
   """
   def read_event(server, stream_id, event_number, resolve_link_tos\\false) do
     protobuf_msg = Msg.ReadEvent.new(
@@ -47,11 +50,13 @@ defmodule Extreme do
       )
     GenServer.call server, {:send, protobuf_msg}
   end
+
   @doc """
   Reads events from given `stream_id` from specified position `from_event_number` with given `batch_size` (which is by default is 4096 events). 
   It is possible to state if linked events should be resolved. By default linked events won't be resolved.
 
-  Returns :no_stream if `stream_id` doesn't exist.
+  Returns {:ok, events, last_event_id} on success.
+  Returns {:error, :no_stream} if `stream_id` doesn't exist.
   """
   def read_stream_events_forward(server, stream_id, from_event_number, batch_size\\4096, resolve_link_tos\\false) do
     protobuf_msg = Msg.ReadStreamEvents.new(
@@ -123,7 +128,7 @@ defmodule Extreme do
       from -> :ok = GenServer.reply(from, {:error, :not_authenticated})
     end
   end
-  defp respond({auth, correlation_id, response}, state) do
+  defp respond({_auth, correlation_id, response}, state) do
     case Map.get(state.pending_responses, correlation_id) do
       nil -> 
         Logger.error "Can't find correlation_id #{correlation_id} for response #{inspect response}"

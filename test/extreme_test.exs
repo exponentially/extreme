@@ -25,7 +25,7 @@ defmodule ExtremeTest do
   end
 
   test ".append is success", %{server: server} do 
-    assert {:success, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
+    assert {:ok, _, _} = Extreme.append server, "people", [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
   end
 
   test ".read_stream_events_forward is success", %{server: server} do
@@ -33,7 +33,7 @@ defmodule ExtremeTest do
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
     
     Extreme.append server, test_stream_name, events
-    assert {:success, ^events, 1} = Extreme.read_stream_events_forward server, test_stream_name, 0
+    assert {:ok, ^events, 1} = Extreme.read_stream_events_forward server, test_stream_name, 0
   end
 
   test ".read_stream_events_forward is success with empty list if events after specified position do not exist.", %{server: server} do
@@ -41,9 +41,8 @@ defmodule ExtremeTest do
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
     
     Extreme.append server, test_stream_name, events
-    assert {:success, [], 1} = Extreme.read_stream_events_forward server, test_stream_name, 2
+    assert {:ok, [], 1} = Extreme.read_stream_events_forward server, test_stream_name, 2
   end
-
 
   test ".read_stream_events_forward returns :no_stream for not existing stream", %{server: server} do
     {:error, :no_stream} = Extreme.read_stream_events_forward server, "non_existing", 0
@@ -55,7 +54,7 @@ defmodule ExtremeTest do
     [expected_event] = tl(events)
 
     Extreme.append server, test_stream_name, events
-    assert {:success, ^expected_event} = Extreme.read_event server, test_stream_name, 1
+    assert {:ok, ^expected_event} = Extreme.read_event server, test_stream_name, 1
   end
 
   test ".read_event is NotFound if reading from non existing poistion in existing stream.", %{server: server} do
@@ -65,6 +64,4 @@ defmodule ExtremeTest do
     Extreme.append server, test_stream_name, events
     assert {:error, :not_found} = Extreme.read_event server, test_stream_name, 2
   end
-
-
 end
