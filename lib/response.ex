@@ -3,19 +3,19 @@ defmodule Extreme.Response do
 	require Logger
 
 	def reply(%Msg.DeleteStreamCompleted{}=data, _auth) do
-		{data.result, data.message }
+		{data.result, data.prepare_position, data.commit_position}
 	end
 
 	def reply(%Msg.TransactionWriteCompleted{}=data, _auth) do
-		{data.result, data.transaction_id, data.message}
+		{data.result, data.transaction_id}
 	end
 
 	def reply(%Msg.TransactionStartCompleted{}=data, _auth) do
-		{data.result, data.transaction_id, data.message}
+		{data.result, data.transaction_id}
 	end
 
 	def reply(%Msg.TransactionCommitCompleted{}=data, _auth) do
-		{data.result, data.transaction_id, data.message, data.first_event_number, data.last_event_number, data.prepare_position, data.commit_position}
+		{data.result, data.transaction_id, data.first_event_number, data.last_event_number, data.prepare_position, data.commit_position}
 	end
 
 	def reply(%Msg.WriteEventsCompleted{}=data, _auth) do
