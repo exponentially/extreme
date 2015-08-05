@@ -2,14 +2,8 @@ defmodule ExtremeTest do
   use ExUnit.Case
   alias Extreme.Messages, as: ExMsg
 
-
-  defmodule PersonCreated do
-    defstruct [:name]
-  end
-
-  defmodule PersonChangedName do
-    defstruct [:name]
-  end
+  defmodule PersonCreated, do: defstruct [:name]
+  defmodule PersonChangedName, do: defstruct [:name]
 
   setup do
     {:ok, server} = Application.get_all_env(:event_store)
@@ -41,23 +35,28 @@ defmodule ExtremeTest do
     {:error, :NoStream, _es_response} = Extreme.execute server, read_events(to_string(UUID.uuid1))
   end
 
-  #test ".read_event is success", %{server: server} do
-  #  test_stream_name = "domain-people-#{UUID.uuid1}"
-  #  events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
-  #  [expected_event] = tl(events)
+  test "reading single existing event is success", %{server: server} do
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+    expected_event = List.last events
 
-  #  Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
-  #  assert {:ok, _, stored_event} = Extreme.read_event server, test_stream_name, 1
-  #  assert expected_event == :erlang.binary_to_term stored_event
-  #end
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    assert {:ok, response} = Extreme.execute server, read_event(stream, 1)
+    assert expected_event == :erlang.binary_to_term response.event.event.data
+  end
 
-  #test ".read_event is NotFound if reading from non existing poistion in existing stream.", %{server: server} do
-  #  test_stream_name = "domain-people-#{UUID.uuid1}"
-  #  events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+  test "trying to read non existing event from existing stream returns :NotFound", %{server: server} do
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+    expected_event = List.last events
 
-  #  Extreme.append server, test_stream_name, Stream.map(events, &({to_string(&1.__struct__), :erlang.term_to_binary(&1)}))
-  #  assert {:error, :not_found} = Extreme.read_event server, test_stream_name, 2
-  #end
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    assert {:ok, response} = Extreme.execute server, read_event(stream, 1)
+    assert expected_event == :erlang.binary_to_term response.event.event.data
+
+    assert {:error, :NotFound, _read_event_completed} = Extreme.execute server, read_event(stream, 2)
+  end
+
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event -> 
       ExMsg.NewEvent.new(
@@ -86,4 +85,12 @@ defmodule ExtremeTest do
     )
   end
 
+  defp read_event(stream, position) do
+    ExMsg.ReadEvent.new(
+      event_stream_id: stream,
+      event_number: position,
+      resolve_link_tos: true,
+      require_master: false
+    )
+  end
 end
