@@ -57,6 +57,38 @@ defmodule ExtremeTest do
     assert {:error, :NotFound, _read_event_completed} = Extreme.execute server, read_event(stream, 2)
   end
 
+  test "soft deleting stream can be done multiple times", %{server: server} do
+    stream = "soft_deleted"
+    events = [%PersonCreated{name: "Reading"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    assert {:ok, _response} = Extreme.execute server, read_events(stream)
+
+    #message DeleteStreamCompleted {
+    #	required OperationResult result = 1;
+    #	optional string message = 2;
+    #	optional int64 prepare_position = 3;
+    #	optional int64 commit_position = 4;
+    #}
+    {:ok, _} = Extreme.execute server, delete_stream(stream)
+    assert {:error, :NoStream, _es_response} = Extreme.execute server, read_events(stream)
+
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    assert {:ok, _response} = Extreme.execute server, read_events(stream)
+    {:ok, _} = Extreme.execute server, delete_stream(stream)
+    assert {:error, :NoStream, _es_response} = Extreme.execute server, read_events(stream)
+  end
+
+  test "hard deleted stream can be done only once", %{server: server} do
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [%PersonCreated{name: "Reading"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    assert {:ok, _response} = Extreme.execute server, read_events(stream)
+
+    {:ok, _} = Extreme.execute server, delete_stream(stream, true)
+    assert {:error, :StreamDeleted, _es_response} = Extreme.execute server, read_events(stream)
+    {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
+  end
+
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event -> 
       ExMsg.NewEvent.new(
@@ -91,6 +123,15 @@ defmodule ExtremeTest do
       event_number: position,
       resolve_link_tos: true,
       require_master: false
+    )
+  end
+
+  defp delete_stream(stream, hard_delete \\ false) do
+    ExMsg.DeleteStream.new(
+      event_stream_id: stream,
+      expected_version: -2,
+      require_master: false,
+      hard_delete: hard_delete
     )
   end
 end
