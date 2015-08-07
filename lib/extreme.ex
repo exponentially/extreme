@@ -3,7 +3,6 @@ defmodule Extreme do
   alias Extreme.Request
   require Logger
   alias Extreme.Response
-  alias Extreme.Messages, as: ExMsg
 
   ## Client API
 
@@ -45,29 +44,35 @@ defmodule Extreme do
 
   ## Server Callbacks
 
+  @subscriptions_sup Extreme.SubscriptionsSupervisor
+
   def init({host, port, user, pass}) do
     opts = [:binary, active: :once]
     {:ok, socket} = String.to_char_list(host)
                     |> :gen_tcp.connect(port, opts)
-    {:ok, %{socket: socket, pending_responses: %{}, subscriptions: %{}, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+    Extreme.SubscriptionsSupervisor.start_link self, name: @subscriptions_sup
+    {:ok, %{socket: socket, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: @subscriptions_sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
   end
 
   def handle_call({:execute, protobuf_msg}, from, state) do
     {message, correlation_id} = Request.prepare protobuf_msg, state.credentials
+    Logger.warn "Will execute #{inspect protobuf_msg}"
     :ok = :gen_tcp.send state.socket, message
     state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
     {:noreply, state}
   end
   def handle_call({:read_and_stay_subscribed, subscriber, params}, _from, state) do
-    {:ok, subscription} = Subscription.start_link self, subscriber, params
+    {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription state.subscriptions_sup, subscriber, params
+    Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
-  def handle_call({:subscribe, subscriber, msg}, _from, state) do
-    Logger.debug "Subscribing with: #{inspect msg}"
+  def handle_call({:subscribe, subscriber, msg}, from, state) do
+    Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
     {message, correlation_id} = Request.prepare msg, state.credentials
     :ok = :gen_tcp.send state.socket, message
+    state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
     state = put_in state.subscriptions, Map.put(state.subscriptions, correlation_id, subscriber)
-    {:reply, {:ok, message}, state}
+    {:noreply, state}
   end
 
   def handle_info({:tcp, socket, <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg}, %{socket: socket, received_data: <<>>} = state) do
@@ -95,6 +100,7 @@ defmodule Extreme do
   end
 
   defp respond({:heartbeat_request, correlation_id}, state) do
+    Logger.debug "#{inspect self} Tick-Tack"
     message = Request.prepare :heartbeat_response, correlation_id
     :ok = :gen_tcp.send state.socket, message
     state.pending_responses
@@ -109,12 +115,13 @@ defmodule Extreme do
   end
 
   defp respond_with(response, correlation_id, pending_responses, subscriptions) do
+    Logger.info "CHECKPOINT #{inspect response}"
     case Map.get(pending_responses, correlation_id) do
       nil -> 
         respond_to_subscription(response, correlation_id, subscriptions)
         pending_responses
       from -> 
-        :ok = GenServer.reply(from, Response.reply(response))
+        :ok = GenServer.reply from, Response.reply(response)
         Map.delete pending_responses, correlation_id
     end
   end

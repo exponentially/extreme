@@ -8,7 +8,7 @@ defmodule ExtremeTest do
 
   setup do
     {:ok, server} = Application.get_all_env(:event_store)
-                    |> Extreme.start_link
+                    |> Extreme.start_link(name: Connection)
     {:ok, server: server}
   end
 
@@ -40,20 +40,39 @@ defmodule ExtremeTest do
     use GenServer
 
     def start_link(sender) do
-      GenServer.start_link __MODULE__, sender
+      GenServer.start_link __MODULE__, sender, name: __MODULE__
+    end
+
+    def received_events(server) do
+      GenServer.call server, :received_events
     end
 
     def init(sender) do
-      {:ok, %{sender: sender}}
+      {:ok, %{sender: sender, received: []}}
     end
 
-    def handle_info(message, state) do
+    def handle_info({:on_event, event}=message, state) do
       send state.sender, message
-      {:noreply, state}
+      {:noreply, %{state|received: [event|state.received]}}
+    end
+
+    def handle_call(:received_events, _from, state) do
+      result = state.received
+                |> Enum.reverse
+                |> Enum.map(fn e -> 
+        data = e.event.data
+        :erlang.binary_to_term(data) 
+                end)
+      {:reply, result, state}
     end
   end
 
   test "read events and stay subscribed", %{server: server} do
+    {:ok, server2} = Application.get_all_env(:event_store)
+                                  |> Extreme.start_link(name: SubscriptionConnection)
+    Logger.debug "SELF: #{inspect server}"
+    Logger.debug "Connection 1: #{inspect server}"
+    Logger.debug "Connection 2: #{inspect server2}"
     stream = "domain-people-#{UUID.uuid1}"
     # prepopulate stream
     events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
@@ -61,7 +80,7 @@ defmodule ExtremeTest do
 
     # subscribe to existing stream
     {:ok, subscriber} = Subscriber.start_link self
-    {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
+    {:ok, _subscription} = Extreme.read_and_stay_subscribed server2, subscriber, stream, 0, 2
 
     # assert first 3 events are received
     assert_receive {:on_event, event}
@@ -75,9 +94,9 @@ defmodule ExtremeTest do
     # assert rest 2 events have arrived as well
     assert_receive {:on_event, event}
     assert_receive {:on_event, event}
-    # check if they came in correct order.
-    assert Subscriber.received_events == events1 ++ events2
-    Logger.debug "Received event: #{inspect event}"
+    ## check if they came in correct order.
+    assert Subscriber.received_events(subscriber) == events1 ++ events2
+
     #{:ok, response} = Extreme.execute server, read_events(stream)
     #assert events == Enum.map response.events, fn event -> :erlang.binary_to_term event.event.data end
   end
