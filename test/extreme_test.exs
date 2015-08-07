@@ -1,6 +1,7 @@
 defmodule ExtremeTest do
   use ExUnit.Case
   alias Extreme.Messages, as: ExMsg
+  require Logger
 
   defmodule PersonCreated, do: defstruct [:name]
   defmodule PersonChangedName, do: defstruct [:name]
@@ -31,9 +32,56 @@ defmodule ExtremeTest do
     assert events == Enum.map response.events, fn event -> :erlang.binary_to_term event.event.data end
   end
 
-  test "reading events from non existing stream returns :no_stream", %{server: server} do
+  test "reading events from non existing stream returns :NoStream", %{server: server} do
     {:error, :NoStream, _es_response} = Extreme.execute server, read_events(to_string(UUID.uuid1))
   end
+
+  defmodule Subscriber do
+    use GenServer
+
+    def start_link(sender) do
+      GenServer.start_link __MODULE__, sender
+    end
+
+    def init(sender) do
+      {:ok, %{sender: sender}}
+    end
+
+    def handle_info(message, state) do
+      send state.sender, message
+      {:noreply, state}
+    end
+  end
+
+  test "read events and stay subscribed", %{server: server} do
+    stream = "domain-people-#{UUID.uuid1}"
+    # prepopulate stream
+    events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events1)
+
+    # subscribe to existing stream
+    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
+
+    # assert first 3 events are received
+    assert_receive {:on_event, event}
+    assert_receive {:on_event, event}
+    assert_receive {:on_event, event}
+
+    # write two more after subscription
+    events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events2)
+
+    # assert rest 2 events have arrived as well
+    assert_receive {:on_event, event}
+    assert_receive {:on_event, event}
+    # check if they came in correct order.
+    assert Subscriber.received_events == events1 ++ events2
+    Logger.debug "Received event: #{inspect event}"
+    #{:ok, response} = Extreme.execute server, read_events(stream)
+    #assert events == Enum.map response.events, fn event -> :erlang.binary_to_term event.event.data end
+  end
+
 
   test "reading single existing event is success", %{server: server} do
     stream = "domain-people-#{UUID.uuid1}"
@@ -63,12 +111,6 @@ defmodule ExtremeTest do
     {:ok, _} = Extreme.execute server, write_events(stream, events)
     assert {:ok, _response} = Extreme.execute server, read_events(stream)
 
-    #message DeleteStreamCompleted {
-    #	required OperationResult result = 1;
-    #	optional string message = 2;
-    #	optional int64 prepare_position = 3;
-    #	optional int64 commit_position = 4;
-    #}
     {:ok, _} = Extreme.execute server, delete_stream(stream)
     assert {:error, :NoStream, _es_response} = Extreme.execute server, read_events(stream)
 

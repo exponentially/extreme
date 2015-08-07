@@ -16,20 +16,6 @@ defmodule Extreme.Request do
     {message, correlation_id}
   end
 
-  def parse_response(<<_message_length :: 32-unsigned-little-integer,
-                        message_type,
-                        auth,
-                        correlation_id :: 16-binary,
-                        data :: binary>>) do
-    case Extreme.MessageResolver.decode_cmd(message_type) do
-      :not_authenticated -> {:error, :not_authenticated, correlation_id}
-      :heartbeat_request_command -> {:heartbeat_request, correlation_id}
-      response_struct    -> 
-        data = response_struct.decode data
-        {auth, correlation_id, data}
-    end
-  end
-
   defp to_binary(cmd, correlation_id, {login, password}, data) do
     login_len = byte_size(login)
     pass_len = byte_size(password)

@@ -53,9 +53,9 @@ defmodule Extreme.MessageResolver do
     def encode_cmd(:read_all_events_backward), do: 0xB8
     def encode_cmd(:read_all_events_backward_completed), do: 0xB9
 
-    def encode_cmd(:subscribe_to_stream), do: 0xC0
-    def encode_cmd(:subscription_confirmation), do: 0xC1
-    def encode_cmd(:stream_event_appeared), do: 0xC2
+    def encode_cmd(Msg.SubscribeToStream), do: 0xC0
+    def decode_cmd(0xC1), do: Msg.SubscriptionConfirmation
+    def decode_cmd(0xC2), do: Msg.StreamEventAppeared
     def encode_cmd(:unsubscribe_from_stream), do: 0xC3
     def encode_cmd(:subscription_dropped), do: 0xC4
     def encode_cmd(:connect_to_persistent_subscription), do: 0xC5
