@@ -18,6 +18,7 @@ defmodule Extreme.Response do
 
   def reply(%{result: :Success} = data), do: {:ok, data}
   def reply(%ExMsg.SubscriptionConfirmation{} = data), do: {:ok, data}
+  #def reply(%ExMsg.SubscriptionDropped{} = data), do: {:ok, data}
   def reply(%ExMsg.StreamEventAppeared{} = data), do: {:ok, data}
   def reply(%{result: _} = data), do: {:error, data.result, data}
   def reply({:error, reason}), do: {:error, reason}

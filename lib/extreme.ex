@@ -77,7 +77,8 @@ defmodule Extreme do
 
   def handle_info({:tcp, socket, <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg}, %{socket: socket, received_data: <<>>} = state) do
     :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
-    if message_length == byte_size(rest) + byte_size(state.received_data) do 
+    
+    if message_length <= byte_size(rest) + byte_size(state.received_data) do 
       process_message(msg, state)
     else
       {:noreply, %{state | received_data: msg, should_receive: message_length + 4}}
@@ -85,18 +86,48 @@ defmodule Extreme do
   end
   def handle_info({:tcp, socket, msg}, state) do
     :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
-    if state.should_receive == byte_size(msg) + byte_size(state.received_data) do 
+    if state.should_receive <= byte_size(msg) + byte_size(state.received_data) do 
       process_message(state.received_data <> msg, state)
     else
       {:noreply, %{state | received_data: state.received_data <> msg}}
     end
   end
+  # todo: handle disconnections... case when we are disconnected because of node shutdowns or network issues
+  # todo: failover
+  #def handle_info({:tcp_closed, socket}, state) do
+  #  Logger.debug "We are disconnected"
+  #  {:noreply, state}
+  #end
 
   defp process_message(msg, state) do
-    pending_responses = msg
+    # cut 4 bytes
+    <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg
+    
+    {message, rest} = case rest do
+      <<message :: binary - size(message_length), rest :: binary>> -> 
+        { message, rest } 
+      <<message :: binary - size(message_length)>> -> 
+        { message, nil}
+    end
+    
+    pending_responses = <<message_length::32-unsigned-little-integer>> <> message
                         |> Response.parse
                         |> respond(state)
-    {:noreply, %{state | pending_responses: pending_responses, received_data: <<>>, should_receive: nil}}
+    
+    if rest != <<>> do
+      <<msg_len :: 32-unsigned-little-integer, rest_bin :: binary>>=rest
+      if byte_size(rest_bin) < msg_len do
+        state = %{state | pending_responses: pending_responses, received_data: rest, should_receive: msg_len + 4}
+      else
+        {:noreply, state} = process_message rest, state
+      end
+    else
+      state = %{state | pending_responses: pending_responses, received_data: rest, should_receive: nil} 
+    end
+
+    
+
+    {:noreply, state }
   end
 
   defp respond({:heartbeat_request, correlation_id}, state) do
