@@ -2,8 +2,7 @@ defmodule Extreme.Response do
   require Logger
   alias Extreme.Messages, as: ExMsg
 
-  def parse(<<_message_length :: 32-unsigned-little-integer,
-              message_type,
+  def parse(<<message_type,
               auth,
               correlation_id :: 16-binary,
               data :: binary>>) do

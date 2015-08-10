@@ -75,22 +75,10 @@ defmodule Extreme do
     {:noreply, state}
   end
 
-  def handle_info({:tcp, socket, <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg}, %{socket: socket, received_data: <<>>} = state) do
+  def handle_info({:tcp, socket, pkg}, state) do
     :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
-    
-    if message_length <= byte_size(rest) + byte_size(state.received_data) do 
-      process_message(msg, state)
-    else
-      {:noreply, %{state | received_data: msg, should_receive: message_length + 4}}
-    end
-  end
-  def handle_info({:tcp, socket, msg}, state) do
-    :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
-    if state.should_receive <= byte_size(msg) + byte_size(state.received_data) do 
-      process_message(state.received_data <> msg, state)
-    else
-      {:noreply, %{state | received_data: state.received_data <> msg}}
-    end
+    state = process_package pkg, state
+    {:noreply, state}
   end
   # todo: handle disconnections... case when we are disconnected because of node shutdowns or network issues
   # todo: failover
@@ -99,61 +87,83 @@ defmodule Extreme do
   #  {:noreply, state}
   #end
 
-  defp process_message(msg, state) do
-    # cut 4 bytes
-    <<message_length :: 32-unsigned-little-integer, rest :: binary>>=msg
-    
-    {message, rest} = case rest do
-      <<message :: binary - size(message_length), rest :: binary>> -> 
-        { message, rest } 
-      <<message :: binary - size(message_length)>> -> 
-        { message, nil}
-    end
-    
-    pending_responses = <<message_length::32-unsigned-little-integer>> <> message
-                        |> Response.parse
-                        |> respond(state)
-    
-    if rest != <<>> do
-      <<msg_len :: 32-unsigned-little-integer, rest_bin :: binary>>=rest
-      if byte_size(rest_bin) < msg_len do
-        state = %{state | pending_responses: pending_responses, received_data: rest, should_receive: msg_len + 4}
-      else
-        {:noreply, state} = process_message rest, state
-      end
+
+  @doc """
+  This package carries message from it's start. Process it and return new `state`
+  """
+  defp process_package(<<message_length :: 32-unsigned-little-integer, content :: binary>>, %{socket: socket, received_data: <<>>} = state) do
+    Logger.debug "Processing package with message_length of: #{message_length}"
+    slice_content(message_length, content)
+    |> process_content(state)
+  end
+  @doc """
+  Process package for unfinished message. Process it and return new `state`
+  """
+  defp process_package(pkg, %{socket: socket} = state) do
+    Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
+    slice_content(state.should_receive, state.received_data <> pkg)
+    |> process_content(state)
+  end
+
+  defp slice_content(message_length, content) do 
+    if byte_size(content) < message_length do
+      Logger.debug "We have unfinished message of length #{message_length}(#{byte_size(content)}): #{inspect content}"
+      {:unfinished_message, message_length, content}
     else
-      state = %{state | pending_responses: pending_responses, received_data: rest, should_receive: nil} 
+      case content do
+        <<message :: binary - size(message_length), next_message :: binary>> -> {message, next_message} 
+        <<message :: binary - size(message_length)>>                         -> {message, <<>>}
+      end
     end
+  end
 
-    
+  defp process_content({:unfinished_message, expected_message_length, data}, state) do 
+    %{state|should_receive: expected_message_length, received_data: data}
+  end
+  defp process_content({message, <<>>}, state) do 
+    Logger.debug "Processing single message: #{inspect message} and we have already received: #{inspect state.received_data}"
+    state = process_message(message, state)
+    Logger.debug "After processing content state is #{inspect state}"
+    %{state|should_receive: nil, received_data: <<>>}
+  end
+  defp process_content({message, rest}, state) do 
+    Logger.debug "Processing message: #{inspect message}"
+    Logger.debug "But we have something else in package: #{inspect rest}"
+    state = process_message message, %{state|should_receive: nil, received_data: <<>>}
+    process_package rest, state
+  end
 
-    {:noreply, state }
+  defp process_message(message, state) do
+    "Let's finally process whole message: #{inspect message}"
+    Response.parse(message)
+    |> respond(state)
   end
 
   defp respond({:heartbeat_request, correlation_id}, state) do
     Logger.debug "#{inspect self} Tick-Tack"
     message = Request.prepare :heartbeat_response, correlation_id
     :ok = :gen_tcp.send state.socket, message
-    state.pending_responses
+    %{state|pending_responses: state.pending_responses}
   end
   defp respond({:error, :not_authenticated, correlation_id}, state) do
     {:error, :not_authenticated}
-    |> respond_with(correlation_id, state.pending_responses, state.subscriptions)
+    |> respond_with(correlation_id, state)
   end
   defp respond({_auth, correlation_id, response}, state) do
     response
-    |> respond_with(correlation_id, state.pending_responses, state.subscriptions)
+    |> respond_with(correlation_id, state)
   end
 
-  defp respond_with(response, correlation_id, pending_responses, subscriptions) do
+  defp respond_with(response, correlation_id, state) do
     Logger.info "CHECKPOINT #{inspect response}"
-    case Map.get(pending_responses, correlation_id) do
+    case Map.get(state.pending_responses, correlation_id) do
       nil -> 
-        respond_to_subscription(response, correlation_id, subscriptions)
-        pending_responses
+        respond_to_subscription(response, correlation_id, state.subscriptions)
+        state
       from -> 
         :ok = GenServer.reply from, Response.reply(response)
-        Map.delete pending_responses, correlation_id
+        pending_responses = Map.delete state.pending_responses, correlation_id
+        %{state|pending_responses: pending_responses}
     end
   end
 

@@ -80,7 +80,7 @@ defmodule ExtremeTest do
 
     # subscribe to existing stream
     {:ok, subscriber} = Subscriber.start_link self
-    {:ok, _subscription} = Extreme.read_and_stay_subscribed server2, subscriber, stream, 0, 2
+    {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert first 3 events are received
     assert_receive {:on_event, event}
@@ -88,12 +88,13 @@ defmodule ExtremeTest do
     assert_receive {:on_event, event}
 
     # write two more after subscription
-    events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
+    events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}, %PersonCreated{name: "6"}, %PersonCreated{name: "7"} , %PersonCreated{name: "8"}, %PersonCreated{name: "9"}, %PersonCreated{name: "10"}, %PersonCreated{name: "11"}, %PersonCreated{name: "12"}, %PersonCreated{name: "13"}, %PersonCreated{name: "14"}, %PersonCreated{name: "15"}, %PersonCreated{name: "16"}, %PersonCreated{name: "17"}, %PersonCreated{name: "18"}, %PersonCreated{name: "19"}, %PersonCreated{name: "20"}, %PersonCreated{name: "21"}, %PersonCreated{name: "22"}, %PersonCreated{name: "23"}, %PersonCreated{name: "24"}, %PersonCreated{name: "25"}, %PersonCreated{name: "26"}, %PersonCreated{name: "27"}]
     {:ok, _} = Extreme.execute server, write_events(stream, events2)
 
     # assert rest 2 events have arrived as well
     assert_receive {:on_event, event}
     assert_receive {:on_event, event}
+    :timer.sleep 500
     ## check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events1 ++ events2
 
