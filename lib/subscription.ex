@@ -4,7 +4,6 @@ defmodule Extreme.Subscription do
   alias Extreme.Messages, as: ExMsg
 
   def start_link(connection, subscriber, read_params) do
-    Logger.debug "Got params: #{inspect read_params}"
     GenServer.start_link __MODULE__, {connection, subscriber, read_params}
   end
 
@@ -22,7 +21,6 @@ defmodule Extreme.Subscription do
     {:noreply, state}
   end
   def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, state) do
-    Logger.debug "Event Appeared: #{inspect e}"
     send state.subscriber, {:on_event, e.event}
     {:noreply, state}
   end

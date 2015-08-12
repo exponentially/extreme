@@ -94,7 +94,7 @@ defmodule ExtremeTest do
     # assert rest 2 events have arrived as well
     assert_receive {:on_event, event}
     assert_receive {:on_event, event}
-    :timer.sleep 500
+    :timer.sleep 800
     ## check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events1 ++ events2
 
