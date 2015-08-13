@@ -10,11 +10,7 @@ defmodule Extreme do
   Starts connection to EventStore using `connection_settings` and optional `opts`.
   """
   def start_link(connection_settings, opts \\[]) do
-    host = Keyword.fetch! connection_settings, :host
-    port = Keyword.fetch! connection_settings, :port
-    user = Keyword.fetch! connection_settings, :username
-    pass = Keyword.fetch! connection_settings, :password
-    GenServer.start_link __MODULE__, {host, port, user, pass}, opts
+    GenServer.start_link __MODULE__, connection_settings, opts
   end
 
   @doc """
@@ -46,12 +42,45 @@ defmodule Extreme do
 
   @subscriptions_sup Extreme.SubscriptionsSupervisor
 
-  def init({host, port, user, pass}) do
-    opts = [:binary, active: :once]
-    {:ok, socket} = String.to_char_list(host)
-                    |> :gen_tcp.connect(port, opts)
+  def init(connection_settings) do
+    user = Keyword.fetch! connection_settings, :username
+    pass = Keyword.fetch! connection_settings, :password
+    GenServer.cast self, {:connect, connection_settings, 1}
     {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link self
-    {:ok, %{socket: socket, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+    {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+  end
+
+  def handle_cast({:connect, connection_settings, attempt}, state) do
+    case connect connection_settings, attempt do
+      {:ok, socket} -> {:noreply, %{state|socket: socket}}
+      error         -> {:stop, error, state}
+    end
+  end
+
+  defp connect(connection_settings, attempt) do
+    host = Keyword.fetch! connection_settings, :host
+    port = Keyword.fetch! connection_settings, :port
+    opts = [:binary, active: :once]
+    case :gen_tcp.connect(String.to_char_list(host), port, opts) do
+      {:ok, socket} -> 
+        Logger.info "Successfuly connected to EventStore @ #{host}:#{port}"
+        {:ok, socket}
+      _             -> 
+        max_attempts = Keyword.get connection_settings, :max_attempts, :infinity
+        reconnect = case max_attempts do
+          :infinity -> true
+          max when attempt <= max -> true
+          _ -> false 
+        end
+        if reconnect do
+          reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1
+          Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} seconds."
+          :timer.sleep reconnect_delay * 1_000
+          connect connection_settings, attempt + 1
+        else
+          {:error, :max_attempt_exceeded}
+        end
+    end
   end
 
   def handle_call({:execute, protobuf_msg}, from, state) do

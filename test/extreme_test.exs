@@ -70,7 +70,7 @@ defmodule ExtremeTest do
   test "read events and stay subscribed", %{server: server} do
     {:ok, server2} = Application.get_all_env(:event_store)
                                   |> Extreme.start_link(name: SubscriptionConnection)
-    Logger.debug "SELF: #{inspect server}"
+    Logger.debug "SELF: #{inspect self}"
     Logger.debug "Connection 1: #{inspect server}"
     Logger.debug "Connection 2: #{inspect server2}"
     stream = "domain-people-#{UUID.uuid1}"

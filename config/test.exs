@@ -6,7 +6,9 @@ config :event_store,
   host: "localhost", 
   port: 1113, 
   username: "admin", 
-  password: "changeit"
+  password: "changeit",
+  reconnect_delay: 2,
+  max_attempts: :infinity
 
 config :logger, :console,
   level: :debug,
