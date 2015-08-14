@@ -10,50 +10,83 @@ defmodule Extreme.Subscription do
   def init({connection, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}}) do
     read_params = %{stream: stream, from_event_number: from_event_number, per_page: per_page, 
       resolve_link_tos: resolve_link_tos, require_master: require_master}
-    GenServer.cast self, :read_events
-    {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params}}
+    GenServer.cast self, :subscribe
+    {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params, status: :initialized, buffered_messages: [], read_until: -1}}
   end
 
+  def handle_cast(:subscribe, state) do
+    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
+    Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
+    GenServer.cast self, :read_events
+    read_until = subscription_confirmation.last_event_number + 1
+    {:noreply, %{state | read_until: read_until, status: :reading_events}}
+  end
+  def handle_cast(:read_events, %{read_params: %{from_event_number: from}, read_until: from}=state) do
+    GenServer.cast self, :push_buffered_messages
+    {:noreply, %{state|status: :pushing_buffered}}
+  end
   def handle_cast(:read_events, state) do
-    read_events = read_events(state.read_params)
+    {read_events, keep_reading} = read_events(state.read_params, state.read_until)
+    state = case keep_reading do
+      true  -> state
+      false -> %{state|status: :pushing_buffered}
+    end
     state = Extreme.execute(state.connection, read_events)
             |> process_response(state)
     {:noreply, state}
   end
-  def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, state) do
+  def handle_cast(:push_buffered_messages, state) do
+    Enum.each state.buffered_messages, fn e -> send state.subscriber, {:on_event, e} end
+    {:noreply, %{state|status: :subscribed, buffered_messages: []}}
+  end
+  def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, %{status: :subscribed}=state) do
     send state.subscriber, {:on_event, e.event}
     {:noreply, state}
   end
+  def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, state) do
+    buffered_messages = state.buffered_messages
+                        |> List.insert_at(-1, e)
+    {:noreply, %{state|buffered_messages: buffered_messages}}
+  end
 
   def process_response({:ok, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
-    push_events response, state
+    Logger.debug "Last read event: #{inspect response.next_event_number - 1}"
+    push_events response, state.subscriber
     send_next_request response, state
   end
 
-  defp push_events(response, state) do
-    Enum.each response.events, fn e ->
-      send state.subscriber, {:on_event, e}
-    end
+  defp push_events(response, subscriber) do
+    Enum.each response.events, fn e -> send subscriber, {:on_event, e} end
   end
 
-  defp send_next_request(%{next_event_number: next_event_number, is_end_of_stream: false}, state) do
+  defp send_next_request(_, %{status: :pushing_buffered}=state) do
+    GenServer.cast self, :push_buffered_messages
+    state
+  end
+  defp send_next_request(%{next_event_number: next_event_number}, state) do
     GenServer.cast self, :read_events
     %{state|read_params: %{state.read_params|from_event_number: next_event_number}}
   end
-  defp send_next_request(%{is_end_of_stream: true}, state) do
-    subscription_confirmation = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
-    Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
-    state
-  end
 
-  defp read_events(params) do
-    ExMsg.ReadStreamEvents.new(
+  defp read_events(%{from_event_number: from, per_page: per_page}=params, read_until) when from + per_page < read_until do
+    result = ExMsg.ReadStreamEvents.new(
       event_stream_id: params.stream,
-      from_event_number: params.from_event_number,
-      max_count: params.per_page,
+      from_event_number: from,
+      max_count: per_page,
       resolve_link_tos: params.resolve_link_tos,
       require_master: params.require_master
     )
+    {result, true}
+  end
+  defp read_events(params, read_until) do
+    result = ExMsg.ReadStreamEvents.new(
+      event_stream_id: params.stream,
+      from_event_number: params.from_event_number,
+      max_count: read_until - params.from_event_number,
+      resolve_link_tos: params.resolve_link_tos,
+      require_master: params.require_master
+    )
+    {result, false}
   end
 
   defp subscribe(params) do
