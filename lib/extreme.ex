@@ -64,6 +64,7 @@ defmodule Extreme do
     case :gen_tcp.connect(String.to_char_list(host), port, opts) do
       {:ok, socket} -> 
         Logger.info "Successfuly connected to EventStore @ #{host}:#{port}"
+        :timer.send_after 1_000, :send_ping
         {:ok, socket}
       _             -> 
         max_attempts = Keyword.get connection_settings, :max_attempts, :infinity
@@ -104,6 +105,11 @@ defmodule Extreme do
     {:noreply, state}
   end
 
+  def handle_info(:send_ping, state) do
+    message = Request.prepare :ping
+    :ok = :gen_tcp.send state.socket, message
+    {:noreply, state}
+  end
   def handle_info({:tcp, socket, pkg}, state) do
     :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
     state = process_package pkg, state
@@ -168,6 +174,11 @@ defmodule Extreme do
     |> respond(state)
   end
 
+  defp respond({:pong, correlation_id}, state) do
+    #Logger.debug "#{inspect self} got :pong"
+    :timer.send_after 1_000, :send_ping
+    state
+  end
   defp respond({:heartbeat_request, correlation_id}, state) do
     #Logger.debug "#{inspect self} Tick-Tack"
     message = Request.prepare :heartbeat_response, correlation_id

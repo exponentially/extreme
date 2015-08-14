@@ -2,6 +2,12 @@ defmodule Extreme.Request do
   alias Extreme.Tools
   require Logger
 
+  def prepare(:ping=cmd) do
+    correlation_id = Tools.gen_uuid
+    res = <<Extreme.MessageResolver.encode_cmd(cmd), 0>> <> correlation_id
+    size = byte_size(res)
+    <<size::32-unsigned-little-integer>> <> res
+  end
   def prepare(:heartbeat_response=cmd, correlation_id) do
     res = <<Extreme.MessageResolver.encode_cmd(cmd), 0>> <> correlation_id
     size = byte_size(res)

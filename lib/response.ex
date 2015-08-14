@@ -9,6 +9,7 @@ defmodule Extreme.Response do
     case Extreme.MessageResolver.decode_cmd(message_type) do
       :not_authenticated         -> {:error, :not_authenticated, correlation_id}
       :heartbeat_request_command -> {:heartbeat_request, correlation_id}
+      :pong                      -> {:pong, correlation_id}
       response_struct            -> 
         data = response_struct.decode data
         {auth, correlation_id, data}
