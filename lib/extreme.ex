@@ -115,12 +115,6 @@ defmodule Extreme do
     state = process_package pkg, state
     {:noreply, state}
   end
-  # todo: handle disconnections... case when we are disconnected because of node shutdowns or network issues
-  # todo: failover
-  #def handle_info({:tcp_closed, socket}, state) do
-  #  Logger.debug "We are disconnected"
-  #  {:noreply, state}
-  #end
 
 
   @doc """

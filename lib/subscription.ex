@@ -45,7 +45,7 @@ defmodule Extreme.Subscription do
   end
   def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, state) do
     buffered_messages = state.buffered_messages
-                        |> List.insert_at(-1, e)
+                        |> List.insert_at(-1, e.event)
     {:noreply, %{state|buffered_messages: buffered_messages}}
   end
 
