@@ -117,18 +117,14 @@ defmodule Extreme do
   end
 
 
-  @doc """
-  This package carries message from it's start. Process it and return new `state`
-  """
-  defp process_package(<<message_length :: 32-unsigned-little-integer, content :: binary>>, %{socket: socket, received_data: <<>>} = state) do
+  # This package carries message from it's start. Process it and return new `state`
+  defp process_package(<<message_length :: 32-unsigned-little-integer, content :: binary>>, %{socket: _socket, received_data: <<>>} = state) do
     #Logger.debug "Processing package with message_length of: #{message_length}"
     slice_content(message_length, content)
     |> process_content(state)
   end
-  @doc """
-  Process package for unfinished message. Process it and return new `state`
-  """
-  defp process_package(pkg, %{socket: socket} = state) do
+  # Process package for unfinished message. Process it and return new `state`
+  defp process_package(pkg, %{socket: _socket} = state) do
     #Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
     slice_content(state.should_receive, state.received_data <> pkg)
     |> process_content(state)
@@ -168,7 +164,7 @@ defmodule Extreme do
     |> respond(state)
   end
 
-  defp respond({:pong, correlation_id}, state) do
+  defp respond({:pong, _correlation_id}, state) do
     #Logger.debug "#{inspect self} got :pong"
     :timer.send_after 1_000, :send_ping
     state

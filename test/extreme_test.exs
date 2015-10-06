@@ -7,20 +7,21 @@ defmodule ExtremeTest do
   defmodule PersonChangedName, do: defstruct [:name]
 
   setup do
-    {:ok, server} = Application.get_all_env(:event_store)
+    {:ok, server} = Application.get_env(:extreme, :event_store)
                     |> Extreme.start_link(name: Connection)
     {:ok, server: server}
   end
 
   test ".execute is not authenticated for wrong credentials" do 
-    {:ok, server} = Application.get_all_env(:event_store)
+    {:ok, server} = Application.get_env(:extreme, :event_store)
                     |> Keyword.put(:password, "wrong")
                     |> Extreme.start_link
     assert {:error, :not_authenticated} = Extreme.execute server, write_events
   end
 
   test "writing events is success", %{server: server} do 
-    assert {:ok, _response} = Extreme.execute server, write_events
+    assert {:ok, response} = Extreme.execute server, write_events
+    Logger.debug "Write response: #{inspect response}"
   end
 
   test "reading events is success even when response data is received in more tcp packages", %{server: server} do
@@ -68,7 +69,7 @@ defmodule ExtremeTest do
   end
 
   test "read events and stay subscribed", %{server: server} do
-    {:ok, server2} = Application.get_all_env(:event_store)
+    {:ok, server2} = Application.get_env(:extreme, :event_store)
                                   |> Extreme.start_link(name: SubscriptionConnection)
     Logger.debug "SELF: #{inspect self}"
     Logger.debug "Connection 1: #{inspect server}"
@@ -83,9 +84,9 @@ defmodule ExtremeTest do
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert first 3 events are received
-    assert_receive {:on_event, event}
-    assert_receive {:on_event, event}
-    assert_receive {:on_event, event}
+    assert_receive {:on_event, _event}
+    assert_receive {:on_event, _event}
+    assert_receive {:on_event, _event}
 
     # write two more after subscription
     events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}, %PersonCreated{name: "6"}, %PersonCreated{name: "7"} , %PersonCreated{name: "8"}, %PersonCreated{name: "9"}, %PersonCreated{name: "10"}, %PersonCreated{name: "11"}, %PersonCreated{name: "12"}, %PersonCreated{name: "13"}, %PersonCreated{name: "14"}, %PersonCreated{name: "15"}, %PersonCreated{name: "16"}, %PersonCreated{name: "17"}, %PersonCreated{name: "18"}, %PersonCreated{name: "19"}, %PersonCreated{name: "20"}, %PersonCreated{name: "21"}, %PersonCreated{name: "22"}, %PersonCreated{name: "23"}, %PersonCreated{name: "24"}, %PersonCreated{name: "25"}, %PersonCreated{name: "26"}, %PersonCreated{name: "27"}]

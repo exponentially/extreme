@@ -1,7 +1,7 @@
 use Mix.Config
 
 # EventStore
-config :event_store,
+config :extreme, :event_store,
   db_type: :node, 
   host: "localhost", 
   port: 1113, 

@@ -3,8 +3,8 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.2.1",
-     elixir: "~> 1.0",
+     version: "0.3.0",
+     elixir: ">= 1.0.0 and < 1.2.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps]
