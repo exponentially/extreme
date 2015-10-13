@@ -8,6 +8,9 @@ defmodule Extreme.SubscriptionsSupervisor do
   def start_subscription(supervisor, subscriber, read_params) do
     Supervisor.start_child(supervisor, [subscriber, read_params])
   end
+  def start_subscription(supervisor, subscriber, stream, resolve_link_tos) do
+    Supervisor.start_child(supervisor, [subscriber, stream, resolve_link_tos])
+  end
 
   def init(connection) do
     children = [

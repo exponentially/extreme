@@ -6,20 +6,33 @@ defmodule Extreme.Subscription do
   def start_link(connection, subscriber, read_params) do
     GenServer.start_link __MODULE__, {connection, subscriber, read_params}
   end
+  def start_link(connection, subscriber, stream, resolve_link_tos) do
+    GenServer.start_link __MODULE__, {connection, subscriber, stream, resolve_link_tos}
+  end
 
   def init({connection, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}}) do
     read_params = %{stream: stream, from_event_number: from_event_number, per_page: per_page, 
       resolve_link_tos: resolve_link_tos, require_master: require_master}
+    GenServer.cast self, :read_and_stay_subscribed
+    {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params, status: :initialized, buffered_messages: [], read_until: -1}}
+  end
+  def init({connection, subscriber, stream, resolve_link_tos}) do
+    read_params = %{stream: stream, resolve_link_tos: resolve_link_tos}
     GenServer.cast self, :subscribe
     {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params, status: :initialized, buffered_messages: [], read_until: -1}}
   end
 
-  def handle_cast(:subscribe, state) do
+  def handle_cast(:read_and_stay_subscribed, state) do
     {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
     Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
     GenServer.cast self, :read_events
     read_until = subscription_confirmation.last_event_number + 1
     {:noreply, %{state | read_until: read_until, status: :reading_events}}
+  end
+  def handle_cast(:subscribe, state) do
+    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
+    Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
+    {:noreply, %{state | status: :subscribed}}
   end
   def handle_cast(:read_events, %{read_params: %{from_event_number: from}, read_until: from}=state) do
     GenServer.cast self, :push_buffered_messages

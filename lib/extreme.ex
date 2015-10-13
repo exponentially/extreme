@@ -37,6 +37,16 @@ defmodule Extreme do
     GenServer.call server, {:read_and_stay_subscribed, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}}
   end
 
+  @doc """
+  Subscribe `subscriber` to `stream` using `server`.
+  
+  `subscriber` is process that will keep receiving {:new_event, event} messages.
+  """
+  def subscribe_to(server, subscriber, stream, resolve_link_tos \\ true) do
+    GenServer.call server, {:subscribe_to, subscriber, stream, resolve_link_tos}
+  end
+
+
 
   ## Server Callbacks
 
@@ -93,6 +103,11 @@ defmodule Extreme do
   end
   def handle_call({:read_and_stay_subscribed, subscriber, params}, _from, state) do
     {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription state.subscriptions_sup, subscriber, params
+    #Logger.debug "Subscription is: #{inspect subscription}"
+    {:reply, {:ok, subscription}, state}
+  end
+  def handle_call({:subscribe_to, subscriber, stream, resolve_link_tos}, _from, state) do
+    {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription state.subscriptions_sup, subscriber, stream, resolve_link_tos
     #Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
@@ -159,7 +174,7 @@ defmodule Extreme do
   end
 
   defp process_message(message, state) do
-    "Let's finally process whole message: #{inspect message}"
+    #"Let's finally process whole message: #{inspect message}"
     Response.parse(message)
     |> respond(state)
   end

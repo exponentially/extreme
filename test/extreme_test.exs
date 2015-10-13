@@ -68,6 +68,28 @@ defmodule ExtremeTest do
     end
   end
 
+  test "subscribes to stream", %{server: server} do
+    stream = "domain-people-#{UUID.uuid1}"
+    # prepopulate stream
+    events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events1)
+
+    # subscribe to existing stream
+    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, _subscription} = Extreme.subscribe_to server, subscriber, stream
+
+    # write two more after subscription
+    events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events2)
+
+    # assert rest events have arrived
+    assert_receive {:on_event, _event}
+    assert_receive {:on_event, _event}
+
+    ## check if only new events came in correct order.
+    assert Subscriber.received_events(subscriber) == events2
+  end
+
   test "read events and stay subscribed", %{server: server} do
     {:ok, server2} = Application.get_env(:extreme, :event_store)
                                   |> Extreme.start_link(name: SubscriptionConnection)
