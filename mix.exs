@@ -12,7 +12,9 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      applications: [:logger, :exprotobuf, :uuid]
+      applications: [:logger, 
+        :exprotobuf, :uuid,
+        :gpb]
     ]
   end
 
