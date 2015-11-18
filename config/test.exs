@@ -9,6 +9,16 @@ config :extreme, :event_store,
   password: "changeit",
   reconnect_delay: 2,
   max_attempts: :infinity
+#config :extreme, :event_store,
+#  db_type: :cluster, 
+#  nodes: [
+#    %{host: "10.10.10.29", port: 2113},
+#    %{host: "10.10.10.28", port: 2113},
+#    %{host: "10.10.10.30", port: 2113}
+#  ],
+#  username: "admin", 
+#  password: "changeit",
+#  max_attempts: :infinity
 
 config :logger, :console,
   level: :debug,

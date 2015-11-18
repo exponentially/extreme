@@ -3,7 +3,7 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.3.2",
+     version: "0.4.0",
      elixir: ">= 1.0.0 and < 1.2.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -13,13 +13,14 @@ defmodule Extreme.Mixfile do
   def application do
     [
       applications: [:logger, 
-        :exprotobuf, :uuid,
-        :gpb]
+        :exprotobuf, :uuid, :gpb, :httpoison, :poison]
     ]
   end
 
   defp deps do
     [
+      {:httpoison, "~> 0.8.0"},
+      {:poison, "~> 1.5"},
       {:exprotobuf, "~> 0.10.2"},
       {:uuid, "~> 1.0" }
     ]

@@ -61,15 +61,24 @@ defmodule Extreme do
   end
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
-    case connect connection_settings, attempt do
+    db_type = Keyword.get(connection_settings, :db_type, :node)
+    case connect db_type, connection_settings, attempt do
       {:ok, socket} -> {:noreply, %{state|socket: socket}}
       error         -> {:stop, error, state}
     end
   end
 
-  defp connect(connection_settings, attempt) do
+  defp connect(:cluster, connection_settings, attempt) do
+    {:ok, host, port} = Extreme.ClusterConnection.get_node connection_settings
+    connect(host, port, connection_settings, attempt)
+  end
+  defp connect(:node, connection_settings, attempt) do
     host = Keyword.fetch! connection_settings, :host
     port = Keyword.fetch! connection_settings, :port
+    connect(host, port, connection_settings, attempt)
+  end
+  defp connect(host, port, connection_settings, attempt) do
+    Logger.info "Connecting Extreme to #{host}:#{port}"
     opts = [:binary, active: :once]
     case :gen_tcp.connect(String.to_char_list(host), port, opts) do
       {:ok, socket} -> 
@@ -87,7 +96,8 @@ defmodule Extreme do
           reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1
           Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} seconds."
           :timer.sleep reconnect_delay * 1_000
-          connect connection_settings, attempt + 1
+          db_type = Keyword.get(connection_settings, :db_type, :node)
+          connect db_type, connection_settings, attempt + 1
         else
           {:error, :max_attempt_exceeded}
         end
