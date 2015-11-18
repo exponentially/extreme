@@ -93,9 +93,9 @@ defmodule Extreme do
           _ -> false 
         end
         if reconnect do
-          reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1
-          Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} seconds."
-          :timer.sleep reconnect_delay * 1_000
+          reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1_000
+          Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} ms."
+          :timer.sleep reconnect_delay
           db_type = Keyword.get(connection_settings, :db_type, :node)
           connect db_type, connection_settings, attempt + 1
         else

@@ -3,20 +3,21 @@ defmodule Extreme.ClusterConnection do
 
   def get_node(connection_settings) do
     nodes = Keyword.fetch! connection_settings, :nodes
-    gossip_with nodes
+    gossip_timeout = Keyword.get connection_settings, :gossip_timeout, 1_000
+    gossip_with nodes, gossip_timeout
   end
 
-  defp gossip_with([]), do: {:error, :no_more_gossip_seeds}
-  defp gossip_with([node|rest_nodes]) do
+  defp gossip_with([], _), do: {:error, :no_more_gossip_seeds}
+  defp gossip_with([node|rest_nodes], gossip_timeout) do
     url = "http://#{node.host}:#{node.port}/gossip?format=json"
     Logger.info "Gossip with #{url}"
-    case HTTPoison.get url, [], timeout: 1_000 do
+    case HTTPoison.get url, [], timeout: gossip_timeout do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         Poison.decode!(body)
         |> choose_node
       error ->
         Logger.error "Error getting gossip: #{inspect error}"
-        gossip_with rest_nodes
+        gossip_with rest_nodes, gossip_timeout
     end
   end
 
