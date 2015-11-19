@@ -9,6 +9,7 @@ defmodule Extreme.Mixfile do
      description: """
      Elixir TCP adapter for EventStore.
      """,
+     package: package,
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps]
@@ -27,6 +28,14 @@ defmodule Extreme.Mixfile do
       {:poison, "~> 1.5"},
       {:exprotobuf, "~> 0.10.2"},
       {:uuid, "~> 1.0" }
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Milan Burmaja", "Milan Jaric"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/exponentially/extreme"}
     ]
   end
 end
