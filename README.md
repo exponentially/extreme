@@ -22,9 +22,9 @@ def application do
 end
 ```
 
-Extreme includes all it's dependecies so you don't have to name them separately.
+Extreme includes all its dependencies so you don't have to name them separately.
 
-After you are done, run `mix deps.get` in your shell to fetch and compile Extreme and it's dependencies.
+After you are done, run `mix deps.get` in your shell to fetch and compile Extreme and its dependencies.
 
 
 ## USAGE
@@ -70,7 +70,7 @@ it is wise to name `server` as we did in example above.
 
 ### MODES
 
-Extreme can connect to single ES node or to cluster specified with node IP's and ports.
+Extreme can connect to single ES node or to cluster specified with node IPs and ports.
 
 Example for connecting to single node:
 
