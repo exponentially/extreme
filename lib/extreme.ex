@@ -29,7 +29,7 @@ defmodule Extreme do
   Reads events specified in `read_events`, sends them to `subscriber` 
   and leaves `subscriber` subscribed per `subscribe` message.
   
-  `subscriber` is process that will keep receiving {:new_event, event} messages.
+  `subscriber` is process that will keep receiving {:on_event, event} messages.
   `read_events` :: Extreme.Messages.ReadStreamEvents
   `subscribe` :: Extreme.Messages.SubscribeToStream
   """

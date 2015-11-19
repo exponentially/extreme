@@ -10,7 +10,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.4.1"}]
+  [{:extreme, "~> 0.4.3"}]
 end
 ```
 
@@ -172,5 +172,72 @@ you can check `test/extreme_test.exs` file.
 
 
 ### Subscriptions
+
+`Extreme.subscribe_to/3` function is used to get notified on new events on particular stream. 
+This way subscriber, in next example `self`, will get message `{:on_event, push_message}` when new event is added to stream
+_people_.
+
+```elixir
+def subscribe(server, stream \\ "people"), do: Extreme.subscribe_to(server, self, stream)
+
+def handle_info({:on_event, event}, state) do
+  Logger.debug "New event added to stream 'people': #{inspect event}"
+  {:noreply, state}
+end
+```
+
+
+`Extreme.read_and_stay_subscribed/7` is used to read existing events and stay subscribed on stream.
+
+```elixir
+defmodule MyApp.StreamSubscriber
+  use GenServer
+
+  def start_link(extreme, last_processed_event), do: GenServer.start_link __MODULE__, {extreme, last_processed_event}
+
+  def init({extreme, last_processed_event}) do
+    stream = "people"
+    state = %{ event_store: extreme, stream: stream, last_event: last_processed_event }
+    GenServer.cast self, :subscribe
+    {:ok, state}
+  end
+
+  def handle_cast(:subscribe, state) do
+    # read only unprocessed events and stay subscribed
+    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self, state.stream, state.last_event + 1
+    # we want to monitor when subscription is crashed so we can resubscribe
+    ref = Process.monitor subscription
+    {:noreply, %{state|subscription_ref: ref}}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
+    GenServer.cast self, :subscribe
+    {:noreply, state}
+  end
+  def handle_info({:on_event, push}, state) do
+    push.event.data
+    |> :erlang.binary_to_term 
+    |> process_event
+    event_number = push.link.event_number
+    :ok = update_last_event state.stream, event_number
+    {:noreply, %{state|last_event: event_number}}
+  end
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  defp process_event(event), do: IO.puts("Do something with #{inspect event}")
+  defp update_last_event(_stream, _event_number), do: IO.puts("Persist last processed event_number for stream")
+end
+```
+
+This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message. 
+After all persisted messages are sent, new messages will be sent the same way as they arrive to stream.
+
+## Contributing
+
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create new Pull Request
 
 ## Licensed under The MIT License.
