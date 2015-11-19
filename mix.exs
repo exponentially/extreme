@@ -3,7 +3,7 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.4.1",
+     version: "0.4.2",
      elixir: ">= 1.0.0 and < 1.2.0",
      source_url: "https://github.com/exponentially/extreme",
      description: """
@@ -33,6 +33,7 @@ defmodule Extreme.Mixfile do
 
   defp package do
     [
+      files: ["lib", "include", "mix.exs", "README*", "LICENSE*"],
       maintainers: ["Milan Burmaja", "Milan Jaric"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/exponentially/extreme"}
