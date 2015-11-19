@@ -145,6 +145,8 @@ assert {:ok, response} = Extreme.execute server, write_events
 where `write_events` can be helper function like:
 
 ```elixir
+  alias Extreme.Messages, as: ExMsg
+
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event -> 
       ExMsg.NewEvent.new(
