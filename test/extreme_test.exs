@@ -57,6 +57,14 @@ defmodule ExtremeTest do
       {:noreply, %{state|received: [event|state.received]}}
     end
 
+    def handle_info({:no_stream, stream_status}=message, state) do
+      send state.sender, message
+      Logger.info "STREAM STATUS =#{inspect stream_status}"
+      # it is up to developer to decide what to do with stream_status = :NoStream or stream_status = :StreamDeleted
+      # for test case we just want to prepand last message to state
+      {:noreply, %{state|received: [stream_status|state.received]}}
+    end
+
     def handle_call(:received_events, _from, state) do
       result = state.received
                 |> Enum.reverse
@@ -90,6 +98,43 @@ defmodule ExtremeTest do
     assert Subscriber.received_events(subscriber) == events2
   end
 
+  test "subscribe to soft deleted stream", %{server: server} do
+    Logger.debug "SELF: #{inspect self}"
+    Logger.debug "Connection 1: #{inspect server}"
+    
+    stream = "never-existed-#{UUID.uuid1}"
+    # start subscription process
+    
+    events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events1)
+ 
+    {:ok, _} = Extreme.execute server, delete_stream(stream, false)
+    # assert_receive {:on_event, event}
+    {:ok, subscriber} = Subscriber.start_link self
+    # try reading events
+    {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
+
+    assert_receive {:no_stream, response}
+  end
+  
+  test "subscribe to hard deleted stream", %{server: server} do
+    Logger.debug "SELF: #{inspect self}"
+    Logger.debug "Connection 1: #{inspect server}"
+    
+    stream = "never-existed-#{UUID.uuid1}"
+    # start subscription process
+    
+    events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+    {:ok, _} = Extreme.execute server, write_events(stream, events1)
+ 
+    {:ok, _} = Extreme.execute server, delete_stream(stream, true)
+    # assert_receive {:on_event, event}
+    {:ok, subscriber} = Subscriber.start_link self
+    # try reading events
+    {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
+
+    assert_receive {:no_stream, response}
+  end
   test "read events and stay subscribed", %{server: server} do
     {:ok, server2} = Application.get_env(:extreme, :event_store)
                                   |> Extreme.start_link(name: SubscriptionConnection)

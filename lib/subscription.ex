@@ -64,12 +64,27 @@ defmodule Extreme.Subscription do
 
   def process_response({:ok, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
     Logger.debug "Last read event: #{inspect response.next_event_number - 1}"
-    push_events response, state.subscriber
+    push_events {:ok, response}, state.subscriber
+    send_next_request response, state
+  end
+  def process_response({:error, :StreamDeleted, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
+    Logger.info "stream is HARD deleated"
+    push_events {:error, response}, state.subscriber
+    send_next_request response, state
+  end
+  def process_response({:error, :NoStream, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
+    Logger.info "stream is soft deleted"
+    push_events {:error, response}, state.subscriber
     send_next_request response, state
   end
 
-  defp push_events(response, subscriber) do
+  defp push_events({:ok, %ExMsg.ReadStreamEventsCompleted{}=response}, subscriber) do
     Enum.each response.events, fn e -> send subscriber, {:on_event, e} end
+  end
+  defp push_events({:error, %ExMsg.ReadStreamEventsCompleted{}=response}, subscriber) do
+    Logger.info "#{inspect response}"
+    send subscriber, {:no_stream, response.result}
+    #Enum.each response.events, fn e -> send subscriber, {:on_event, e} end
   end
 
   defp send_next_request(_, %{status: :pushing_buffered}=state) do
