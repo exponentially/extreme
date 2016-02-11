@@ -68,24 +68,20 @@ defmodule Extreme.Subscription do
     send_next_request response, state
   end
   def process_response({:error, :StreamDeleted, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
-    Logger.info "stream is HARD deleated"
-    push_events {:error, response}, state.subscriber
+    Logger.error "Stream is HARD deleted"
+    push_events {:extreme, :error, :stream_hard_deleted, state.read_params.stream}, state.subscriber
     send_next_request response, state
   end
   def process_response({:error, :NoStream, %ExMsg.ReadStreamEventsCompleted{}=response}, state) do
-    Logger.info "stream is soft deleted"
-    push_events {:error, response}, state.subscriber
+    Logger.warn "Stream doesn't exist yet"
+    push_events {:extreme, :warn, :no_stream, state.read_params.stream}, state.subscriber
     send_next_request response, state
   end
 
   defp push_events({:ok, %ExMsg.ReadStreamEventsCompleted{}=response}, subscriber) do
     Enum.each response.events, fn e -> send subscriber, {:on_event, e} end
   end
-  defp push_events({:error, %ExMsg.ReadStreamEventsCompleted{}=response}, subscriber) do
-    Logger.info "#{inspect response}"
-    send subscriber, {:no_stream, response.result}
-    #Enum.each response.events, fn e -> send subscriber, {:on_event, e} end
-  end
+  defp push_events({:extreme, _, _, _}=msg, subscriber), do: send(subscriber, msg)
 
   defp send_next_request(_, %{status: :pushing_buffered}=state) do
     GenServer.cast self, :push_buffered_messages

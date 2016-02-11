@@ -32,6 +32,13 @@ defmodule Extreme do
   `subscriber` is process that will keep receiving {:on_event, event} messages.
   `read_events` :: Extreme.Messages.ReadStreamEvents
   `subscribe` :: Extreme.Messages.SubscribeToStream
+
+  Returns {:ok, subscription} when subscription is success. 
+  If `stream` is hard deleted `subscriber` will receive message {:extreme, :error, :stream_hard_deleted, stream}
+  If `stream` is soft deleted `subscriber` will receive message {:extreme, :warn, :stream_soft_deleted, stream}. 
+
+  In case of soft deleted stream, new event will recreate stream and it will be sent to `subscriber` as described above
+  Hard deleted streams can't be recreated so suggestion is not to handle this message but rather crash when it happens
   """
   def read_and_stay_subscribed(server, subscriber, stream, from_event_number \\ 0, per_page \\ 4096, resolve_link_tos \\ true, require_master \\ false) do
     GenServer.call server, {:read_and_stay_subscribed, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}}
@@ -40,12 +47,15 @@ defmodule Extreme do
   @doc """
   Subscribe `subscriber` to `stream` using `server`.
   
-  `subscriber` is process that will keep receiving {:new_event, event} messages.
+  `subscriber` is process that will keep receiving {:on_event, event} messages.
+
+  Returns {:ok, subscription} when subscription is success. 
+
+  NOTE: If `stream` is hard deleted, `subscriber` will NOT receive any message!
   """
   def subscribe_to(server, subscriber, stream, resolve_link_tos \\ true) do
     GenServer.call server, {:subscribe_to, subscriber, stream, resolve_link_tos}
   end
-
 
 
   ## Server Callbacks
@@ -122,7 +132,7 @@ defmodule Extreme do
     {:reply, {:ok, subscription}, state}
   end
   def handle_call({:subscribe, subscriber, msg}, from, state) do
-    #Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
+    Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
     {message, correlation_id} = Request.prepare msg, state.credentials
     :ok = :gen_tcp.send state.socket, message
     state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)
