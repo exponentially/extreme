@@ -1,6 +1,6 @@
 defmodule Extreme.MessageResolver do
     alias Extreme.Messages, as: Msg
-	# _Hartbeat command
+	# _Heartbeat command
 	def decode_cmd(0x01), do: :heartbeat_request_command
 	def encode_cmd(:heartbeat_response), do: 0x02
 	# _Ping command
