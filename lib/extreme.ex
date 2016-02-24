@@ -132,7 +132,7 @@ defmodule Extreme do
     {:reply, {:ok, subscription}, state}
   end
   def handle_call({:subscribe, subscriber, msg}, from, state) do
-    Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
+    #Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
     {message, correlation_id} = Request.prepare msg, state.credentials
     :ok = :gen_tcp.send state.socket, message
     state = put_in state.pending_responses, Map.put(state.pending_responses, correlation_id, from)

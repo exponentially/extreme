@@ -2,7 +2,7 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.0.5 through 3.3.0.
+This version is tested with EventStore 3.0.5 through 3.4.0 and Elixir 1.1 through 1.2.3
 
 ## INSTALL
 
@@ -10,7 +10,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.4.3"}]
+  [{:extreme, "~> 0.5.0"}]
 end
 ```
 
@@ -233,6 +233,16 @@ end
 
 This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message. 
 After all persisted messages are sent, new messages will be sent the same way as they arrive to stream.
+
+If you subscribe to non existing stream you'll receive message {:extreme, severity, problem, stream} where severity can be either `:error` (for subscription on hard deleted stream) or `:warn` (for subscription on non existing or soft deleted stream). Problem is explanation of problem (i.e. :stream_hard_deleted). So in your receiver you can either have catch all `handle_info(_message, _state)` or you can handle such message:
+
+```elixir
+def handle_info({:extreme, _, problem, stream}=message, state) do
+  Logger.warn "Stream #{stream} issue: #{to_string problem}"
+  {:noreply, state}
+end
+```
+
 
 ## Contributing
 
