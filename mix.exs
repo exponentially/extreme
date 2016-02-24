@@ -27,7 +27,9 @@ defmodule Extreme.Mixfile do
       {:httpoison, "~> 0.8.0"},
       {:poison, "~> 1.5"},
       {:exprotobuf, "~> 0.10.2"},
-      {:uuid, "~> 1.0" }
+      {:uuid, "~> 1.0" },
+      {:ex_doc, ">= 0.11.4", only: [:test]},
+      {:earmark, ">= 0.0.0", only: [:test]}
     ]
   end
 
