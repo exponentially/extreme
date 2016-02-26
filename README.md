@@ -1,5 +1,7 @@
 # Extreme
 
+[![Build Status](https://travis-ci.org/exponentially/extreme.svg?branch=master)](https://travis-ci.org/exponentially/extreme)
+
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
 This version is tested with EventStore 3.0.5 through 3.4.0 and Elixir 1.1 through 1.2.3
