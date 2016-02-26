@@ -1,0 +1,23 @@
+language: elixir
+
+elixir:
+  - 1.2.3
+otp_release:
+  - 18.2.1
+
+env:
+  - EVENT_STORE_VERSION='v3.4.0'
+
+before_install:
+  - wget http://download.geteventstore.com/binaries/EventStore-OSS-Linux-${EVENT_STORE_VERSION}.tar.gz
+  - tar xf EventStore*.tar.gz
+  - cd EventStore* && ./clusternode --mem-db 2>&1> eventstore.log &
+install:
+  - composer install --dev --prefer-source --no-interaction
+
+
+script: MIX_ENV=test mix do deps.get, test
+
+after_scripts:
+  - killall -SIGINT clusternode
+  - cat EventStore*/eventstore.log
