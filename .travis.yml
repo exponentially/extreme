@@ -11,7 +11,6 @@ env:
 before_install:
   - wget http://download.geteventstore.com/binaries/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
   - tar xf EventStore*.tar.gz
-  - chmod +x ./run-node.sh
   - cd EventStore* && ./run-node.sh --mem-db 2>&1> eventstore.log &
 
 script: mix do deps.get, test
