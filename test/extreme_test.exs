@@ -8,7 +8,7 @@ defmodule ExtremeTest do
 
   setup do
     {:ok, server} = Application.get_env(:extreme, :event_store)
-                    |> Extreme.start_link(name: Connection)
+                    |> Extreme.start_link
     {:ok, server: server}
   end
 
