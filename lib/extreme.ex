@@ -87,6 +87,10 @@ defmodule Extreme do
     port = Keyword.fetch! connection_settings, :port
     connect(host, port, connection_settings, attempt)
   end
+  defp connect(:cluster_dns, connection_settings, attempt) do
+    {:ok, host, port} = Extreme.ClusterConnection.get_node(:cluster_dns, connection_settings)
+    connect(host, port, connection_settings, attempt)
+  end
   defp connect(host, port, connection_settings, attempt) do
     Logger.info "Connecting Extreme to #{host}:#{port}"
     opts = [:binary, active: :once]

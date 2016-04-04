@@ -115,6 +115,19 @@ This setting represents timeout for gossip response before we are asking next no
   * `host` - should be EXT IP setting of your EventStore node
   * `port` - should be EXT HTTP PORT setting of your EventStore node
 
+Example of connection to cluster via DNS lookup
+
+```elixir
+config :extreme, :event_store,
+ db_type: :cluster_dns, 
+ gossip_timeout: 300,
+ host: "es-cluster.example.com", # accepts char list too, this whould be multy A record host enrty in your nameserver
+ port: 2113, # the external gossip port
+ username: "admin", 
+ password: "changeit",
+ max_attempts: :infinity 
+```
+
 When `cluster` mode is used, adapter goes thru `nodes` list and tries to gossip with node one after another
 until it gets response about nodes. Based on nodes information from that response it ranks their statuses and chooses
 the best candidate to connect to. For the way ranking is done, take a look at `lib/cluster_connection.ex`:
@@ -129,6 +142,8 @@ defp rank_state("PreReplica"), do: 6
 defp rank_state("Unknown"), do: 7
 defp rank_state("Initializing"), do: 8
 ```
+
+Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to witch same connection procedure will be used.
 
 Once client is disconnected from EventStore, supervisor should respawn it and connection starts over again.
 

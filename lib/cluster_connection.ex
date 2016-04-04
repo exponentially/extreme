@@ -6,6 +6,15 @@ defmodule Extreme.ClusterConnection do
     gossip_timeout = Keyword.get connection_settings, :gossip_timeout, 1_000
     gossip_with nodes, gossip_timeout
   end
+  def get_node(:cluster_dns, connection_settings) do
+    hostname = Keyword.fetch! connection_settings, :host
+    hostname = if is_binary(hostname), do: to_char_list(hostname)
+    {:ok, ips}= :inet.getaddrs(hostname, :inet, 1_000)
+    gossip_timeout = Keyword.get connection_settings, :gossip_timeout, 1_000
+    gossip_port= Keyword.get connection_settings, :port, 2113
+    nodes= Enum.map ips, fn ip -> %{host: to_string(:inet.ntoa ip), port: gossip_port} end
+    gossip_with nodes, gossip_timeout
+  end
 
   defp gossip_with([], _), do: {:error, :no_more_gossip_seeds}
   defp gossip_with([node|rest_nodes], gossip_timeout) do
