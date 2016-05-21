@@ -243,4 +243,18 @@ defmodule Extreme do
       subscription -> GenServer.cast subscription, Response.reply(response)
     end
   end
+
+  @doc """
+  Cast the provided value to an atom if appropriate.
+  If the provided value is a string, convert it to an atom.
+  """
+  def cast_to_atom(value) when is_binary(value),
+    do: String.to_atom(value)
+
+  @doc """
+  Cast the provided value to an atom if appropriate.
+  If the provided value is not a string, return it as-is.
+  """
+  def cast_to_atom(value) when not is_binary(value),
+    do: value
 end
