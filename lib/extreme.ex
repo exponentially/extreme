@@ -72,6 +72,7 @@ defmodule Extreme do
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
     db_type = Keyword.get(connection_settings, :db_type, :node)
+    |> cast_to_atom
     case connect db_type, connection_settings, attempt do
       {:ok, socket} -> {:noreply, %{state|socket: socket}}
       error         -> {:stop, error, state}
@@ -111,6 +112,7 @@ defmodule Extreme do
           Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} ms."
           :timer.sleep reconnect_delay
           db_type = Keyword.get(connection_settings, :db_type, :node)
+          |> cast_to_atom
           connect db_type, connection_settings, attempt + 1
         else
           {:error, :max_attempt_exceeded}
