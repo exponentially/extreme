@@ -6,7 +6,7 @@ otp_release:
   - 18.2.1
 
 env:
-  - EVENT_STORE_VERSION='14.04-v3.5.0'
+  - EVENT_STORE_VERSION='14.04-v3.6.2'
 
 before_install:
   - wget http://download.geteventstore.com/binaries/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
