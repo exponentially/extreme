@@ -25,7 +25,7 @@ defmodule Extreme.Mixfile do
   defp deps do
     [
       {:httpoison, "~> 0.8.0"},
-      {:poison, "~> 2.2"},
+      {:poison, "~> 1.4 or ~> 2.2"},
       {:exprotobuf, "~> 1.0.0"},
       {:uuid, "~> 1.1.4" },
       {:ex_doc, ">= 0.11.4", only: [:test]},
