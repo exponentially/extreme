@@ -1,3 +1,7 @@
+# Changelog for Extreme v0.5.3
+  * Tested with Elixir 1.3.2 and EventStore 3.6.2
+
+
 # Changelog for Extreme v0.5.2
   * Minor improvements
   * Upgraded depencey versions
