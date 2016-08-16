@@ -14,7 +14,7 @@ defmodule ExtremeTest do
 
   ## Authentication
 
-  test ".execute is not authenticated for wrong credentials" do 
+  test ".execute is not authenticated for wrong credentials" do
     {:ok, server} = Application.get_env(:extreme, :event_store)
                     |> Keyword.put(:password, "wrong")
                     |> Extreme.start_link
@@ -24,13 +24,13 @@ defmodule ExtremeTest do
 
   ## Writing events
 
-  test "writing events is success for non existing stream", %{server: server} do 
+  test "writing events is success for non existing stream", %{server: server} do
     Logger.debug "TEST: writing events is success for non existing stream"
     assert {:ok, %{result: :Success}=response} = Extreme.execute server, write_events(to_string(UUID.uuid1))
     Logger.debug "Write response: #{inspect response}"
   end
 
-  test "writing events is success for existing stream", %{server: server} do 
+  test "writing events is success for existing stream", %{server: server} do
     Logger.debug "TEST: writing events is success for existing stream"
     stream = to_string UUID.uuid1
     assert {:ok, %{result: :Success}=response} = Extreme.execute server, write_events(stream)
@@ -39,7 +39,7 @@ defmodule ExtremeTest do
     Logger.debug "Second write response: #{inspect response}"
   end
 
-  test "writing events is success for soft deleted stream", %{server: server} do 
+  test "writing events is success for soft deleted stream", %{server: server} do
     Logger.debug "TEST: writing events is success for soft deleted stream"
     stream = to_string UUID.uuid1
     assert {:ok, %{result: :Success}=response} = Extreme.execute server, write_events(stream)
@@ -50,7 +50,7 @@ defmodule ExtremeTest do
     Logger.debug "Second write response: #{inspect response}"
   end
 
-  test "writing events is NOT success for hard deleted stream", %{server: server} do 
+  test "writing events is NOT success for hard deleted stream", %{server: server} do
     Logger.debug "TEST: writing events is NOT success for hard deleted stream"
     stream = to_string UUID.uuid1
     assert {:ok, %{result: :Success}=response} = Extreme.execute server, write_events(stream)
@@ -126,9 +126,9 @@ defmodule ExtremeTest do
     def handle_call(:received_events, _from, state) do
       result = state.received
                 |> Enum.reverse
-                |> Enum.map(fn e -> 
+                |> Enum.map(fn e ->
         data = e.event.data
-        :erlang.binary_to_term(data) 
+        :erlang.binary_to_term(data)
                 end)
       {:reply, result, state}
     end
@@ -299,7 +299,7 @@ defmodule ExtremeTest do
     # assert rest events have arrived as well
     assert_receive {:on_event, _event}
     assert_receive {:on_event, _event}
-    
+
     # check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events
 
@@ -326,7 +326,7 @@ defmodule ExtremeTest do
     # assert rest events have arrived as well
     assert_receive {:on_event, _event}
     assert_receive {:on_event, _event}
-    
+
     # check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events
 
@@ -400,7 +400,7 @@ defmodule ExtremeTest do
   end
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
-    proto_events = Enum.map(events, fn event -> 
+    proto_events = Enum.map(events, fn event ->
       ExMsg.NewEvent.new(
         event_id: Extreme.Tools.gen_uuid(),
         event_type: to_string(event.__struct__),
@@ -410,7 +410,7 @@ defmodule ExtremeTest do
         meta: ""
       ) end)
     ExMsg.WriteEvents.new(
-      event_stream_id: stream, 
+      event_stream_id: stream,
       expected_version: -2,
       events: proto_events,
       require_master: false
