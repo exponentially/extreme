@@ -15,6 +15,18 @@ defmodule Extreme.MessageCommandReader do
     @available_proto_modules
   end
 
+  def special?(type) do
+    type in [
+      :read_stream_events_forward,
+      :read_stream_events_forward_completed,
+      :read_stream_events_backward,
+      :read_stream_events_backward_completed,
+      :read_all_events_forward,
+      :read_all_events_forward_completed,
+      :read_all_events_backward,
+      :read_all_events_backward_completed]
+  end
+
   @doc """
   TCP commands generated from the `include/TcpCommands.cs` file
   possible items
