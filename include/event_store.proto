@@ -147,6 +147,14 @@ message ReadStreamEvents {
 	required bool require_master = 5;
 }
 
+message ReadStreamEventsBackward {
+	required string event_stream_id = 1;
+	required int32 from_event_number = 2;
+	required int32 max_count = 3;
+	required bool resolve_link_tos = 4;
+	required bool require_master = 5;
+}
+
 message ReadStreamEventsCompleted {
 
 	enum ReadStreamResult {

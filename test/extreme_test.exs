@@ -94,6 +94,36 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _es_response} = Extreme.execute server, read_events(stream)
   end
 
+  test "reading last event is success", %{server: server} do
+    Logger.debug "TEST: reading last event is success"
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [_, event2] = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    {:ok, response} = Extreme.execute server, read_events_backward(stream)
+
+    assert %{is_end_of_stream: false, last_event_number: 1, next_event_number: 0} = response
+    assert [ev2] = response.events
+    assert event2 == :erlang.binary_to_term ev2.event.data
+    assert ev2.event.event_number == 1
+  end
+
+  test "reading events backward is success", %{server: server} do
+    Logger.debug "TEST: reading events backward is success"
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [event1, event2] = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
+
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+    {:ok, response} = Extreme.execute server, read_events_backward(stream, -1, 4096)
+
+    assert %{is_end_of_stream: true, last_event_number: 1, next_event_number: -1} = response
+    assert [ev2, ev1] = response.events
+    assert event2 == :erlang.binary_to_term ev2.event.data
+    assert event1 == :erlang.binary_to_term ev1.event.data
+    assert ev2.event.event_number == 1
+    assert ev1.event.event_number == 0
+  end
+
 
   ## Subscriber test helper process
 
@@ -422,6 +452,16 @@ defmodule ExtremeTest do
       event_stream_id: stream,
       from_event_number: 0,
       max_count: 4096,
+      resolve_link_tos: true,
+      require_master: false
+    )
+  end
+
+  defp read_events_backward(stream, start \\ -1, count \\ 1) do
+    ExMsg.ReadStreamEventsBackward.new(
+      event_stream_id: stream,
+      from_event_number: start,
+      max_count: count,
       resolve_link_tos: true,
       require_master: false
     )

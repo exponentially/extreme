@@ -42,13 +42,11 @@ defmodule Extreme.MessageResolver do
 
     def encode_cmd(Msg.ReadEvent),        do: 0xB0
     def decode_cmd(0xB1),                 do: Msg.ReadEventCompleted
-    # def encode_cmd(:read_stream_events_forward), do: 0xB2
-    # def encode_cmd(:read_stream_events_forward_completed), do: 0xB3
     def encode_cmd(Msg.ReadStreamEvents), do: 0xB2
     def decode_cmd(0xB3),                 do: Msg.ReadStreamEventsCompleted
 
-    def encode_cmd(:read_stream_events_backward),           do: 0xB4
-    def encode_cmd(:read_stream_events_backward_completed), do: 0xB5
+    def encode_cmd(Msg.ReadStreamEventsBackward),           do: 0xB4
+    def decode_cmd(0xB5),                                   do: Msg.ReadStreamEventsCompleted
     def encode_cmd(:read_all_events_forward),               do: 0xB6
     def encode_cmd(:read_all_events_forward_completed),     do: 0xB7
     def encode_cmd(:read_all_events_backward),              do: 0xB8

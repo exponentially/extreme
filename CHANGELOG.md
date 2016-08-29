@@ -1,3 +1,8 @@
+# Changelog for Extreme v0.5.4
+  * Read events backward (see example in test file)
+  * Some code cleanup and proto file updated (thanks to @mindreframer)
+  * Tested with Elixir 1.3.2 and EventStore 3.9.0
+
 # Changelog for Extreme v0.5.3
   * Tested with Elixir 1.3.2 and EventStore 3.6.2
 
