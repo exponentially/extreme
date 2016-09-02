@@ -156,7 +156,7 @@ List and specification of supported protobuf messages can be found in `include/e
 Instead of wrapping each and every request in elixir function, we are using `execute/2` function that takes server pid and request message:
 
 ```elixir
-assert {:ok, response} = Extreme.execute server, write_events
+{:ok, response} = Extreme.execute server, write_events()
 ```
 
 where `write_events` can be helper function like:
