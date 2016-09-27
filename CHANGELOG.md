@@ -1,3 +1,6 @@
+# Changelog for Extreme v0.6.0
+  * Added Extreme.Listener
+  
 # Changelog for Extreme v0.5.4
   * Read events backward (see example in test file)
   * Some code cleanup and proto file updated (thanks to @mindreframer)
