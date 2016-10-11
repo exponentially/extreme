@@ -1,3 +1,7 @@
+# Changelog for Extreme v0.6.2
+  * Added Extreme.FanoutListener
+  * Added inline documentation
+  
 # Changelog for Extreme v0.6.1
   * Removed PersistentSubscription related proto messages since when compiled 
     they generate files longer then 100 characters and as such release can't be built

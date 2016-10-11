@@ -1,4 +1,58 @@
 defmodule Extreme.Listener do
+  @moduledoc ~S"""
+  Since it is common on read side of system to read events and denormalize them,
+  there is Extreme.Listener macro that hides noise from listener:
+  
+      defmodule MyApp.MyListener do
+        use Extreme.Listener
+        import MyApp.MyProcessor
+      
+        # returns last processed event by MyListener on stream_name, -1 if none has been processed so far
+        defp get_last_event(stream_name), do: DB.get_last_event MyListener, stream_name
+      
+        defp process_push(push, stream_name) do
+          #for indexed stream we need to follow push.link.event_number, otherwise push.event.event_number
+          event_number = push.link.event_number
+          DB.in_transaction fn ->
+            Logger.info "Do some processing of event #{inspect push.event.event_type}"
+            :ok = push.event.data
+                   |> :erlang.binary_to_term
+                   |> process_event(push.event.event_type)
+            DB.ack_event(MyListener, stream_name, event_number)  
+          end
+          {:ok, event_number}
+        end
+      end
+      
+      defmodule MyApp.MyProcessor do
+        def process_event(data, "Elixir.MyApp.Events.PersonCreated") do
+          Logger.debug "Doing something with #{inspect data}"
+          :ok
+        end
+        def process_event(_, _), do: :ok # Just acknowledge events we are not interested in
+      end
+  
+  Listener can be started manually but it is most common to place it in supervisor AFTER specifing Extreme:
+  
+      defmodule MyApp.Supervisor do
+        use Supervisor
+      
+        def start_link, do: Supervisor.start_link __MODULE__, :ok
+      
+        @event_store MyApp.EventStore
+        
+        def init(:ok) do
+          event_store_settings = Application.get_env :my_app, :event_store
+      
+          children = [
+            worker(Extreme, [event_store_settings, [name: @event_store]]),
+            worker(MyApp.MyListener, [@event_store, "my_indexed_stream", [name: MyListener]]),
+            # ... other workers / supervisors
+          ]
+          supervise children, strategy: :one_for_one
+        end
+      end
+  """
   defmacro __using__(_) do
     quote do
       use GenServer

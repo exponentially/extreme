@@ -4,7 +4,7 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.0.5 through 3.9.0 and Elixir 1.1 through 1.3.2
+This version is tested with EventStore 3.0.5 through 3.9.0 and Elixir 1.1 through 1.3.3
 
 ## INSTALL
 
@@ -12,7 +12,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.6.1"}]
+  [{:extreme, "~> 0.6.2"}]
 end
 ```
 
@@ -312,6 +312,56 @@ defmodule MyApp.Supervisor do
     children = [
       worker(Extreme, [event_store_settings, [name: @event_store]]),
       worker(MyApp.MyListener, [@event_store, "my_indexed_stream", [name: MyListener]]),
+      # ... other workers / supervisors
+    ]
+    supervise children, strategy: :one_for_one
+  end
+end
+```
+
+### Extreme.FanoutListener
+
+It's not uncommon situation to listen live events and propagate them (for example on web sockets).
+For that situation there is Extreme.FanoutListener macro that hides noise from listener:
+
+```elixir
+defmodule MyApp.MyFanoutListener do
+  use Extreme.FanoutListener
+  import MyApp.MyPusher
+
+  defp process_push(push) do
+    Logger.info "Forward to web socket event #{inspect push.event.event_type}"
+    :ok = push.event.data
+           |> :erlang.binary_to_term
+           |> process_event(push.event.event_type)
+  end
+end
+
+defmodule MyApp.MyPusher do
+  def process_event(data, "Elixir.MyApp.Events.PersonCreated") do
+    Logger.debug "Transform and push event with data: #{inspect data}"
+    :ok
+  end
+  def process_event(_, _), do: :ok # Just acknowledge events we are not interested in
+end
+```
+
+Listener can be started manually but it is most common to place it in supervisor AFTER specifing Extreme:
+
+```elixir
+defmodule MyApp.Supervisor do
+  use Supervisor
+
+  def start_link, do: Supervisor.start_link __MODULE__, :ok
+
+  @event_store MyApp.EventStore
+  
+  def init(:ok) do
+    event_store_settings = Application.get_env :my_app, :event_store
+
+    children = [
+      worker(Extreme, [event_store_settings, [name: @event_store]]),
+      worker(MyApp.MyFanoutListener, [@event_store, "my_indexed_stream", [name: MyFanoutListener]]),
       # ... other workers / supervisors
     ]
     supervise children, strategy: :one_for_one
