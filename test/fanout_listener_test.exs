@@ -33,8 +33,8 @@ defmodule Extreme.FanoutListenerTest do
 
     # run listener and don't expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
-    refute_receive {:processing_push, event_type, event}
-    refute_receive {:processing_push, event_type, event}
+    refute_receive {:processing_push, _event_type, _event}
+    refute_receive {:processing_push, _event_type, _event}
   end
 
   test "Listener doesnt read existing events but keeps listening for new ones", %{server: server} do
@@ -48,8 +48,8 @@ defmodule Extreme.FanoutListenerTest do
 
     # run listener and don't expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
-    refute_receive {:processing_push, event_type, event}
-    refute_receive {:processing_push, event_type, event}
+    refute_receive {:processing_push, _event_type, _event}
+    refute_receive {:processing_push, _event_type, _event}
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
