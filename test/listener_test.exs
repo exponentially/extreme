@@ -36,6 +36,9 @@ defmodule Extreme.ListenerTest do
       #{:ok, push.link.event_number}
       {:ok, push.event.event_number}
     end
+    
+    # This override is optional
+    defp caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
   end
 
   setup do

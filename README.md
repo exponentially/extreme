@@ -241,6 +241,10 @@ defmodule MyApp.StreamSubscriber
     :ok = update_last_event state.stream, event_number
     {:noreply, %{state|last_event: event_number}}
   end
+  def handle_info(:caught_up, state) do
+    Logger.debug "We are up to date!"
+    {:noreply, state}
+  end
   def handle_info(_msg, state), do: {:noreply, state}
 
   defp process_event(event), do: IO.puts("Do something with #{inspect event}")
@@ -249,7 +253,8 @@ end
 ```
 
 This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message. 
-After all persisted messages are sent, new messages will be sent the same way as they arrive to stream.
+After all persisted messages are sent, :caught_up message is sent and then new messages will be sent the same way 
+as they arrive to stream.
 
 If you subscribe to non existing stream you'll receive message {:extreme, severity, problem, stream} where severity can be either `:error` (for subscription on hard deleted stream) or `:warn` (for subscription on non existing or soft deleted stream). Problem is explanation of problem (i.e. :stream_hard_deleted). So in your receiver you can either have catch all `handle_info(_message, _state)` or you can handle such message:
 
@@ -285,6 +290,9 @@ defmodule MyApp.MyListener do
     end
     {:ok, event_number}
   end
+    
+  # This override is optional
+  defp caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
 end
 
 defmodule MyApp.MyProcessor do

@@ -22,6 +22,9 @@ defmodule Extreme.Listener do
           end
           {:ok, event_number}
         end
+    
+        # This override is optional
+        defp caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
       end
       
       defmodule MyApp.MyProcessor do
@@ -81,7 +84,15 @@ defmodule Extreme.Listener do
         {:ok, event_number} = process_push(push, state.stream_name)
         {:noreply, %{state|last_event: event_number}}
       end
+      def handle_info(:caught_up, state) do
+        caught_up
+        {:noreply, state}
+      end
       def handle_info(_msg, state), do: {:noreply, state}
+
+      defp caught_up, do: Logger.debug "We are up to date"
+
+      defoverridable [caught_up: 0]
     end
   end
 end
