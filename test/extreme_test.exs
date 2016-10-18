@@ -153,6 +153,11 @@ defmodule ExtremeTest do
       {:noreply, state}
     end
 
+    def handle_info(:caught_up, state) do
+      send state.sender, :caught_up
+      {:noreply, state}
+    end
+
     def handle_call(:received_events, _from, state) do
       result = state.received
                 |> Enum.reverse
@@ -178,6 +183,9 @@ defmodule ExtremeTest do
     {:ok, subscriber} = Subscriber.start_link self
     {:ok, subscription} = Extreme.subscribe_to server, subscriber, stream
     Logger.debug inspect subscription
+
+    # :caught_up is not received on subscription without previous read
+    refute_receive :caught_up
 
     # write two more events after subscription
     events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
@@ -278,6 +286,9 @@ defmodule ExtremeTest do
     assert_receive {:on_event, _event}
     assert_receive {:on_event, _event}
 
+    # assert :caught_up is received when existing events are read
+    assert_receive :caught_up
+
     # write two more after subscription
     events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}, %PersonCreated{name: "6"}, %PersonCreated{name: "7"} , %PersonCreated{name: "8"}, %PersonCreated{name: "9"}, %PersonCreated{name: "10"}, %PersonCreated{name: "11"}, %PersonCreated{name: "12"}, %PersonCreated{name: "13"}, %PersonCreated{name: "14"}, %PersonCreated{name: "15"}, %PersonCreated{name: "16"}, %PersonCreated{name: "17"}, %PersonCreated{name: "18"}, %PersonCreated{name: "19"}, %PersonCreated{name: "20"}, %PersonCreated{name: "21"}, %PersonCreated{name: "22"}, %PersonCreated{name: "23"}, %PersonCreated{name: "24"}, %PersonCreated{name: "25"}, %PersonCreated{name: "26"}, %PersonCreated{name: "27"}]
     {:ok, _} = Extreme.execute server, write_events(stream, events2)
@@ -322,6 +333,9 @@ defmodule ExtremeTest do
     {:ok, subscriber} = Subscriber.start_link self
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
+    # assert :caught_up is received when existing events are read
+    assert_receive :caught_up
+
     # write two events after subscription
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
     {:ok, _} = Extreme.execute server, write_events(stream, events)
@@ -348,6 +362,9 @@ defmodule ExtremeTest do
     # subscribe to stream
     {:ok, subscriber} = Subscriber.start_link self
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
+
+    # assert :caught_up is received when existing events are read
+    assert_receive :caught_up
 
     # write two events after subscription
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]

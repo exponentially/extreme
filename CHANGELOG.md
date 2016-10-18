@@ -1,3 +1,8 @@
+# Changelog for Extreme v0.7.0
+  * When read_and_stay_subscribed/7 function is called, :caught_up message is sent to subscriber after existing events 
+    are read (or if there were no events) and before new events arrive. This is sign to your listener that you are 
+    up-to-date. If you don't have catch all handle_info/2 in your receiver this is breaking change!
+
 # Changelog for Extreme v0.6.2
   * Added Extreme.FanoutListener
   * Added inline documentation

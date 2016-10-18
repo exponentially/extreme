@@ -50,6 +50,7 @@ defmodule Extreme.Subscription do
   end
   def handle_cast(:push_buffered_messages, state) do
     state.buffered_messages |> Enum.each(fn(e)-> send(state.subscriber, {:on_event, e}) end)
+    send state.subscriber, :caught_up
     {:noreply, %{state|status: :subscribed, buffered_messages: []}}
   end
   def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, %{status: :subscribed}=state) do
