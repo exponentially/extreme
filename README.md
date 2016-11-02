@@ -206,7 +206,7 @@ end
 ```
 
 
-`Extreme.read_and_stay_subscribed/7` is used to read existing events and stay subscribed on stream.
+`Extreme.read_and_stay_subscribed/7` reads all events that follow a specified event number, and subscribes to future events.
 
 ```elixir
 defmodule MyApp.StreamSubscriber
