@@ -58,7 +58,8 @@ defmodule Extreme.Listener do
   """
   defmacro __using__(_) do
     quote do
-      use GenServer
+      use     GenServer
+      require Logger
 
       def start_link(event_store, stream_name, opts \\ []), 
         do: GenServer.start_link __MODULE__, {event_store, stream_name}, opts
