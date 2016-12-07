@@ -1,3 +1,6 @@
+# Changelog for Extreme v0.7.1
+  * When connecting to ES cluster choose mode :write (default) to prefer Master over Slave or :read for opposite
+
 # Changelog for Extreme v0.7.0
   * When read_and_stay_subscribed/7 function is called, :caught_up message is sent to subscriber after existing events 
     are read (or if there were no events) and before new events arrive. This is sign to your listener that you are 

@@ -100,6 +100,7 @@ Example for connecting to cluster:
 config :extreme, :event_store,
   db_type: :cluster,
   gossip_timeout: 300,
+  mode: :read,
   nodes: [
     %{host: "10.10.10.29", port: 2113},
     %{host: "10.10.10.28", port: 2113},
@@ -114,6 +115,7 @@ This setting represents timeout for gossip response before we are asking next no
 * `nodes` - Mandatory for cluster connection. Represents list of nodes in the cluster as we know it
   * `host` - should be EXT IP setting of your EventStore node
   * `port` - should be EXT HTTP PORT setting of your EventStore node
+* `mode` - Defaults to `:write` where Master node is prefered over Slave, otherwise prefer Slave over Master
 
 Example of connection to cluster via DNS lookup
 
@@ -125,22 +127,22 @@ config :extreme, :event_store,
  port: 2113, # the external gossip port
  username: "admin", 
  password: "changeit",
+ mode: :write,
  max_attempts: :infinity 
 ```
 
 When `cluster` mode is used, adapter goes thru `nodes` list and tries to gossip with node one after another
 until it gets response about nodes. Based on nodes information from that response it ranks their statuses and chooses
-the best candidate to connect to. For the way ranking is done, take a look at `lib/cluster_connection.ex`:
+the best candidate to connect to. For `:write` mode (default) `Master` node is prefered over `Slave`, 
+but for `:read` mode it is opposite. For the way ranking is done, take a look at `lib/cluster_connection.ex`:
 
 ```elixir
-defp rank_state("Master"), do: 1
-defp rank_state("PreMaster"), do: 2
-defp rank_state("Slave"), do: 3
-defp rank_state("Clone"), do: 4
-defp rank_state("CatchingUp"), do: 5
-defp rank_state("PreReplica"), do: 6
-defp rank_state("Unknown"), do: 7
-defp rank_state("Initializing"), do: 8
+defp rank_state("Master", :write),    do: 1
+defp rank_state("Master", _),         do: 2
+defp rank_state("PreMaster", :write), do: 2
+defp rank_state("PreMaster", _),      do: 3
+defp rank_state("Slave", :write),     do: 3
+defp rank_state("Slave", _),          do: 1
 ```
 
 Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to witch same connection procedure will be used.
