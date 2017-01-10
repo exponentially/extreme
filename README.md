@@ -174,7 +174,7 @@ where `write_events` can be helper function like:
         data_content_type: 0,
         metadata_content_type: 0,
         data: :erlang.term_to_binary(event),
-        meta: ""
+        metadata: ""
       ) end)
     ExMsg.WriteEvents.new(
       event_stream_id: stream, 
