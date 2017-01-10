@@ -446,6 +446,21 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
   end
 
+  test "it writes 1_000 events in less then 2 seconds", %{server: server} do
+    Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
+    stream = "people-#{UUID.uuid1}"
+    fun = fn -> 
+      for(_ <- 0..499, do: Extreme.execute(server, write_events(stream)))
+    end
+    time = fun
+            |> :timer.tc
+            |> elem(0)
+
+    Logger.info "!!! Execution time: #{inspect time} !!!"
+    assert time < 2_000_000
+  end
+
+
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event ->
       ExMsg.NewEvent.new(
