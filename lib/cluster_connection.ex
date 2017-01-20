@@ -51,7 +51,7 @@ defmodule Extreme.ClusterConnection do
 
   defp get_alive(members),         do: Enum.filter(members, fn(m) -> m["isAlive"] end)
   defp inject_state_rank(members, mode), 
-    do: Enum.map(members, fn(m) -> Dict.merge m, %{state_rank: rank_state(m["state"], mode)} end)
+    do: Enum.map(members, fn(m) -> Map.merge m, %{state_rank: rank_state(m["state"], mode)} end)
   defp remove_0_ranks(members),    do: Enum.reject(members, &(&1.state_rank == 0))
   defp sort_by_rank(candidates),   do: Enum.sort(candidates, &(&1.state_rank < &2.state_rank))
 

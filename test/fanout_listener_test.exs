@@ -18,7 +18,7 @@ defmodule Extreme.FanoutListenerTest do
   setup do
     {:ok, server}    = Application.get_env(:extreme, :event_store)
                        |> Extreme.start_link
-    Process.register self, :test
+    Process.register self(), :test
     {:ok, server: server}
   end
 

@@ -18,7 +18,7 @@ defmodule ExtremeTest do
     {:ok, server} = Application.get_env(:extreme, :event_store)
                     |> Keyword.put(:password, "wrong")
                     |> Extreme.start_link
-    assert {:error, :not_authenticated} = Extreme.execute server, write_events
+    assert {:error, :not_authenticated} = Extreme.execute server, write_events()
   end
 
 
@@ -180,7 +180,7 @@ defmodule ExtremeTest do
     {:ok, _} = Extreme.execute server, write_events(stream, events1)
 
     # subscribe to existing stream
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, subscription} = Extreme.subscribe_to server, subscriber, stream
     Logger.debug inspect subscription
 
@@ -204,7 +204,7 @@ defmodule ExtremeTest do
     # subscribe to stream
     stream = "domain-people-#{UUID.uuid1}"
     {:error, :NoStream, _es_response} = Extreme.execute server, read_events(stream)
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, subscription} = Extreme.subscribe_to server, subscriber, stream
     Logger.debug inspect subscription
 
@@ -230,7 +230,7 @@ defmodule ExtremeTest do
     {:error, :NoStream, _es_response} = Extreme.execute server, read_events(stream)
 
     # subscribe to stream
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, subscription} = Extreme.subscribe_to server, subscriber, stream
     Logger.debug inspect subscription
 
@@ -257,7 +257,7 @@ defmodule ExtremeTest do
   #  {:error, :StreamDeleted, _es_response} = Extreme.execute server, read_events(stream)
 
   #  # subscribe to stream
-  #  {:ok, subscriber} = Subscriber.start_link self
+  #  {:ok, subscriber} = Subscriber.start_link self()
   #  {:ok, _subscription} = Extreme.subscribe_to server, subscriber, stream
 
   #  assert_receive {:extreme, :error, :stream_hard_deleted, ^stream}
@@ -269,7 +269,7 @@ defmodule ExtremeTest do
   test "read events and stay subscribed for existing stream is ok", %{server: server} do
     {:ok, server2} = Application.get_env(:extreme, :event_store)
                                   |> Extreme.start_link(name: SubscriptionConnection)
-    Logger.debug "SELF: #{inspect self}"
+    Logger.debug "SELF: #{inspect self()}"
     Logger.debug "Connection 1: #{inspect server}"
     Logger.debug "Connection 2: #{inspect server2}"
     stream = "domain-people-#{UUID.uuid1}"
@@ -278,7 +278,7 @@ defmodule ExtremeTest do
     {:ok, _} = Extreme.execute server, write_events(stream, events1)
 
     # subscribe to existing stream
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert first 3 events are received
@@ -330,7 +330,7 @@ defmodule ExtremeTest do
     # subscribe to stream
     stream = "domain-people-#{UUID.uuid1}"
     {:error, :NoStream, _} = Extreme.execute server, read_events(stream)
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert :caught_up is received when existing events are read
@@ -360,7 +360,7 @@ defmodule ExtremeTest do
     {:ok, _} = Extreme.execute server, delete_stream(stream, false)
 
     # subscribe to stream
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert :caught_up is received when existing events are read
@@ -390,7 +390,7 @@ defmodule ExtremeTest do
     {:ok, _} = Extreme.execute server, delete_stream(stream, true)
 
     # subscribe to stream
-    {:ok, subscriber} = Subscriber.start_link self
+    {:ok, subscriber} = Subscriber.start_link self()
     {:ok, _subscription} = Extreme.read_and_stay_subscribed server, subscriber, stream, 0, 2
 
     # assert error is sent to receiver

@@ -66,19 +66,22 @@ defmodule Extreme.Listener do
       
       def init({event_store, stream_name}) do
         state = %{ event_store: event_store, last_event: nil, subscription_ref: nil, stream_name: stream_name }
-        GenServer.cast self, :subscribe
+        GenServer.cast self(), :subscribe
         {:ok, state}
       end
 
 	  def handle_cast(:subscribe, state) do
 	    last_event = get_last_event(state.stream_name)
-	    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self, state.stream_name, last_event + 1
+	    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream_name, last_event + 1
 	    ref = Process.monitor subscription
 	    {:noreply, %{state|subscription_ref: ref, last_event: last_event}}
 	  end
 	  
 	  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
-	    GenServer.cast self, :subscribe
+        reconnect_delay = 1_000
+        Logger.warn "Subscription to EventStore is down. Will retry in #{reconnect_delay} ms."
+        :timer.sleep(reconnect_delay)
+	    GenServer.cast self(), :subscribe
 	    {:noreply, state}
 	  end
       def handle_info({:on_event, push}, state) do
@@ -86,12 +89,12 @@ defmodule Extreme.Listener do
         {:noreply, %{state|last_event: event_number}}
       end
       def handle_info(:caught_up, state) do
-        caught_up
+        caught_up()
         {:noreply, state}
       end
       def handle_info(_msg, state), do: {:noreply, state}
 
-      defp caught_up, do: Logger.debug "We are up to date"
+      def caught_up, do: Logger.debug "We are up to date"
 
       defoverridable [caught_up: 0]
     end

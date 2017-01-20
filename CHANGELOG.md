@@ -1,3 +1,9 @@
+# Changelog for Extreme v0.8.0
+  * Tested with Elixir 1.4.0 with fixed warnings
+  * Listener won't crash if ES is down. It will try to reconnect each 1sec instead of immediately 
+  * Extreme.Listener.caught_up/0 callback is public now
+  * Bumped up all dependency versions
+
 # Changelog for Extreme v0.7.1
   * When connecting to ES cluster choose mode :write (default) to prefer Master over Slave or :read for opposite
 

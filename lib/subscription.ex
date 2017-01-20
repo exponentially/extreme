@@ -13,29 +13,29 @@ defmodule Extreme.Subscription do
   def init({connection, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}}) do
     read_params = %{stream: stream, from_event_number: from_event_number, per_page: per_page,
       resolve_link_tos: resolve_link_tos, require_master: require_master}
-    GenServer.cast(self, :read_and_stay_subscribed)
+    GenServer.cast(self(), :read_and_stay_subscribed)
     {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params, status: :initialized, buffered_messages: [], read_until: -1}}
   end
   def init({connection, subscriber, stream, resolve_link_tos}) do
     read_params = %{stream: stream, resolve_link_tos: resolve_link_tos}
-    GenServer.cast(self, :subscribe)
+    GenServer.cast(self(), :subscribe)
     {:ok, %{subscriber: subscriber, connection: connection, read_params: read_params, status: :initialized, buffered_messages: [], read_until: -1}}
   end
 
   def handle_cast(:read_and_stay_subscribed, state) do
-    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
+    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self(), subscribe(state.read_params)}
     Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
-    GenServer.cast(self, :read_events)
+    GenServer.cast(self(), :read_events)
     read_until = subscription_confirmation.last_event_number + 1
     {:noreply, %{state | read_until: read_until, status: :reading_events}}
   end
   def handle_cast(:subscribe, state) do
-    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self, subscribe(state.read_params)}
+    {:ok, subscription_confirmation} = GenServer.call state.connection, {:subscribe, self(), subscribe(state.read_params)}
     Logger.debug "Successfully subscribed to stream #{inspect subscription_confirmation}"
     {:noreply, %{state | status: :subscribed}}
   end
   def handle_cast(:read_events, %{read_params: %{from_event_number: from}, read_until: from}=state) do
-    GenServer.cast(self, :push_buffered_messages)
+    GenServer.cast(self(), :push_buffered_messages)
     {:noreply, %{state|status: :pushing_buffered}}
   end
   def handle_cast(:read_events, state) do
@@ -85,11 +85,11 @@ defmodule Extreme.Subscription do
   defp push_events({:extreme, _, _, _}=msg, subscriber), do: send(subscriber, msg)
 
   defp send_next_request(_, %{status: :pushing_buffered}=state) do
-    GenServer.cast(self, :push_buffered_messages)
+    GenServer.cast(self(), :push_buffered_messages)
     state
   end
   defp send_next_request(%{next_event_number: next_event_number}, state) do
-    GenServer.cast(self, :read_events)
+    GenServer.cast(self(), :read_events)
     %{state|read_params: %{state.read_params|from_event_number: next_event_number}}
   end
 

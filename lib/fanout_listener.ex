@@ -59,18 +59,21 @@ defmodule Extreme.FanoutListener do
       
       def init({event_store, stream_name}) do
         state = %{ event_store: event_store, subscription_ref: nil, stream_name: stream_name }
-        GenServer.cast self, :subscribe
+        GenServer.cast self(), :subscribe
         {:ok, state}
       end
 
 	  def handle_cast(:subscribe, state) do
-        {:ok, subscription} = Extreme.subscribe_to state.event_store, self, state.stream_name
+        {:ok, subscription} = Extreme.subscribe_to state.event_store, self(), state.stream_name
         ref = Process.monitor subscription
         {:noreply, %{state|subscription_ref: ref}}
 	  end
 	  
 	  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
-	    GenServer.cast self, :subscribe
+        reconnect_delay = 1_000
+        Logger.warn "Subscription to EventStore is down. Will retry in #{reconnect_delay} ms."
+        :timer.sleep(reconnect_delay)
+	    GenServer.cast self(), :subscribe
 	    {:noreply, state}
 	  end
       def handle_info({:on_event, push}, state) do

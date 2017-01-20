@@ -3,16 +3,16 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.7.1",
-     elixir: ">= 1.0.0 and ~> 1.3.0",
+     version: "0.8.0",
+     elixir: "~> 1.3.0 or ~> 1.4.0",
      source_url: "https://github.com/exponentially/extreme",
      description: """
      Elixir TCP adapter for EventStore.
      """,
-     package: package,
+     package: package(),
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps]
+     deps: deps()]
   end
 
   def application do
@@ -24,9 +24,9 @@ defmodule Extreme.Mixfile do
 
   defp deps do
     [
-      {:httpoison, "~> 0.8.0"},
-      {:poison, "~> 1.4 or ~> 2.2 or ~> 3.0.0"},
-      {:exprotobuf, "~> 1.0.0"},
+      {:httpoison, "~> 0.11.0"},
+      {:poison, "~> 1.4 or ~> 2.2 or ~> 3.0"},
+      {:exprotobuf, "~> 1.2"},
       {:uuid, "~> 1.1.4" },
       {:ex_doc, ">= 0.11.4", only: [:test]},
       {:earmark, ">= 0.0.0", only: [:test]},

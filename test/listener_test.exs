@@ -38,14 +38,14 @@ defmodule Extreme.ListenerTest do
     end
     
     # This override is optional
-    defp caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
+    def caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
   end
 
   setup do
     {:ok, server}    = Application.get_env(:extreme, :event_store)
                        |> Extreme.start_link
     {:ok, _db}       = DB.start_link
-    Process.register self, :test
+    Process.register self(), :test
     {:ok, server: server}
   end
 

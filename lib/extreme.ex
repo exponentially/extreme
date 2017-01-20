@@ -183,20 +183,20 @@ defmodule Extreme do
         def init({extreme, last_processed_event}) do
           stream = "people"
           state = %{ event_store: extreme, stream: stream, last_event: last_processed_event }
-          GenServer.cast self, :subscribe
+          GenServer.cast self(), :subscribe
           {:ok, state}
         end
       
         def handle_cast(:subscribe, state) do
           # read only unprocessed events and stay subscribed
-          {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self, state.stream, state.last_event + 1
+          {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream, state.last_event + 1
           # we want to monitor when subscription is crashed so we can resubscribe
           ref = Process.monitor subscription
           {:noreply, %{state|subscription_ref: ref}}
         end
       
         def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
-          GenServer.cast self, :subscribe
+          GenServer.cast self(), :subscribe
           {:noreply, state}
         end
         def handle_info({:on_event, push}, state) do
@@ -234,7 +234,7 @@ defmodule Extreme do
   ```NOTE: If `stream` is hard deleted, `subscriber` will NOT receive any message!```
 
   ## Example:
-      def subscribe(server, stream \\ "people"), do: Extreme.subscribe_to(server, self, stream)
+      def subscribe(server, stream \\ "people"), do: Extreme.subscribe_to(server, self(), stream)
       
       def handle_info({:on_event, event}, state) do
         Logger.debug "New event added to stream 'people': " <> inspect(event)
@@ -250,13 +250,11 @@ defmodule Extreme do
 
   ## Server Callbacks
 
-  @subscriptions_sup Extreme.SubscriptionsSupervisor
-
   def init(connection_settings) do
     user = Keyword.fetch!(connection_settings, :username)
     pass = Keyword.fetch!(connection_settings, :password)
-    GenServer.cast(self, {:connect, connection_settings, 1})
-    {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link(self)
+    GenServer.cast(self(), {:connect, connection_settings, 1})
+    {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link(self())
     {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
   end
 
@@ -397,12 +395,12 @@ defmodule Extreme do
   end
 
   defp respond({:pong, _correlation_id}, state) do
-    #Logger.debug "#{inspect self} got :pong"
+    #Logger.debug "#{inspect self()} got :pong"
     :timer.send_after 1_000, :send_ping
     state
   end
   defp respond({:heartbeat_request, correlation_id}, state) do
-    #Logger.debug "#{inspect self} Tick-Tack"
+    #Logger.debug "#{inspect self()} Tick-Tack"
     message = Request.prepare(:heartbeat_response, correlation_id)
     :ok = :gen_tcp.send(state.socket, message)
     %{state|pending_responses: state.pending_responses}
