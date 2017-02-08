@@ -73,6 +73,24 @@ defmodule ExtremeTest do
     assert events == Enum.map response.events, fn event -> :erlang.binary_to_term event.event.data end
   end
 
+  test "reading a stream as a lazy list of events", %{server: server} do
+    Logger.debug "TEST: reading a stream as a lazy list of events"
+    stream = "domain-people-#{UUID.uuid1}"
+
+    num_events = 1_000
+    events = [%PersonCreated{name: "Reading"}] ++ for _ <- 2..num_events, do: %PersonChangedName{name: "Reading"}
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+
+    page_size = 83
+    starting_event_number = 7
+    read_opts = [max_count: page_size]
+    lazy_events =
+      Extreme.read_stream_events(server, stream, starting_event_number, read_opts)
+      |> Stream.map(fn event -> :erlang.binary_to_term event.event.data end)
+    assert Enum.drop(events, starting_event_number) == (lazy_events |> Enum.to_list)
+    delete_stream stream, true
+  end
+
   test "reading events from non existing stream returns :NoStream", %{server: server} do
     Logger.debug "TEST: reading events from non existing stream returns :NoStream"
     {:error, :NoStream, _es_response} = Extreme.execute server, read_events(to_string(UUID.uuid1))

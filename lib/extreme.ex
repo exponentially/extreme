@@ -157,6 +157,59 @@ defmodule Extreme do
     do: GenServer.call(server, {:execute, message})
 
 
+  @default_read_stream_events_opts [
+    from_event_number: 0,
+    max_count: 4096,
+    resolve_link_tos: true,
+    require_master: false,
+  ]
+
+  @doc """
+  Returns a lazy `Stream` that will enumerate all of the events in `:stream`
+  forwards starting with `:from_event_number`.
+
+  `max_count` determines how many events are returned from any one read request
+  made to the EventStore.
+
+    opts = [
+      max_count: 4096,
+      resolve_link_tos: true,
+      require_master: false,
+    ]
+  """
+  def read_stream_events(server, stream, from_event_number, opts \\ []) do
+    read_stream_events(server,
+      @default_read_stream_events_opts
+      |> Keyword.merge(opts)
+      |> Keyword.put(:event_stream_id, stream)
+      |> Keyword.put(:from_event_number, from_event_number)
+    )
+  end
+  defp read_stream_events(server, opts) do
+    Stream.unfold({server, opts, [], false},
+      fn
+        # The previously read page is empty. Read another page.
+        {server, opts, [] = _page, false = _end_of_stream?} ->
+          {:ok, %Extreme.Messages.ReadStreamEventsCompleted{} = read_response} =
+            execute(server, Extreme.Messages.ReadStreamEvents.new(opts))
+          [page_head|page_tail] = read_response.events
+          next_from_event_number = read_response.next_event_number
+          next_end_of_stream? = read_response.is_end_of_stream
+          next_opts = Keyword.put(opts, :from_event_number, next_from_event_number)
+          {page_head, {server, next_opts, page_tail, next_end_of_stream?}}
+
+        # The page is empty and it was the last page of the stream. End the Stream.
+        {_server, _opts, [] = _page, true = _end_of_stream?} ->
+          nil
+
+        # Return the next value from the previously read page.
+        {server, opts, [page_head|page_tail], end_of_stream?} ->
+          # IO.puts "returning from page"
+          {page_head, {server, opts, page_tail, end_of_stream?}}
+
+      end)
+  end
+
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
   and leaves `subscriber` subscribed per `subscribe` message.
