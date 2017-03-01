@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/exponentially/extreme.svg?branch=master)](https://travis-ci.org/exponentially/extreme)
 [![Hex version](https://img.shields.io/hexpm/v/extreme.svg "Hex version")](https://hex.pm/packages/extreme)
 [![InchCI](https://inch-ci.org/github/exponentially/extreme.svg?branch=master)](https://inch-ci.org/github/exponentially/extreme)
+[![Coverage Status](https://coveralls.io/repos/github/exponentially/extreme/badge.svg?branch=master)](https://coveralls.io/github/exponentially/extreme?branch=master)
 
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
