@@ -8,6 +8,9 @@ otp_release:
 env:
   - EVENT_STORE_VERSION='14.04-v3.9.3'
 
+script:
+  - "MIX_ENV=test mix do deps.get, compile, coveralls.travis"
+
 before_install:
   - wget http://download.geteventstore.com/binaries/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
   - tar xf EventStore*.tar.gz
