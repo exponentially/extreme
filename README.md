@@ -1,6 +1,9 @@
 # Extreme
 
 [![Build Status](https://travis-ci.org/exponentially/extreme.svg?branch=master)](https://travis-ci.org/exponentially/extreme)
+[![Hex version](https://img.shields.io/hexpm/v/extreme.svg "Hex version")](https://hex.pm/packages/extreme)
+[![InchCI](https://inch-ci.org/github/exponentially/extreme.svg?branch=master)](https://inch-ci.org/github/exponentially/extreme)
+
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 

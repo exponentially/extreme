@@ -31,6 +31,7 @@ defmodule Extreme.Mixfile do
       {:ex_doc, ">= 0.11.4", only: [:test]},
       {:earmark, ">= 0.0.0", only: [:test]},
       {:exrm, "~> 1.0.3", override: true, only: :test},
+      {:inch_ex, ">= 0.0.0", only: :docs},
     ]
   end
 

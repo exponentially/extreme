@@ -1,12 +1,12 @@
 language: elixir
 
 elixir:
-  - 1.4.0
+  - 1.4.1
 otp_release:
   - 19.2
 
 env:
-  - EVENT_STORE_VERSION='14.04-v3.9.0'
+  - EVENT_STORE_VERSION='14.04-v3.9.3'
 
 before_install:
   - wget http://download.geteventstore.com/binaries/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
@@ -16,3 +16,5 @@ before_install:
 after_scripts:
   - killall -SIGINT clusternode
   - cat EventStore*/eventstore.log
+  - MIX_ENV=docs mix deps.get
+  - MIX_ENV=docs mix inch.report
