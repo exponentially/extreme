@@ -55,6 +55,14 @@ defmodule Extreme.Listener do
           supervise children, strategy: :one_for_one
         end
       end
+
+  Subscription can be paused:
+
+      {:ok, last_event_number} = MyApp.MyListener.pause MyListener
+
+  and resumed
+  
+      :ok = MyApp.MyListener.resume MyListener
   """
   defmacro __using__(_) do
     quote do
@@ -65,18 +73,48 @@ defmodule Extreme.Listener do
         do: GenServer.start_link __MODULE__, {event_store, stream_name}, opts
       
       def init({event_store, stream_name}) do
-        state = %{ event_store: event_store, last_event: nil, subscription_ref: nil, stream_name: stream_name }
+        state = %{ event_store: event_store, last_event: nil, subscription: nil, subscription_ref: nil, 
+                   stream_name: stream_name }
         GenServer.cast self(), :subscribe
         {:ok, state}
       end
+
+      @doc """
+      Pauses subscription with event store, returning {:ok, last_event_number}, where `last_event_number` is
+      last event number from event store that was processed
+      """
+      def pause(server),
+        do: GenServer.call server, :pause
+
+      @doc """
+      Resumes subscription with event store, returning :ok. get_last_event/1 from callback will be called, and its
+      result will be used as starting event from which processing should continue.
+      """
+      def resume(server),
+        do: GenServer.call server, :resume
+
 
 	  def handle_cast(:subscribe, state) do
 	    last_event = get_last_event(state.stream_name)
 	    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream_name, last_event + 1
 	    ref = Process.monitor subscription
-	    {:noreply, %{state|subscription_ref: ref, last_event: last_event}}
+        Logger.info "Listener subscribed to stream #{state.stream_name}. Start processing events from event no: #{last_event + 1}"
+	    {:noreply, %{state|subscription: subscription, subscription_ref: ref, last_event: last_event}}
 	  end
+
+      def handle_call(:pause, _from, state) do
+        true = Process.exit state.subscription, :paused
+        {:reply, {:ok, state.last_event}, state}
+      end
+      def handle_call(:resume, _from, state) do
+        GenServer.cast self(), :subscribe
+        {:reply, :ok, state}
+      end
 	  
+	  def handle_info({:DOWN, ref, :process, _pid, :paused}, %{subscription_ref: ref} = state) do
+        Logger.info "Subscription to stream #{state.stream_name} is paused"
+	    {:noreply, %{state|subscription: nil, subscription_ref: nil}}
+      end
 	  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
         Logger.warn "Subscription to EventStore is down. Will retry in #{reconnect_delay} ms."
@@ -84,11 +122,11 @@ defmodule Extreme.Listener do
 	    GenServer.cast self(), :subscribe
 	    {:noreply, state}
 	  end
-      def handle_info({:on_event, push}, state) do
+      def handle_info({:on_event, push}, %{subscription: subscription}=state) when not is_nil(subscription) do
         {:ok, event_number} = process_push(push, state.stream_name)
         {:noreply, %{state|last_event: event_number}}
       end
-      def handle_info(:caught_up, state) do
+      def handle_info(:caught_up, %{subscription: subscription}=state) when not is_nil(subscription) do
         caught_up()
         {:noreply, state}
       end

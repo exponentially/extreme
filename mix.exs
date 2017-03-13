@@ -3,7 +3,7 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.8.0",
+     version: "0.8.1",
      elixir: "~> 1.3.0 or ~> 1.4.0",
      source_url: "https://github.com/exponentially/extreme",
      description: """
@@ -27,7 +27,7 @@ defmodule Extreme.Mixfile do
   defp deps do
     [
       {:httpoison, "~> 0.11.0"},
-      {:poison, "~> 1.4 or ~> 2.2 or ~> 3.0"},
+      {:poison, "~> 2.2 or ~> 3.0"},
       {:exprotobuf, "~> 1.2"},
       {:uuid, "~> 1.1.4" },
       {:ex_doc, ">= 0.11.4", only: [:test]},

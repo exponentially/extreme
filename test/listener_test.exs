@@ -117,6 +117,42 @@ defmodule Extreme.ListenerTest do
     assert DB.get_last_event(MyListener, stream) == 2
   end
 
+  test "Listener can be paused and resumed", %{server: server} do
+    Logger.debug "TEST: Listener can be paused and resumed"
+    stream = to_string(UUID.uuid1)
+    event1 = %PersonCreated{name: "Pera Peric"}
+    event2 = %PersonChangedName{name: "Zika"}
+    assert DB.get_last_event(MyListener, stream) == -1
+
+    # write 2 events to stream
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event1, event2])
+
+    # run listener and expect it to read them
+    {:ok, listener} = MyListener.start_link(server, stream)
+    assert_receive {:processing_push, _, _}
+    assert_receive {:processing_push, _, _}
+    assert DB.get_last_event(MyListener, stream) == 1
+
+    {:ok, last_event} = MyListener.pause listener
+    assert last_event == 1
+
+    # write one more event to stream
+    event3 = %PersonChangedName{name: "Laza"}
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event3])
+
+    # expect that listener didn't process new event
+    refute_receive {:processing_push, _event_type, _event}
+    
+    # resume processing events
+    :ok = MyListener.resume listener
+
+    # expect that listener processed missed event
+    assert_receive {:processing_push, event_type, event}
+    assert event_type == "Elixir.Extreme.ListenerTest.PersonChangedName"
+    assert event3 == :erlang.binary_to_term(event)
+    assert DB.get_last_event(MyListener, stream) == 2
+  end
+
   defp write_events(stream, events) do
     proto_events = Enum.map(events, fn event ->
       ExMsg.NewEvent.new(

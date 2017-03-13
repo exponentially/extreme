@@ -8,7 +8,7 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.0.5 through 3.9.0 and Elixir 1.3 and 1.4 and Erlang/OTP 18.3.4
+This version is tested with EventStore 3.0.5 through 3.9.3 and Elixir 1.3 and 1.4 and Erlang/OTP 18.3.4
 
 ## INSTALL
 
@@ -16,7 +16,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.8.0"}]
+  [{:extreme, "~> 0.8.1"}]
 end
 ```
 
@@ -331,6 +331,18 @@ defmodule MyApp.Supervisor do
     supervise children, strategy: :one_for_one
   end
 end
+```
+
+Subscription can be paused:
+
+```elixir
+{:ok, last_event_number} = MyApp.MyListener.pause MyListener
+```
+
+and resumed
+
+```elixir
+:ok = MyApp.MyListener.resume MyListener
 ```
 
 ### Extreme.FanoutListener
