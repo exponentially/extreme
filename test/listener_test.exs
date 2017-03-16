@@ -13,6 +13,19 @@ defmodule Extreme.ListenerTest do
     def get_last_event(listener, stream), 
       do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}, -1) end)
 
+    def get_patch_range(listener, stream), 
+      do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}) end)
+
+    def start_patching(listener, stream, from, until) do
+      Agent.update(:db, fn state -> Map.put(state, {listener, stream}, %{last_event: from, patch_until: until}) end)
+      :ok
+    end
+
+    def patching_done(listener, stream) do
+      Agent.update(:db, fn state -> Map.delete(state, {listener, stream}) end)
+      :ok
+    end
+
     def ack_event(listener, stream, event_number), 
       do: Agent.update(:db, fn state -> Map.put(state, {listener, stream}, event_number) end)
 
@@ -23,12 +36,25 @@ defmodule Extreme.ListenerTest do
     use Extreme.Listener
     alias Extreme.ListenerTest.DB
 
-    defp get_last_event(stream_name), do: DB.get_last_event MyListener, stream_name
+    defp get_last_event(stream_name) do 
+      if patch_range = DB.get_patch_range(MyPatchedListener, stream_name) do
+        {:patch, patch_range.last_event, patch_range.patch_until}
+      else
+        DB.get_last_event MyListener, stream_name
+      end
+    end
+
+    defp register_patching_start(stream_name, from_exclusive, until_inclusive),
+      do: DB.start_patching MyPatchedListener, stream_name, from_exclusive, until_inclusive
+  
+    defp patching_done(stream_name),
+      do: DB.patching_done  MyPatchedListener, stream_name
 
     defp process_push(push, stream_name) do
       DB.in_transaction fn ->
         send :test, {:processing_push, push.event.event_type, push.event.data}
         DB.ack_event(MyListener, stream_name, push.event.event_number)  
+        Logger.debug "Processed event ##{push.event.event_number}"
         #for indexed stream we need to follow link event_number:
         #DB.ack_event(__MODULE__, stream_name, push.link.event_number)  
       end
@@ -37,6 +63,18 @@ defmodule Extreme.ListenerTest do
       {:ok, push.event.event_number}
     end
     
+    defp process_patch(push, stream_name) do
+      DB.in_transaction fn ->
+        send :test, {:processing_push_in_patch, push.event.event_type, push.event.data}
+        DB.ack_event(MyPatchedListener, stream_name, push.event.event_number)  
+        Logger.debug "Patched event ##{push.event.event_number}"
+        #for indexed stream we need to follow link event_number:
+        #DB.ack_event(__MODULE__, stream_name, push.link.event_number)  
+      end
+      #for indexed stream we need to return link event_number:
+      #{:ok, push.link.event_number}
+      {:ok, push.event.event_number}
+    end
     # This override is optional
     def caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
   end
@@ -152,6 +190,46 @@ defmodule Extreme.ListenerTest do
     assert event3 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListener, stream) == 2
   end
+
+  test "Listener can pause processing, run patches retroactively and then resume listening", %{server: server} do
+    Logger.debug "TEST: Listener can pause processing, run patches retroactively and then resume listening"
+    stream = to_string(UUID.uuid1)
+    event1 = %PersonCreated{name: "Pera Peric"}
+    event2 = %PersonChangedName{name: "Zika"}
+    assert DB.get_last_event(MyListener, stream) == -1
+
+    # write 2 events to stream
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event1, event2])
+    Logger.debug "Written 2 events"
+
+    # run listener and expect it to process them
+    {:ok, listener} = MyListener.start_link(server, stream)
+    assert_receive {:processing_push, _, _}
+    assert_receive {:processing_push, _, _}
+    assert DB.get_last_event(MyListener, stream) == 1
+
+    {:ok, last_event} = MyListener.patch listener
+    assert last_event == 1
+
+    # write one more event to stream
+    event3 = %PersonChangedName{name: "Laza"}
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event3])
+    Logger.debug "Written 1 event"
+
+    # first two events are processed with PatchCallbacks module
+    assert_receive {:processing_push_in_patch, event_type, _event}
+    assert event_type == "Elixir.Extreme.ListenerTest.PersonCreated"
+    assert_receive {:processing_push_in_patch, event_type, _event}
+    assert event_type == "Elixir.Extreme.ListenerTest.PersonChangedName"
+
+    # event processing is resumed normally after patch is applied
+    refute_receive {:processing_push_in_patch, _event_type, _event}
+    assert_receive {:processing_push, event_type, event}
+    assert event_type == "Elixir.Extreme.ListenerTest.PersonChangedName"
+    assert event3 == :erlang.binary_to_term(event)
+    assert DB.get_last_event(MyListener, stream) == 2
+  end
+
 
   defp write_events(stream, events) do
     proto_events = Enum.map(events, fn event ->

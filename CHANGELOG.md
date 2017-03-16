@@ -1,3 +1,6 @@
+# Changelog for Extreme v0.8.1
+  * Added pause, resume and patch functionalities for Extreme.Listener
+
 # Changelog for Extreme v0.8.0
   * Tested with Elixir 1.4.0 with fixed warnings
   * Listener won't crash if ES is down. It will try to reconnect each 1sec instead of immediately 
