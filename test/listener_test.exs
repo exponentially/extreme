@@ -44,10 +44,10 @@ defmodule Extreme.ListenerTest do
       end
     end
 
-    defp register_patching_start(stream_name, from_exclusive, until_inclusive),
+    def register_patching_start(stream_name, from_exclusive, until_inclusive),
       do: DB.start_patching MyPatchedListener, stream_name, from_exclusive, until_inclusive
   
-    defp patching_done(stream_name),
+    def patching_done(stream_name),
       do: DB.patching_done  MyPatchedListener, stream_name
 
     defp process_push(push, stream_name) do
@@ -63,7 +63,7 @@ defmodule Extreme.ListenerTest do
       {:ok, push.event.event_number}
     end
     
-    defp process_patch(push, stream_name) do
+    def process_patch(push, stream_name) do
       DB.in_transaction fn ->
         send :test, {:processing_push_in_patch, push.event.event_type, push.event.data}
         DB.ack_event(MyPatchedListener, stream_name, push.event.event_number)  

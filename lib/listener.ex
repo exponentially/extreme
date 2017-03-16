@@ -176,8 +176,11 @@ defmodule Extreme.Listener do
       def handle_info(_msg, state), do: {:noreply, state}
 
       def caught_up, do: Logger.debug "We are up to date"
+      def register_patching_start(_, _, _), do: {:error, :not_implemented}
+      def patching_done(_), do: {:error, :not_implemented}
+      def process_patch(_, _), do: {:error, :not_implemented}
 
-      defoverridable [caught_up: 0]
+      defoverridable [caught_up: 0, register_patching_start: 3, patching_done: 1, process_patch: 2]
     end
   end
 end
