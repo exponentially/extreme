@@ -149,7 +149,7 @@ defp rank_state("Slave", :write),     do: 3
 defp rank_state("Slave", _),          do: 1
 ```
 
-Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to witch same connection procedure will be used.
+Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to which the same connection procedure will be used.
 
 Once client is disconnected from EventStore, supervisor should respawn it and connection starts over again.
 
