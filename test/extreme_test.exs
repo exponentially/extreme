@@ -460,6 +460,24 @@ defmodule ExtremeTest do
     assert time < 2_000_000
   end
 
+  describe "persistent subscription" do
+    setup [:prepopulate_stream]
+
+    test "create on existing stream is success", %{server: server, stream: stream} do
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription("subscription-#{UUID.uuid1}", stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+    end
+  end
+
+  defp prepopulate_stream(%{server: server} = context) do
+    stream = "domain-people-#{UUID.uuid1}"
+    events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+
+    {:ok, _} = Extreme.execute server, write_events(stream, events)
+
+    [stream: stream]
+  end
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event ->
@@ -514,6 +532,26 @@ defmodule ExtremeTest do
       expected_version: -2,
       require_master: false,
       hard_delete: hard_delete
+    )
+  end
+
+  defp create_persistent_subscription(groupName, stream) do
+    ExMsg.CreatePersistentSubscription.new(
+      subscription_group_name: groupName,
+      event_stream_id: stream,
+      resolve_link_tos: false,
+      start_from: 0,
+      message_timeout_milliseconds: 10_000,
+      record_statistics: false,
+      live_buffer_size: 500,
+      read_batch_size: 20,
+      buffer_size: 500,
+      max_retry_count: 10,
+      prefer_round_robin: true,
+      checkpoint_after_time: 1_000,
+      checkpoint_max_count: 500,
+      checkpoint_min_count: 10,
+      subscriber_max_count: 1
     )
   end
 end
