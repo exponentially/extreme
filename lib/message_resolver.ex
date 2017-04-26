@@ -1,8 +1,8 @@
 defmodule Extreme.MessageResolver do
-    # https://github.com/EventStore/EventStore/blob/master/src/EventStore.ClientAPI/SystemData/TcpCommand.cs
-    alias Extreme.Messages, as: Msg
+  # https://github.com/EventStore/EventStore/blob/master/src/EventStore.ClientAPI/SystemData/TcpCommand.cs
+  alias Extreme.Msg, as: Msg
 
-    ## Encode
+  ## Encode
 
 	def encode_cmd(:heartbeat_response),                            do: 0x02
 	def encode_cmd(:ping),                                          do: 0x03
@@ -21,8 +21,8 @@ defmodule Extreme.MessageResolver do
     # def encode_cmd(:create_stream), do: 0x80
     # def encode_cmd(:create_stream_completed), do: 0x81
 
-    #def decode_cmd(0x82), do: Extreme.Messages.WriteEvents
-    #def encode_cmd(Extreme.Messages.WriteEventsCompleted), do: 0x83
+    #def decode_cmd(0x82), do: Msg.WriteEvents
+    #def encode_cmd(Msg.WriteEventsCompleted), do: 0x83
 
     def encode_cmd(Msg.WriteEvents),                                do: 0x82
     def encode_cmd(Msg.TransactionStart),                           do: 0x84
@@ -52,7 +52,7 @@ defmodule Extreme.MessageResolver do
     def encode_cmd(:persistent_subscription_nak_events),            do: 0xCD
     def encode_cmd(:update_persistent_subscription),                do: 0xCE
     def encode_cmd(:update_persistent_subscription_completed),      do: 0xCF
-    
+
     def encode_cmd(:scavenge_database),                             do: 0xD0
     def encode_cmd(:scavenge_database_completed),                   do: 0xD1
 
@@ -61,7 +61,6 @@ defmodule Extreme.MessageResolver do
     def encode_cmd(:authenticate),                                  do: 0xF2
     def encode_cmd(:authenticated),                                 do: 0xF3
     def encode_cmd(:not_authenticated),                             do: 0xF4
-
 
     ## Decode
 

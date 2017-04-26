@@ -1,7 +1,7 @@
 defmodule Extreme.Subscription do
   use GenServer
   require Logger
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
 
   def start_link(connection, subscriber, read_params) do
     GenServer.start_link(__MODULE__, {connection, subscriber, read_params})
@@ -53,11 +53,11 @@ defmodule Extreme.Subscription do
     send state.subscriber, :caught_up
     {:noreply, %{state|status: :subscribed, buffered_messages: []}}
   end
-  def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, %{status: :subscribed}=state) do
+  def handle_cast({:ok, %ExMsg.StreamEventAppeared{}=e}, %{status: :subscribed}=state) do
     send(state.subscriber, {:on_event, e.event})
     {:noreply, state}
   end
-  def handle_cast({:ok, %Extreme.Messages.StreamEventAppeared{}=e}, state) do
+  def handle_cast({:ok, %ExMsg.StreamEventAppeared{}=e}, state) do
     buffered_messages = state.buffered_messages
                         |> List.insert_at(-1, e.event)
     {:noreply, %{state|buffered_messages: buffered_messages}}
@@ -121,4 +121,3 @@ defmodule Extreme.Subscription do
     )
   end
 end
-

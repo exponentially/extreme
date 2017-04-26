@@ -1,6 +1,6 @@
 defmodule Extreme.Response do
   require Logger
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
 
   def parse(<<message_type,
               auth,

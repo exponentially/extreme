@@ -35,11 +35,11 @@ After you are done, run `mix deps.get` in your shell to fetch and compile Extrem
 
 ## USAGE
 
-The best way to understand how adapter should be used is by investigating `test/extreme_test.exs` file, 
+The best way to understand how adapter should be used is by investigating `test/extreme_test.exs` file,
 but we'll try to explain some details in here as well.
 
-Extreme is implemented using GenServer and is OTP compatible. 
-If client is disconnected from server we are not trying to reconnect, instead you should rely on your supervisor. 
+Extreme is implemented using GenServer and is OTP compatible.
+If client is disconnected from server we are not trying to reconnect, instead you should rely on your supervisor.
 For example:
 
 ```elixir
@@ -51,7 +51,7 @@ defmodule MyApp.Supervisor do
   end
 
   @event_store MyApp.EventStore
-  
+
   def init(:ok) do
     event_store_settings = Application.get_env :my_app, :event_store
 
@@ -82,10 +82,10 @@ Example for connecting to single node:
 
 ```elixir
 config :extreme, :event_store,
-  db_type: :node, 
-  host: "localhost", 
-  port: 1113, 
-  username: "admin", 
+  db_type: :node,
+  host: "localhost",
+  port: 1113,
+  username: "admin",
   password: "changeit",
   reconnect_delay: 2_000,
   max_attempts: :infinity
@@ -110,7 +110,7 @@ config :extreme, :event_store,
     %{host: "10.10.10.28", port: 2113},
     %{host: "10.10.10.30", port: 2113}
   ],
-  username: "admin", 
+  username: "admin",
   password: "changeit"
 ```
 
@@ -125,19 +125,19 @@ Example of connection to cluster via DNS lookup
 
 ```elixir
 config :extreme, :event_store,
- db_type: :cluster_dns, 
+ db_type: :cluster_dns,
  gossip_timeout: 300,
  host: "es-cluster.example.com", # accepts char list too, this whould be multy A record host enrty in your nameserver
  port: 2113, # the external gossip port
- username: "admin", 
+ username: "admin",
  password: "changeit",
  mode: :write,
- max_attempts: :infinity 
+ max_attempts: :infinity
 ```
 
 When `cluster` mode is used, adapter goes thru `nodes` list and tries to gossip with node one after another
 until it gets response about nodes. Based on nodes information from that response it ranks their statuses and chooses
-the best candidate to connect to. For `:write` mode (default) `Master` node is prefered over `Slave`, 
+the best candidate to connect to. For `:write` mode (default) `Master` node is prefered over `Slave`,
 but for `:read` mode it is opposite. For the way ranking is done, take a look at `lib/cluster_connection.ex`:
 
 ```elixir
@@ -155,8 +155,8 @@ Once client is disconnected from EventStore, supervisor should respawn it and co
 
 ### Communication
 
-EventStore uses ProtoBuf for taking requests and sending responses back. 
-We are using [exprotobuf](https://github.com/bitwalker/exprotobuf) to deal with them. 
+EventStore uses ProtoBuf for taking requests and sending responses back.
+We are using [exprotobuf](https://github.com/bitwalker/exprotobuf) to deal with them.
 List and specification of supported protobuf messages can be found in `include/event_store.proto` file.
 
 Instead of wrapping each and every request in elixir function, we are using `execute/2` function that takes server pid and request message:
@@ -168,10 +168,10 @@ Instead of wrapping each and every request in elixir function, we are using `exe
 where `write_events` can be helper function like:
 
 ```elixir
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
-    proto_events = Enum.map(events, fn event -> 
+    proto_events = Enum.map(events, fn event ->
       ExMsg.NewEvent.new(
         event_id: Extreme.Tools.gen_uuid(),
         event_type: to_string(event.__struct__),
@@ -181,7 +181,7 @@ where `write_events` can be helper function like:
         metadata: ""
       ) end)
     ExMsg.WriteEvents.new(
-      event_stream_id: stream, 
+      event_stream_id: stream,
       expected_version: -2,
       events: proto_events,
       require_master: false
@@ -190,15 +190,15 @@ where `write_events` can be helper function like:
 ```
 
 This way you can fine tune your requests, i.e. choose your serialization. We are using erlang serialization in this case
-`data: :erlang.term_to_binary(event)`, but you can do whatever suites you. 
-For more information about protobuf messages EventStore uses, 
-take a look at their [documentation](http://docs.geteventstore.com) or for common use cases 
+`data: :erlang.term_to_binary(event)`, but you can do whatever suites you.
+For more information about protobuf messages EventStore uses,
+take a look at their [documentation](http://docs.geteventstore.com) or for common use cases
 you can check `test/extreme_test.exs` file.
 
 
 ### Subscriptions
 
-`Extreme.subscribe_to/3` function is used to get notified on new events on particular stream. 
+`Extreme.subscribe_to/3` function is used to get notified on new events on particular stream.
 This way subscriber, in next example `self`, will get message `{:on_event, push_message}` when new event is added to stream
 _people_.
 
@@ -241,7 +241,7 @@ defmodule MyApp.StreamSubscriber
   end
   def handle_info({:on_event, push}, state) do
     push.event.data
-    |> :erlang.binary_to_term 
+    |> :erlang.binary_to_term
     |> process_event
     event_number = push.link.event_number
     :ok = update_last_event state.stream, event_number
@@ -258,8 +258,8 @@ defmodule MyApp.StreamSubscriber
 end
 ```
 
-This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message. 
-After all persisted messages are sent, :caught_up message is sent and then new messages will be sent the same way 
+This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message.
+After all persisted messages are sent, :caught_up message is sent and then new messages will be sent the same way
 as they arrive to stream.
 
 If you subscribe to non existing stream you'll receive message {:extreme, severity, problem, stream} where severity can be either `:error` (for subscription on hard deleted stream) or `:warn` (for subscription on non existing or soft deleted stream). Problem is explanation of problem (i.e. :stream_hard_deleted). So in your receiver you can either have catch all `handle_info(_message, _state)` or you can handle such message:
@@ -296,7 +296,7 @@ defmodule MyApp.MyListener do
     end
     {:ok, event_number}
   end
-    
+
   # This override is optional
   defp caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
 end
@@ -319,7 +319,7 @@ defmodule MyApp.Supervisor do
   def start_link, do: Supervisor.start_link __MODULE__, :ok
 
   @event_store MyApp.EventStore
-  
+
   def init(:ok) do
     event_store_settings = Application.get_env :my_app, :event_store
 
@@ -381,7 +381,7 @@ defmodule MyApp.Supervisor do
   def start_link, do: Supervisor.start_link __MODULE__, :ok
 
   @event_store MyApp.EventStore
-  
+
   def init(:ok) do
     event_store_settings = Application.get_env :my_app, :event_store
 

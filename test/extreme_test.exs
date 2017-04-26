@@ -1,6 +1,6 @@
 defmodule ExtremeTest do
   use ExUnit.Case
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
   require Logger
 
   defmodule PersonCreated, do: defstruct [:name]
@@ -449,7 +449,7 @@ defmodule ExtremeTest do
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
     stream = "people-#{UUID.uuid1}"
-    fun = fn -> 
+    fun = fn ->
       for(_ <- 0..499, do: Extreme.execute(server, write_events(stream)))
     end
     time = fun
