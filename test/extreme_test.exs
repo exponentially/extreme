@@ -468,15 +468,45 @@ defmodule ExtremeTest do
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
+
+    @tag :wip
+    test "connect to existing persisten subscription", %{server: server, stream: stream, events: events1} do
+      stream = "domain-people-#{UUID.uuid1}"
+      group = "subscription-#{UUID.uuid1}"
+
+      # create persistent subscription
+      {:ok, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link self()
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream)
+      Logger.debug inspect subscription
+
+      # assert existing events are received
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # write two more events after subscription
+      events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
+      {:ok, _} = Extreme.execute server, write_events(stream, events2)
+
+      # assert additional events have arrived
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # assert events came in expected order
+      assert Subscriber.received_events(subscriber) == events1 ++ events2
+    end
   end
 
-  defp prepopulate_stream(%{server: server} = context) do
+  defp prepopulate_stream(%{server: server}) do
     stream = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
 
     {:ok, _} = Extreme.execute server, write_events(stream, events)
 
-    [stream: stream]
+    [events: events, stream: stream]
   end
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do

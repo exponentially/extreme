@@ -247,6 +247,16 @@ defmodule Extreme do
   def subscribe_to(server, subscriber, stream, resolve_link_tos \\ true),
     do: GenServer.call(server, {:subscribe_to, subscriber, stream, resolve_link_tos})
 
+  @doc """
+  Connect the `subscriber` to an existing persistent subscription named `subscription` on `stream`
+
+  `subscriber` is process that will keep receiving {:on_event, event} messages.
+
+  Returns {:ok, subscription} when subscription is success.
+  """
+  def connect_to_persistent_subscription(server, subscriber, subscription, stream, buffer_size \\ 1),
+    do: GenServer.call(server, {:connect_to_persistent_subscription, subscriber, {subscription, stream, buffer_size}})
+
 
   ## Server Callbacks
 
@@ -255,7 +265,8 @@ defmodule Extreme do
     pass = Keyword.fetch!(connection_settings, :password)
     GenServer.cast(self(), {:connect, connection_settings, 1})
     {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link(self())
-    {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+    {:ok, persistent_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(self())
+    {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, persistent_subscriptions_sup: persistent_sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
   end
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
@@ -324,6 +335,10 @@ defmodule Extreme do
     {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription(state.subscriptions_sup, subscriber, stream, resolve_link_tos)
     #Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
+  end
+  def handle_call({:connect_to_persistent_subscription, subscriber, params}, from, state) do
+    {:ok, persistent_subscription} = Extreme.PersistentSubscriptionsSupervisor.start_persistent_subscription(state.persistent_subscriptions_sup, subscriber, params)
+    {:reply, {:ok, persistent_subscription}, state}
   end
   def handle_call({:subscribe, subscriber, msg}, from, state) do
     #Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
