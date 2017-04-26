@@ -21,6 +21,7 @@ defmodule Extreme.Response do
   def reply(%ExMsg.PersistentSubscriptionConfirmation{} = data), do: {:ok, data}
   #def reply(%ExMsg.SubscriptionDropped{} = data),     do: {:ok, data}
   def reply(%ExMsg.StreamEventAppeared{} = data),      do: {:ok, data}
+  def reply(%ExMsg.PersistentSubscriptionStreamEventAppeared{} = data), do: {:ok, data}
   def reply(%{result: _} = data),                      do: {:error, data.result, data}
   def reply({:error, reason}),                         do: {:error, reason}
   def reply(1),                                        do: Logger.debug "HEARTBEAT"

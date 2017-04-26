@@ -45,7 +45,7 @@ defmodule Extreme.MessageResolver do
   def encode_cmd(Msg.CreatePersistentSubscription),               do: 0xC8
   def encode_cmd(:delete_persistent_subscription),                do: 0xCA
   def encode_cmd(:delete_persistent_subscription_completed),      do: 0xCB
-  def encode_cmd(:persistent_subscription_ack_events),            do: 0xCC
+  def encode_cmd(Msg.PersistentSubscriptionAckEvents),            do: 0xCC
   def encode_cmd(:persistent_subscription_nak_events),            do: 0xCD
   def encode_cmd(:update_persistent_subscription),                do: 0xCE
   def encode_cmd(:update_persistent_subscription_completed),      do: 0xCF
@@ -78,7 +78,7 @@ defmodule Extreme.MessageResolver do
   def decode_cmd(0xC2),                                           do: Msg.StreamEventAppeared
 
   def decode_cmd(0xC6),                                           do: Msg.PersistentSubscriptionConfirmation
-  def encode_cmd(0xC7),                                           do: Msg.PersistentSubscriptionStreamEventAppeared
+  def decode_cmd(0xC7),                                           do: Msg.PersistentSubscriptionStreamEventAppeared
 
   def decode_cmd(0xC9),                                           do: Msg.CreatePersistentSubscriptionCompleted
 

@@ -156,6 +156,8 @@ defmodule Extreme do
   def execute(server, message),
     do: GenServer.call(server, {:execute, message})
 
+  def ack(server, message),
+    do: GenServer.call(server, {:ack, message})
 
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
@@ -263,10 +265,24 @@ defmodule Extreme do
   def init(connection_settings) do
     user = Keyword.fetch!(connection_settings, :username)
     pass = Keyword.fetch!(connection_settings, :password)
+
     GenServer.cast(self(), {:connect, connection_settings, 1})
-    {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link(self())
-    {:ok, persistent_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(self())
-    {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, persistent_subscriptions_sup: persistent_sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+
+    {:ok, subscriptions_sup} = Extreme.SubscriptionsSupervisor.start_link(self())
+    {:ok, persistent_subscriptions_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(self())
+
+    state = %{
+      socket: nil,
+      pending_responses: %{},
+      subscriptions: %{},
+      subscriptions_sup: subscriptions_sup,
+      persistent_subscriptions_sup: persistent_subscriptions_sup,
+      credentials: %{user: user, pass: pass},
+      received_data: <<>>,
+      should_receive: nil,
+    }
+
+    {:ok, state}
   end
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
@@ -336,7 +352,7 @@ defmodule Extreme do
     #Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
-  def handle_call({:connect_to_persistent_subscription, subscriber, params}, from, state) do
+  def handle_call({:connect_to_persistent_subscription, subscriber, params}, _from, state) do
     {:ok, persistent_subscription} = Extreme.PersistentSubscriptionsSupervisor.start_persistent_subscription(state.persistent_subscriptions_sup, subscriber, params)
     {:reply, {:ok, persistent_subscription}, state}
   end
@@ -346,6 +362,12 @@ defmodule Extreme do
     :ok = :gen_tcp.send(state.socket, message)
     state = put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
     state = put_in(state.subscriptions,     Map.put(state.subscriptions, correlation_id, subscriber))
+    {:noreply, state}
+  end
+  def handle_call({:ack, protobuf_msg}, _from, state) do
+    IO.puts "ack event: #{inspect protobuf_msg}"
+    {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
+    :ok = :gen_tcp.send(state.socket, message)
     {:noreply, state}
   end
 
@@ -443,6 +465,7 @@ defmodule Extreme do
   end
 
   defp respond_to_subscription(response, correlation_id, subscriptions) do
+    # Logger.debug "Attempting to respond to subscription with response: #{inspect response}"
     case Map.get(subscriptions, correlation_id) do
       nil          -> :ok #Logger.error "Can't find correlation_id #{inspect correlation_id} for response #{inspect response}"
       subscription -> GenServer.cast(subscription, Response.reply(response))
