@@ -365,10 +365,9 @@ defmodule Extreme do
     {:noreply, state}
   end
   def handle_call({:ack, protobuf_msg}, _from, state) do
-    IO.puts "ack event: #{inspect protobuf_msg}"
     {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
     :ok = :gen_tcp.send(state.socket, message)
-    {:noreply, state}
+    {:reply, :ok, state}
   end
 
   def handle_info(:send_ping, state) do
