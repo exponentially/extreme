@@ -10,6 +10,7 @@ defmodule Extreme.PersistentSubscription do
   def init({connection, subscriber, {subscription, stream, buffer_size}}) do
     state = %{
       subscriber: subscriber,
+      subscription_id: nil,
       connection: connection,
       params: %{subscription: subscription, stream: stream, buffer_size: buffer_size},
       status: :initialized,
@@ -19,14 +20,14 @@ defmodule Extreme.PersistentSubscription do
   end
 
   def handle_cast(:connect, %{connection: connection, params: params} = state) do
-    {:ok, response} = GenServer.call(connection, {:subscribe, self(), connect(params)})
-    Logger.debug(fn -> "Successfully connected to persistent subscription #{inspect response}" end)
-    {:noreply, %{state | status: :subscribed}}
+    {:ok, %Extreme.Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id}} = GenServer.call(connection, {:subscribe, self(), connect(params)})
+    Logger.debug(fn -> "Successfully connected to persistent subscription id: #{inspect subscription_id}" end)
+    {:noreply, %{state | subscription_id: subscription_id, status: :subscribed}}
   end
 
-  def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{}=e}, %{subscriber: subscriber, params: params} = state) do
-    Logger.debug(fn -> "Persistent subscription #{inspect params.subscription} event appeared: #{inspect e}" end)
-    send(subscriber, {:on_event, e.event, params.subscription})
+  def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{}=e}, %{subscriber: subscriber, subscription_id: subscription_id} = state) do
+    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} event appeared: #{inspect e}" end)
+    send(subscriber, {:on_event, e.event, subscription_id})
     {:noreply, state}
   end
 

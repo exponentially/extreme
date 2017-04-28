@@ -365,7 +365,7 @@ defmodule Extreme do
     {:noreply, state}
   end
   def handle_call({:ack, protobuf_msg}, _from, state) do
-    {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
+    {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials)
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end
@@ -425,6 +425,7 @@ defmodule Extreme do
   end
 
   defp process_message(message, state) do
+    # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
     #"Let's finally process whole message: #{inspect message}"
     Response.parse(message)
     |> respond(state)

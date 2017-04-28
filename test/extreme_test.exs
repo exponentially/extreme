@@ -491,14 +491,14 @@ defmodule ExtremeTest do
       {:ok, _} = Extreme.execute(server, write_events(stream, events))
 
       # assert events are received
-      assert_receive {:on_event, event, ^group}
-      :ok = Extreme.ack(server, ack_event(group, event.event.event_id))
-:timer.sleep 1_000
-      assert_receive {:on_event, event, ^group}
-      :ok = Extreme.ack(server, ack_event(group, event.event.event_id))
+      assert_receive {:on_event, event, subscription_id}
+      :ok = Extreme.ack(server, ack_event(subscription_id, event.event.event_id))
 
-      assert_receive {:on_event, event, ^group}
-      :ok = Extreme.ack(server, ack_event(group, event.event.event_id))
+      assert_receive {:on_event, event, subscription_id}
+      :ok = Extreme.ack(server, ack_event(subscription_id, event.event.event_id))
+
+      assert_receive {:on_event, event, subscription_id}
+      :ok = Extreme.ack(server, ack_event(subscription_id, event.event.event_id))
 
       # assert events came in expected order
       assert Subscriber.received_events(subscriber) == events
@@ -581,9 +581,9 @@ defmodule ExtremeTest do
     )
   end
 
-  defp ack_event(group, event_id) do
+  defp ack_event(subscription_id, event_id) do
     ExMsg.PersistentSubscriptionAckEvents.new(
-      subscription_id: group,
+      subscription_id: subscription_id,
       processed_event_ids: [event_id]
     )
   end
