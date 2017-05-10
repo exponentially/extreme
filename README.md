@@ -168,25 +168,25 @@ Instead of wrapping each and every request in elixir function, we are using `exe
 where `write_events` can be helper function like:
 
 ```elixir
-  alias Extreme.Msg, as: ExMsg
+alias Extreme.Msg, as: ExMsg
 
-  defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
-    proto_events = Enum.map(events, fn event ->
-      ExMsg.NewEvent.new(
-        event_id: Extreme.Tools.gen_uuid(),
-        event_type: to_string(event.__struct__),
-        data_content_type: 0,
-        metadata_content_type: 0,
-        data: :erlang.term_to_binary(event),
-        metadata: ""
-      ) end)
-    ExMsg.WriteEvents.new(
-      event_stream_id: stream,
-      expected_version: -2,
-      events: proto_events,
-      require_master: false
-    )
-  end
+defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
+  proto_events = Enum.map(events, fn event ->
+    ExMsg.NewEvent.new(
+      event_id: Extreme.Tools.gen_uuid(),
+      event_type: to_string(event.__struct__),
+      data_content_type: 0,
+      metadata_content_type: 0,
+      data: :erlang.term_to_binary(event),
+      metadata: ""
+    ) end)
+  ExMsg.WriteEvents.new(
+    event_stream_id: stream,
+    expected_version: -2,
+    events: proto_events,
+    require_master: false
+  )
+end
 ```
 
 This way you can fine tune your requests, i.e. choose your serialization. We are using erlang serialization in this case
@@ -392,6 +392,69 @@ defmodule MyApp.Supervisor do
     ]
     supervise children, strategy: :one_for_one
   end
+end
+```
+
+### Persistent subscriptions
+
+The Event Store provides an alternate event subscription model, from version 3.2.0, known as [competing consumers](http://docs.geteventstore.com/introduction/latest/competing-consumers). Instead of the client holding the state of the subscription, the server remembers it.
+
+#### Create a persistent subscription
+
+The first step in using persistent subscriptions is to create a new subscription. This can be done using the Event Store admin website or in your application code, as shown below.  You must provide a unique subscription group name and the stream to receive events from.
+
+```elixir
+alias Extreme.Msg, as: ExMsg
+
+{:ok, _} = Extreme.execute(server, ExMsg.CreatePersistentSubscription.new(
+  subscription_group_name: "person-subscription",
+  event_stream_id: "people",
+  resolve_link_tos: false,
+  start_from: 0,
+  message_timeout_milliseconds: 10_000,
+  record_statistics: false,
+  live_buffer_size: 500,
+  read_batch_size: 20,
+  buffer_size: 500,
+  max_retry_count: 10,
+  prefer_round_robin: true,
+  checkpoint_after_time: 1_000,
+  checkpoint_max_count: 500,
+  checkpoint_min_count: 1,
+  subscriber_max_count: 1
+))
+```
+
+#### Connect to a persistent subscription
+
+`Extreme.connect_to_persistent_subscription/5` function is used subscribe to an existing persistent subscription. The subscriber, in this example `self`, will receive message `{:on_event, push_message}` when each new event is added to stream
+_people_.
+
+```elixir
+{:ok, subscription} = Extreme.connect_to_persistent_subscription(server, self(), group, stream, buffer_size)
+```
+
+#### Receive & acknowledge events
+
+You must acknowledge receipt, and successful processing, of each received event. The Event Store will remember the last acknowledged event. The subscription will resume from this position should the subscriber process terminate and reconnect. This simplifies the client logic - the code you must write.
+
+`Extreme.PersistentSubscription.ack/2` function is used to acknowledge receipt of an event.
+
+```elixir
+receive do
+  {:on_event, event} ->
+    Logger.debug "New event added to stream 'people': #{inspect event}"
+    :ok = Extreme.PersistentSubscription.ack(subscription, event)
+end
+```
+
+You must track the `subscription` PID returned from the `Extreme.connect_to_persistent_subscription/5` function as part of the process state when using a `GenServer` subscriber.
+
+```elixir
+def handle_info({:on_event, event}, %{subscription: subscription} = state) do
+  Logger.debug "New event added to stream 'people': #{inspect event}"
+  :ok = Extreme.PersistentSubscription.ack(subscription, event)
+  {:noreply, state}
 end
 ```
 
