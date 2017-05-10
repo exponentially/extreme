@@ -156,9 +156,6 @@ defmodule Extreme do
   def execute(server, message),
     do: GenServer.call(server, {:execute, message})
 
-  def ack(server, message, correlation_id),
-    do: GenServer.call(server, {:ack, message, correlation_id})
-
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
   and leaves `subscriber` subscribed per `subscribe` message.
