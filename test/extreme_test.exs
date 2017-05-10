@@ -501,8 +501,7 @@ defmodule ExtremeTest do
       assert Subscriber.received_events(subscriber) == events
     end
 
-    @tag :wip
-    test "resume connection to existing persisten subscription should skip ack'd events", %{server: server} do
+    test "resume connection to existing persistent subscription should skip ack'd events", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid1}"
       group = "subscription-#{UUID.uuid1}"
       buffer_size = 1
@@ -522,13 +521,16 @@ defmodule ExtremeTest do
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
       :ok = Extreme.PersistentSubscription.ack(subscription, event)
 
+      subscriber_ref = Process.monitor(subscriber)
+      subscription_ref = Process.monitor(subscription)
+
       # shutdown subscriber to terminate persistent connection
       shutdown(subscriber)
 
+      assert_receive {:DOWN, ^subscriber_ref, _, _, _}
       refute Process.alive?(subscriber)
 
-      :timer.sleep 1_000
-      
+      assert_receive {:DOWN, ^subscription_ref, _, _, _}
       refute Process.alive?(subscription)
 
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -542,18 +544,12 @@ defmodule ExtremeTest do
       assert_receive {:on_event, event}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
       :ok = Extreme.PersistentSubscription.ack(subscription, event)
-
-      # assert events came in expected order
-      assert Subscriber.received_events(subscriber) == events
     end
   end
 
   defp shutdown(pid) when is_pid(pid) do
     Process.unlink(pid)
     Process.exit(pid, :shutdown)
-
-    ref = Process.monitor(pid)
-    assert_receive {:DOWN, ^ref, _, _, _}
   end
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do

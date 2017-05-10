@@ -3,17 +3,18 @@ defmodule Extreme.PersistentSubscription do
   require Logger
   alias Extreme.Msg, as: ExMsg
 
-  def start_link(connection, subscriber, params) do
-    GenServer.start_link(__MODULE__, {connection, subscriber, params})
+  def start_link(connection_settings, subscriber, params) do
+    GenServer.start_link(__MODULE__, {connection_settings, subscriber, params})
   end
 
-  def init({connection, subscriber, {subscription, stream, buffer_size}}) do
+  def init({connection_settings, subscriber, {subscription, stream, buffer_size}}) do
     state = %{
+      connection_settings: connection_settings,
       subscriber: subscriber,
       subscription_ref: Process.monitor(subscriber),
       subscription_id: nil,
       correlation_id: nil,
-      connection: connection,
+      connection: nil,
       params: %{subscription: subscription, stream: stream, buffer_size: buffer_size},
       status: :initialized,
     }
@@ -26,10 +27,15 @@ defmodule Extreme.PersistentSubscription do
     GenServer.call(subscription, {:ack, event.event_id})
   end
 
-  def handle_cast(:connect, %{connection: connection, params: params} = state) do
-    {:ok, %Extreme.Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id}} = GenServer.call(connection, {:subscribe, self(), connect(params)})
+  def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
+    # create a connection to the event store for this persistent subscription
+    {:ok, connection} = Extreme.start_link(connection_settings)
+
+    {:ok, %ExMsg.PersistentSubscriptionConfirmation{subscription_id: subscription_id}} = GenServer.call(connection, {:subscribe, self(), connect(params)})
+
     Logger.debug(fn -> "Successfully connected to persistent subscription id: #{inspect subscription_id}" end)
-    {:noreply, %{state | subscription_id: subscription_id, status: :subscribed}}
+
+    {:noreply, %{state | connection: connection, subscription_id: subscription_id, status: :subscribed}}
   end
 
   def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{event: event} = msg, correlation_id}, %{subscription_id: subscription_id, subscriber: subscriber} = state) do

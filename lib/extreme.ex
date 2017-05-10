@@ -266,7 +266,7 @@ defmodule Extreme do
     GenServer.cast(self(), {:connect, connection_settings, 1})
 
     {:ok, subscriptions_sup} = Extreme.SubscriptionsSupervisor.start_link(self())
-    {:ok, persistent_subscriptions_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(self())
+    {:ok, persistent_subscriptions_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(connection_settings)
 
     state = %{
       socket: nil,
