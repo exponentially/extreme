@@ -10,6 +10,7 @@ defmodule Extreme.PersistentSubscription do
   def init({connection, subscriber, {subscription, stream, buffer_size}}) do
     state = %{
       subscriber: subscriber,
+      subscription_ref: Process.monitor(subscriber),
       subscription_id: nil,
       correlation_id: nil,
       connection: connection,
@@ -24,8 +25,6 @@ defmodule Extreme.PersistentSubscription do
   def ack(subscription, %ExMsg.ResolvedIndexedEvent{event: event}) do
     GenServer.call(subscription, {:ack, event.event_id})
   end
-
-  # TODO: Handle subscriber process DOWN
 
   def handle_cast(:connect, %{connection: connection, params: params} = state) do
     {:ok, %Extreme.Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id}} = GenServer.call(connection, {:subscribe, self(), connect(params)})
@@ -43,6 +42,12 @@ defmodule Extreme.PersistentSubscription do
     Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} ack event id: #{inspect event_id}" end)
     :ok = GenServer.call(connection, {:ack, ack_event(subscription_id, event_id), correlation_id})
     {:reply, :ok, %{state | correlation_id: nil}}
+  end
+
+  # stop persistent subscription process when subscriber process is down
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{subscription_ref: ref, subscription_id: subscription_id} = state) do
+    Logger.info(fn -> "Stopping persistent subscription #{inspect subscription_id} as subscriber is down due to: #{inspect reason}" end)
+    {:stop, {:shutdown, :subscriber_down}, state}
   end
 
   defp connect(params) do
