@@ -502,7 +502,6 @@ defmodule ExtremeTest do
       assert Subscriber.received_events(subscriber) == events
     end
 
-    @tag :wip
     test "resume connection to existing persistent subscription should skip ack'd events", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid4()}"
       group = "subscription-#{UUID.uuid4()}"
@@ -628,7 +627,7 @@ defmodule ExtremeTest do
       prefer_round_robin: true,
       checkpoint_after_time: 1_000,
       checkpoint_max_count: 500,
-      checkpoint_min_count: 10,
+      checkpoint_min_count: 1,
       subscriber_max_count: 1
     )
   end
