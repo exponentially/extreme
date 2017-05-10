@@ -156,8 +156,8 @@ defmodule Extreme do
   def execute(server, message),
     do: GenServer.call(server, {:execute, message})
 
-  def ack(server, message),
-    do: GenServer.call(server, {:ack, message})
+  def ack(server, message, correlation_id),
+    do: GenServer.call(server, {:ack, message, correlation_id})
 
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
@@ -364,8 +364,9 @@ defmodule Extreme do
     state = put_in(state.subscriptions,     Map.put(state.subscriptions, correlation_id, subscriber))
     {:noreply, state}
   end
-  def handle_call({:ack, protobuf_msg}, _from, state) do
-    {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials)
+  def handle_call({:ack, protobuf_msg, correlation_id}, _from, state) do
+    {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials, correlation_id)
+    Logger.debug(fn -> "Ack received event: #{inspect protobuf_msg}" end)
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end
@@ -426,7 +427,6 @@ defmodule Extreme do
 
   defp process_message(message, state) do
     # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
-    #"Let's finally process whole message: #{inspect message}"
     Response.parse(message)
     |> respond(state)
   end
@@ -458,7 +458,7 @@ defmodule Extreme do
         respond_to_subscription(response, correlation_id, state.subscriptions)
         state
       from ->
-        :ok = GenServer.reply(from, Response.reply(response))
+        :ok = GenServer.reply(from, Response.reply(response, correlation_id))
         pending_responses = Map.delete(state.pending_responses, correlation_id)
         %{state|pending_responses: pending_responses}
     end
@@ -468,7 +468,7 @@ defmodule Extreme do
     # Logger.debug "Attempting to respond to subscription with response: #{inspect response}"
     case Map.get(subscriptions, correlation_id) do
       nil          -> :ok #Logger.error "Can't find correlation_id #{inspect correlation_id} for response #{inspect response}"
-      subscription -> GenServer.cast(subscription, Response.reply(response))
+      subscription -> GenServer.cast(subscription, Response.reply(response, correlation_id))
     end
   end
 

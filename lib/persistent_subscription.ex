@@ -25,9 +25,9 @@ defmodule Extreme.PersistentSubscription do
     {:noreply, %{state | subscription_id: subscription_id, status: :subscribed}}
   end
 
-  def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{}=e}, %{subscriber: subscriber, subscription_id: subscription_id} = state) do
+  def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{}=e, correlation_id}, %{subscriber: subscriber, subscription_id: subscription_id} = state) do
     Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} event appeared: #{inspect e}" end)
-    send(subscriber, {:on_event, e.event, subscription_id})
+    send(subscriber, {:on_event, e.event, subscription_id, correlation_id})
     {:noreply, state}
   end
 
