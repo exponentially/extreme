@@ -1,19 +1,19 @@
 defmodule Extreme.ListenerTest do
   use ExUnit.Case
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
   require Logger
 
   defmodule PersonCreated, do: defstruct [:name]
   defmodule PersonChangedName, do: defstruct [:name]
 
   defmodule DB do
-    def start_link, 
-      do: Agent.start_link(fn -> %{} end, name: :db) 
+    def start_link,
+      do: Agent.start_link(fn -> %{} end, name: :db)
 
-    def get_last_event(listener, stream), 
+    def get_last_event(listener, stream),
       do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}, -1) end)
 
-    def get_patch_range(listener, stream), 
+    def get_patch_range(listener, stream),
       do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}) end)
 
     def start_patching(listener, stream, from, until) do
@@ -26,7 +26,7 @@ defmodule Extreme.ListenerTest do
       :ok
     end
 
-    def ack_event(listener, stream, event_number), 
+    def ack_event(listener, stream, event_number),
       do: Agent.update(:db, fn state -> Map.put(state, {listener, stream}, event_number) end)
 
     def in_transaction(fun), do: fun.()
@@ -36,7 +36,7 @@ defmodule Extreme.ListenerTest do
     use Extreme.Listener
     alias Extreme.ListenerTest.DB
 
-    defp get_last_event(stream_name) do 
+    defp get_last_event(stream_name) do
       if patch_range = DB.get_patch_range(MyPatchedListener, stream_name) do
         {:patch, patch_range.last_event, patch_range.patch_until}
       else
@@ -46,30 +46,30 @@ defmodule Extreme.ListenerTest do
 
     def register_patching_start(stream_name, from_exclusive, until_inclusive),
       do: DB.start_patching MyPatchedListener, stream_name, from_exclusive, until_inclusive
-  
+
     def patching_done(stream_name),
       do: DB.patching_done  MyPatchedListener, stream_name
 
     defp process_push(push, stream_name) do
       DB.in_transaction fn ->
         send :test, {:processing_push, push.event.event_type, push.event.data}
-        DB.ack_event(MyListener, stream_name, push.event.event_number)  
+        DB.ack_event(MyListener, stream_name, push.event.event_number)
         Logger.debug "Processed event ##{push.event.event_number}"
         #for indexed stream we need to follow link event_number:
-        #DB.ack_event(__MODULE__, stream_name, push.link.event_number)  
+        #DB.ack_event(__MODULE__, stream_name, push.link.event_number)
       end
       #for indexed stream we need to return link event_number:
       #{:ok, push.link.event_number}
       {:ok, push.event.event_number}
     end
-    
+
     def process_patch(push, stream_name) do
       DB.in_transaction fn ->
         send :test, {:processing_push_in_patch, push.event.event_type, push.event.data}
-        DB.ack_event(MyPatchedListener, stream_name, push.event.event_number)  
+        DB.ack_event(MyPatchedListener, stream_name, push.event.event_number)
         Logger.debug "Patched event ##{push.event.event_number}"
         #for indexed stream we need to follow link event_number:
-        #DB.ack_event(__MODULE__, stream_name, push.link.event_number)  
+        #DB.ack_event(__MODULE__, stream_name, push.link.event_number)
       end
       #for indexed stream we need to return link event_number:
       #{:ok, push.link.event_number}
@@ -180,7 +180,7 @@ defmodule Extreme.ListenerTest do
 
     # expect that listener didn't process new event
     refute_receive {:processing_push, _event_type, _event}
-    
+
     # resume processing events
     :ok = MyListener.resume listener
 

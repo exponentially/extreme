@@ -1,6 +1,6 @@
 defmodule ExtremeTest do
   use ExUnit.Case
-  alias Extreme.Messages, as: ExMsg
+  alias Extreme.Msg, as: ExMsg
   require Logger
 
   defmodule PersonCreated, do: defstruct [:name]
@@ -124,7 +124,6 @@ defmodule ExtremeTest do
     assert ev1.event.event_number == 0
   end
 
-
   ## Subscriber test helper process
 
   defmodule Subscriber do
@@ -168,7 +167,6 @@ defmodule ExtremeTest do
       {:reply, result, state}
     end
   end
-
 
   ## Subscribing to stream
 
@@ -397,7 +395,6 @@ defmodule ExtremeTest do
     assert_receive {:extreme, :error, :stream_hard_deleted, ^stream}
   end
 
-
   test "reading single existing event is success", %{server: server} do
     stream = "domain-people-#{UUID.uuid1}"
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
@@ -446,10 +443,11 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
   end
 
+  #@tag :skip
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
     stream = "people-#{UUID.uuid1}"
-    fun = fn -> 
+    fun = fn ->
       for(_ <- 0..499, do: Extreme.execute(server, write_events(stream)))
     end
     time = fun
@@ -460,6 +458,103 @@ defmodule ExtremeTest do
     assert time < 2_000_000
   end
 
+  describe "persistent subscription" do
+    test "create on existing stream is success", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription("subscription-#{UUID.uuid4()}", stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+    end
+
+    test "connect to existing persistent subscription", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+      buffer_size = 1
+
+      # create persistent subscription
+      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
+
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      # assert events are received
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      # assert events came in expected order
+      assert Subscriber.received_events(subscriber) == events
+    end
+
+    test "resume connection to existing persistent subscription should skip ack'd events", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+      buffer_size = 1
+
+      # create persistent subscription
+      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
+
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      # receive and ack first event only
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      subscriber_ref = Process.monitor(subscriber)
+      subscription_ref = Process.monitor(subscription)
+
+      # shutdown subscriber to terminate persistent subscription and its connection
+      shutdown(subscriber)
+
+      assert_receive {:DOWN, ^subscriber_ref, _, _, _}
+      refute Process.alive?(subscriber)
+
+      assert_receive {:DOWN, ^subscription_ref, _, _, _}
+      refute Process.alive?(subscription)
+
+      # wait for event store connection to close, prevents subscriber max count reached error
+      :timer.sleep 1_000
+
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
+
+      # resumed persistent subscription should receive second and third events only
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+    end
+  end
+
+  defp shutdown(pid) when is_pid(pid) do
+    Process.unlink(pid)
+    Process.exit(pid, :shutdown)
+  end
 
   defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
     proto_events = Enum.map(events, fn event ->
@@ -514,6 +609,26 @@ defmodule ExtremeTest do
       expected_version: -2,
       require_master: false,
       hard_delete: hard_delete
+    )
+  end
+
+  defp create_persistent_subscription(groupName, stream) do
+    ExMsg.CreatePersistentSubscription.new(
+      subscription_group_name: groupName,
+      event_stream_id: stream,
+      resolve_link_tos: false,
+      start_from: 0,
+      message_timeout_milliseconds: 10_000,
+      record_statistics: false,
+      live_buffer_size: 500,
+      read_batch_size: 20,
+      buffer_size: 500,
+      max_retry_count: 10,
+      prefer_round_robin: true,
+      checkpoint_after_time: 1_000,
+      checkpoint_max_count: 500,
+      checkpoint_min_count: 1,
+      subscriber_max_count: 1
     )
   end
 end

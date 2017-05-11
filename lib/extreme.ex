@@ -1,20 +1,20 @@
 defmodule Extreme do
   @moduledoc """
-  Extreme module is main communication point with EventStore using tcp connection. Extreme is implemented using 
-  GenServer and is OTP compatible. If client is disconnected from server we are not trying to reconnect, 
+  Extreme module is main communication point with EventStore using tcp connection. Extreme is implemented using
+  GenServer and is OTP compatible. If client is disconnected from server we are not trying to reconnect,
   instead you should rely on your supervisor.  For example:
-  
+
       defmodule MyApp.Supervisor do
         use Supervisor
-      
-        def start_link, 
+
+        def start_link,
           do: Supervisor.start_link __MODULE__, :ok
-      
+
         @event_store MyApp.EventStore
-        
+
         def init(:ok) do
           event_store_settings = Application.get_env :my_app, :event_store
-      
+
           children = [
             worker(Extreme, [event_store_settings, [name: @event_store]]),
             # ... other workers / supervisors
@@ -22,11 +22,11 @@ defmodule Extreme do
           supervise children, strategy: :one_for_one
         end
       end
-  
+
   You can manually start adapter as well (as you can see in test file):
-  
+
       {:ok, server} = Application.get_env(:extreme, :event_store) |> Extreme.start_link
-  
+
   From now on, `server` pid is used for further communication. Since we are relying on supervisor to reconnect,
   it is wise to name `server` as we did in example above.
   """
@@ -41,27 +41,27 @@ defmodule Extreme do
   Starts connection to EventStore using `connection_settings` and optional `opts`.
 
   Extreme can connect to single ES node or to cluster specified with node IPs and ports.
-  
+
   Example for connecting to single node:
-  
+
       config :extreme, :event_store,
-        db_type: :node, 
-        host: "localhost", 
-        port: 1113, 
-        username: "admin", 
+        db_type: :node,
+        host: "localhost",
+        port: 1113,
+        username: "admin",
         password: "changeit",
         reconnect_delay: 2_000,
         max_attempts: :infinity
-  
+
     * `db_type` - defaults to :node, thus it can be omitted
     * `host` - check EXT IP setting of your EventStore
     * `port` - check EXT TCP PORT setting of your EventStore
     * `reconnect_delay` - in ms. Defaults to 1_000. If tcp connection fails this is how long it will wait for reconnection.
     * `max_attempts` - Defaults to :infinity. Specifies how many times we'll try to connect to EventStore
-  
-  
+
+
   Example for connecting to cluster:
-  
+
       config :extreme, :event_store,
         db_type: :cluster,
         gossip_timeout: 300,
@@ -70,30 +70,30 @@ defmodule Extreme do
           %{host: "10.10.10.28", port: 2113},
           %{host: "10.10.10.30", port: 2113}
         ],
-        username: "admin", 
+        username: "admin",
         password: "changeit"
-  
+
     * `gossip_timeout` - in ms. Defaults to 1_000. We are iterating through `nodes` list, asking for cluster member details.
   This setting represents timeout for gossip response before we are asking next node from `nodes` list for cluster details.
     * `nodes` - Mandatory for cluster connection. Represents list of nodes in the cluster as we know it
       * `host` - should be EXT IP setting of your EventStore node
       * `port` - should be EXT HTTP PORT setting of your EventStore node
-  
+
   Example of connection to cluster via DNS lookup
-  
+
       config :extreme, :event_store,
-       db_type: :cluster_dns, 
+       db_type: :cluster_dns,
        gossip_timeout: 300,
        host: "es-cluster.example.com", # accepts char list too, this whould be multy A record host enrty in your nameserver
        port: 2113, # the external gossip port
-       username: "admin", 
+       username: "admin",
        password: "changeit",
-       max_attempts: :infinity 
-  
+       max_attempts: :infinity
+
   When `cluster` mode is used, adapter goes thru `nodes` list and tries to gossip with node one after another
   until it gets response about nodes. Based on nodes information from that response it ranks their statuses and chooses
   the best candidate to connect to. For the way ranking is done, take a look at `lib/cluster_connection.ex`:
-  
+
       defp rank_state("Master"), do: 1
       defp rank_state("PreMaster"), do: 2
       defp rank_state("Slave"), do: 3
@@ -102,12 +102,12 @@ defmodule Extreme do
       defp rank_state("PreReplica"), do: 6
       defp rank_state("Unknown"), do: 7
       defp rank_state("Initializing"), do: 8
-  
+
   Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to witch same connection procedure will be used.
-  
+
   Once client is disconnected from EventStore, supervisor should respawn it and connection starts over again.
   """
-  def start_link(connection_settings, opts \\[]), 
+  def start_link(connection_settings, opts \\[]),
     do: GenServer.start_link(__MODULE__, connection_settings, opts)
 
   @doc """
@@ -117,20 +117,20 @@ defmodule Extreme do
   - {:error, :not_authenticated} on wrong credentials.
   - {:error, error_reason, protobuf_message} on failure.
 
-  EventStore uses ProtoBuf for taking requests and sending responses back. 
-  We are using [exprotobuf](https://github.com/bitwalker/exprotobuf) to deal with them. 
+  EventStore uses ProtoBuf for taking requests and sending responses back.
+  We are using [exprotobuf](https://github.com/bitwalker/exprotobuf) to deal with them.
   List and specification of supported protobuf messages can be found in `include/event_store.proto` file.
-  
+
   Instead of wrapping each and every request in elixir function, we are using `execute/2` function that takes server pid and request message:
-  
+
       {:ok, response} = Extreme.execute server, write_events()
-  
+
   where `write_events` can be helper function like:
-  
-      alias Extreme.Messages, as: ExMsg
-  
+
+      alias Extreme.Msg, as: ExMsg
+
       defp write_events(stream \\ "people", events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]) do
-        proto_events = Enum.map(events, fn event -> 
+        proto_events = Enum.map(events, fn event ->
           ExMsg.NewEvent.new(
             event_id: Extreme.Tools.gen_uuid(),
             event_type: to_string(event.__struct__),
@@ -140,30 +140,29 @@ defmodule Extreme do
             meta: ""
           ) end)
         ExMsg.WriteEvents.new(
-          event_stream_id: stream, 
+          event_stream_id: stream,
           expected_version: -2,
           events: proto_events,
           require_master: false
         )
       end
-  
+
   This way you can fine tune your requests, i.e. choose your serialization. We are using erlang serialization in this case
-  `data: :erlang.term_to_binary(event)`, but you can do whatever suites you. 
-  For more information about protobuf messages EventStore uses, 
-  take a look at their [documentation](http://docs.geteventstore.com) or for common use cases 
+  `data: :erlang.term_to_binary(event)`, but you can do whatever suites you.
+  For more information about protobuf messages EventStore uses,
+  take a look at their [documentation](http://docs.geteventstore.com) or for common use cases
   you can check `test/extreme_test.exs` file.
   """
-  def execute(server, message), 
+  def execute(server, message),
     do: GenServer.call(server, {:execute, message})
-
 
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
   and leaves `subscriber` subscribed per `subscribe` message.
 
   `subscriber` is process that will keep receiving {:on_event, event} messages.
-  `read_events` :: Extreme.Messages.ReadStreamEvents
-  `subscribe` :: Extreme.Messages.SubscribeToStream
+  `read_events` :: Extreme.Msg.ReadStreamEvents
+  `subscribe` :: Extreme.Msg.SubscribeToStream
 
   Returns {:ok, subscription} when subscription is success.
   If `stream` is hard deleted `subscriber` will receive message {:extreme, :error, :stream_hard_deleted, stream}
@@ -176,17 +175,17 @@ defmodule Extreme do
 
       defmodule MyApp.StreamSubscriber
         use GenServer
-      
-        def start_link(extreme, last_processed_event), 
+
+        def start_link(extreme, last_processed_event),
           do: GenServer.start_link __MODULE__, {extreme, last_processed_event}
-      
+
         def init({extreme, last_processed_event}) do
           stream = "people"
           state = %{ event_store: extreme, stream: stream, last_event: last_processed_event }
           GenServer.cast self(), :subscribe
           {:ok, state}
         end
-      
+
         def handle_cast(:subscribe, state) do
           # read only unprocessed events and stay subscribed
           {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream, state.last_event + 1
@@ -194,27 +193,27 @@ defmodule Extreme do
           ref = Process.monitor subscription
           {:noreply, %{state|subscription_ref: ref}}
         end
-      
+
         def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
           GenServer.cast self(), :subscribe
           {:noreply, state}
         end
         def handle_info({:on_event, push}, state) do
           push.event.data
-          |> :erlang.binary_to_term 
+          |> :erlang.binary_to_term
           |> process_event
           event_number = push.link.event_number
           :ok = update_last_event state.stream, event_number
           {:noreply, %{state|last_event: event_number}}
         end
         def handle_info(_msg, state), do: {:noreply, state}
-      
+
         defp process_event(event), do: IO.puts("Do something with event: " <> inspect(event))
 
         defp update_last_event(_stream, _event_number), do: IO.puts("Persist last processed event_number for stream")
       end
 
-  This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message. 
+  This way unprocessed events will be sent by Extreme, using `{:on_event, push}` message.
   After all persisted messages are sent, new messages will be sent the same way as they arrive to stream.
 
   Since there's a lot of boilerplate code here, you can use `Extreme.Listener` to reduce it and focus only
@@ -235,7 +234,7 @@ defmodule Extreme do
 
   ## Example:
       def subscribe(server, stream \\ "people"), do: Extreme.subscribe_to(server, self(), stream)
-      
+
       def handle_info({:on_event, event}, state) do
         Logger.debug "New event added to stream 'people': " <> inspect(event)
         {:noreply, state}
@@ -244,8 +243,18 @@ defmodule Extreme do
   As `Extreme.read_and_stay_subscribed/7` has it's abstraction in `Extreme.Listener`, there's abstraction for this function
   as well in `Extreme.FanoutListener` behaviour.
   """
-  def subscribe_to(server, subscriber, stream, resolve_link_tos \\ true), 
+  def subscribe_to(server, subscriber, stream, resolve_link_tos \\ true),
     do: GenServer.call(server, {:subscribe_to, subscriber, stream, resolve_link_tos})
+
+  @doc """
+  Connect the `subscriber` to an existing persistent subscription named `subscription` on `stream`
+
+  `subscriber` is process that will keep receiving {:on_event, event} messages.
+
+  Returns {:ok, subscription} when subscription is success.
+  """
+  def connect_to_persistent_subscription(server, subscriber, subscription, stream, buffer_size \\ 1),
+    do: GenServer.call(server, {:connect_to_persistent_subscription, subscriber, {subscription, stream, buffer_size}})
 
 
   ## Server Callbacks
@@ -253,9 +262,24 @@ defmodule Extreme do
   def init(connection_settings) do
     user = Keyword.fetch!(connection_settings, :username)
     pass = Keyword.fetch!(connection_settings, :password)
+
     GenServer.cast(self(), {:connect, connection_settings, 1})
-    {:ok, sup} = Extreme.SubscriptionsSupervisor.start_link(self())
-    {:ok, %{socket: nil, pending_responses: %{}, subscriptions: %{}, subscriptions_sup: sup, credentials: %{user: user, pass: pass}, received_data: <<>>, should_receive: nil}}
+
+    {:ok, subscriptions_sup} = Extreme.SubscriptionsSupervisor.start_link(self())
+    {:ok, persistent_subscriptions_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(connection_settings)
+
+    state = %{
+      socket: nil,
+      pending_responses: %{},
+      subscriptions: %{},
+      subscriptions_sup: subscriptions_sup,
+      persistent_subscriptions_sup: persistent_subscriptions_sup,
+      credentials: %{user: user, pass: pass},
+      received_data: <<>>,
+      should_receive: nil,
+    }
+
+    {:ok, state}
   end
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
@@ -325,6 +349,10 @@ defmodule Extreme do
     #Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
+  def handle_call({:connect_to_persistent_subscription, subscriber, params}, _from, state) do
+    {:ok, persistent_subscription} = Extreme.PersistentSubscriptionsSupervisor.start_persistent_subscription(state.persistent_subscriptions_sup, subscriber, params)
+    {:reply, {:ok, persistent_subscription}, state}
+  end
   def handle_call({:subscribe, subscriber, msg}, from, state) do
     #Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
     {message, correlation_id} = Request.prepare(msg, state.credentials)
@@ -332,6 +360,12 @@ defmodule Extreme do
     state = put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
     state = put_in(state.subscriptions,     Map.put(state.subscriptions, correlation_id, subscriber))
     {:noreply, state}
+  end
+  def handle_call({:ack, protobuf_msg, correlation_id}, _from, state) do
+    {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials, correlation_id)
+    Logger.debug(fn -> "Ack received event: #{inspect protobuf_msg}" end)
+    :ok = :gen_tcp.send(state.socket, message)
+    {:reply, :ok, state}
   end
 
   def handle_info(:send_ping, state) do
@@ -389,7 +423,7 @@ defmodule Extreme do
   end
 
   defp process_message(message, state) do
-    #"Let's finally process whole message: #{inspect message}"
+    # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
     Response.parse(message)
     |> respond(state)
   end
@@ -421,16 +455,17 @@ defmodule Extreme do
         respond_to_subscription(response, correlation_id, state.subscriptions)
         state
       from ->
-        :ok = GenServer.reply(from, Response.reply(response))
+        :ok = GenServer.reply(from, Response.reply(response, correlation_id))
         pending_responses = Map.delete(state.pending_responses, correlation_id)
         %{state|pending_responses: pending_responses}
     end
   end
 
   defp respond_to_subscription(response, correlation_id, subscriptions) do
+    # Logger.debug "Attempting to respond to subscription with response: #{inspect response}"
     case Map.get(subscriptions, correlation_id) do
       nil          -> :ok #Logger.error "Can't find correlation_id #{inspect correlation_id} for response #{inspect response}"
-      subscription -> GenServer.cast(subscription, Response.reply(response))
+      subscription -> GenServer.cast(subscription, Response.reply(response, correlation_id))
     end
   end
 

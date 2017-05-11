@@ -3,7 +3,7 @@ defmodule Extreme.Mixfile do
 
   def project do
     [app: :extreme,
-     version: "0.8.1",
+     version: "0.9.0",
      elixir: "~> 1.3.0 or ~> 1.4.0",
      source_url: "https://github.com/exponentially/extreme",
      description: """
@@ -19,7 +19,7 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      applications: [:logger, 
+      applications: [:logger,
         :exprotobuf, :uuid, :gpb, :httpoison, :poison]
     ]
   end
@@ -34,7 +34,8 @@ defmodule Extreme.Mixfile do
       {:earmark, ">= 0.0.0", only: [:test]},
       {:exrm, "~> 1.0.3", override: true, only: :test},
       {:inch_ex, ">= 0.0.0", only: :docs},
-      {:excoveralls, "~> 0.6", only: :test}
+      {:excoveralls, "~> 0.6", only: :test},
+      {:mix_test_watch, "~> 0.2", only: :dev},
     ]
   end
 
