@@ -1,3 +1,7 @@
+# Changelog for Extreme v0.9.0
+  * Added support for persistent connections (thanks to [@slashdotdash](https://github.com/slashdotdash))
+  * BREAKING CHANGE: Module Extreme.Messages is renamed to Extreme.Msg
+
 # Changelog for Extreme v0.8.1
   * Added pause, resume and patch functionalities for Extreme.Listener
 

@@ -40,5 +40,5 @@ config :logger, :console,
   metadata: [:user_id]
 
 config :ex_unit,
-  capture_log: true,
+#capture_log: true,
   assert_receive_timeout: 2_000

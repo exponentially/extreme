@@ -443,7 +443,7 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
   end
 
-  @tag :skip
+  #@tag :skip
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
     stream = "people-#{UUID.uuid1}"
