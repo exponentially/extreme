@@ -469,6 +469,22 @@ defmodule ExtremeTest do
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
 
+    test "recreate an existing subscription returns an already exists error", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+
+      assert {:error, :AlreadyExists, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "Group '#{group}' already exists.", result: :AlreadyExists}
+    end
+
     test "connect to existing persistent subscription on stream", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid4()}"
       group = "subscription-#{UUID.uuid4()}"
