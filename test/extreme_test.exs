@@ -454,7 +454,7 @@ defmodule ExtremeTest do
             |> elem(0)
 
     Logger.info "!!! Execution time: #{inspect time} !!!"
-    assert time < 2_000_000
+    assert time < 2_100_000
   end
 
   describe "persistent subscription" do
