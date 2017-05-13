@@ -532,7 +532,7 @@ defmodule ExtremeTest do
       {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, category_stream, buffer_size)
 
       # wait for event store persistent subscription to connect
-      :timer.sleep 1_000
+      :timer.sleep 2_000
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
       {:ok, _} = Extreme.execute(server, write_events(stream, events))
