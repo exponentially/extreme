@@ -443,7 +443,6 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
   end
 
-  #@tag :skip
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
     stream = "people-#{UUID.uuid1}"
@@ -470,7 +469,23 @@ defmodule ExtremeTest do
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
 
-    test "connect to existing persistent subscription", %{server: server} do
+    test "recreate an existing subscription returns an already exists error", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+
+      assert {:error, :AlreadyExists, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "Group '#{group}' already exists.", result: :AlreadyExists}
+    end
+
+    test "connect to existing persistent subscription on stream", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid4()}"
       group = "subscription-#{UUID.uuid4()}"
       buffer_size = 1
@@ -481,6 +496,43 @@ defmodule ExtremeTest do
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
       {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
+
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      # assert events are received
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+
+      # assert events came in expected order
+      assert Subscriber.received_events(subscriber) == events
+    end
+
+    test "connect to existing persistent subscription on category stream", %{server: server} do
+      stream_prefix = "persistent#{String.replace(UUID.uuid4(), "-", "")}"
+      stream = stream_prefix <> "-subscription"
+      category_stream = "$ce-" <> stream_prefix
+      group = "subscription-#{UUID.uuid4()}"
+      buffer_size = 1
+
+      # create persistent subscription with resolved links to events
+      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, category_stream, true))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, category_stream, buffer_size)
+
+      # wait for event store persistent subscription to connect
+      :timer.sleep 2_000
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
       {:ok, _} = Extreme.execute(server, write_events(stream, events))
@@ -612,11 +664,12 @@ defmodule ExtremeTest do
     )
   end
 
-  defp create_persistent_subscription(groupName, stream) do
+  defp create_persistent_subscription(groupName, stream, resolve_link_tos \\ false)
+  defp create_persistent_subscription(groupName, stream, resolve_link_tos) do
     ExMsg.CreatePersistentSubscription.new(
       subscription_group_name: groupName,
       event_stream_id: stream,
-      resolve_link_tos: false,
+      resolve_link_tos: resolve_link_tos,
       start_from: 0,
       message_timeout_milliseconds: 10_000,
       record_statistics: false,
