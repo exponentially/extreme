@@ -549,6 +549,57 @@ defmodule ExtremeTest do
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
       :ok = Extreme.PersistentSubscription.ack(subscription, event)
     end
+
+    defmodule TestPersist do
+      use GenServer
+
+      def start_link(server, sender, group, stream) do
+        GenServer.start_link(__MODULE__, {:ok, server, sender, group, stream})
+      end
+
+      def init({:ok, server, sender, group, stream}) do
+        { :ok, subscription } = Extreme.connect_to_persistent_subscription(server, self(), group, stream, 2)
+        {:ok, %{ subscription: subscription, sender: sender }}
+      end
+
+      def handle_info({:on_event, event}, %{ subscription: subscription } = state ) do
+        :ok = Extreme.PersistentSubscription.ack(subscription, event)
+        send(state.sender, {:on_event, event})
+        {:noreply, state}
+      end
+    end
+
+    test "Quickly process events on persistent subscription", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+
+      events = [
+        %PersonCreated{name: "1"},
+        %PersonCreated{name: "2"},
+        %PersonCreated{name: "3"},
+        %PersonCreated{name: "4"},
+        %PersonCreated{name: "5"}
+      ]
+
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+
+      TestPersist.start_link(server, self(), group, stream)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "4"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "5"}
+    end
   end
 
   defp shutdown(pid) when is_pid(pid) do
