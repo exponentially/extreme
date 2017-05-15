@@ -13,7 +13,6 @@ defmodule Extreme.PersistentSubscription do
       subscriber: subscriber,
       subscription_ref: Process.monitor(subscriber),
       subscription_id: nil,
-      correlation_id: nil,
       connection: nil,
       params: %{subscription: subscription, stream: stream, buffer_size: buffer_size},
       status: :initialized,
@@ -23,8 +22,8 @@ defmodule Extreme.PersistentSubscription do
   end
 
   # confirm receipt of an event
-  def ack(subscription, %ExMsg.ResolvedIndexedEvent{event: event}) do
-    GenServer.call(subscription, {:ack, event.event_id})
+  def ack(subscription, %ExMsg.ResolvedIndexedEvent{event: event}, correlation_id) do
+    GenServer.call(subscription, {:ack, event.event_id, correlation_id})
   end
 
   def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
@@ -39,15 +38,15 @@ defmodule Extreme.PersistentSubscription do
   end
 
   def handle_cast({:ok, %ExMsg.PersistentSubscriptionStreamEventAppeared{event: event} = msg, correlation_id}, %{subscription_id: subscription_id, subscriber: subscriber} = state) do
-    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} event appeared: #{inspect msg}" end)
-    send(subscriber, {:on_event, event})
-    {:noreply, %{state | correlation_id: correlation_id}}
+    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} event appeared: #{inspect msg} correlation_id: #{inspect correlation_id}" end)
+    send(subscriber, {:on_event, event, correlation_id})
+    {:noreply, state}
   end
 
-  def handle_call({:ack, event_id}, _from, %{connection: connection, subscription_id: subscription_id, correlation_id: correlation_id} = state) do
-    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} ack event id: #{inspect event_id}" end)
+  def handle_call({:ack, event_id, correlation_id}, _from, %{connection: connection, subscription_id: subscription_id} = state) do
+    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} ack event id: #{inspect event_id} correlation_id: #{inspect correlation_id}" end)
     :ok = GenServer.call(connection, {:ack, ack_event(subscription_id, event_id), correlation_id})
-    {:reply, :ok, %{state | correlation_id: nil}}
+    {:reply, :ok, state}
   end
 
   # stop persistent subscription process when subscriber process is down

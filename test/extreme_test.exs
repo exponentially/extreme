@@ -146,6 +146,11 @@ defmodule ExtremeTest do
       {:noreply, %{state|received: [event|state.received]}}
     end
 
+    def handle_info({:on_event, event, correlation_id}=message, state) do
+      send state.sender, message
+      {:noreply, %{state|received: [event|state.received]}}
+    end
+
     def handle_info({:extreme, _, problem, stream}=message, state) do
       Logger.warn "Stream #{stream} issue: #{to_string problem}"
       send state.sender, message
@@ -486,17 +491,17 @@ defmodule ExtremeTest do
       {:ok, _} = Extreme.execute(server, write_events(stream, events))
 
       # assert events are received
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 
       # assert events came in expected order
       assert Subscriber.received_events(subscriber) == events
@@ -518,9 +523,9 @@ defmodule ExtremeTest do
       {:ok, _} = Extreme.execute(server, write_events(stream, events))
 
       # receive and ack first event only
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 
       subscriber_ref = Process.monitor(subscriber)
       subscription_ref = Process.monitor(subscription)
@@ -541,13 +546,13 @@ defmodule ExtremeTest do
       {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
 
       # resumed persistent subscription should receive second and third events only
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 
-      assert_receive {:on_event, event}
+      assert_receive {:on_event, event, correlation_id}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
-      :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
     end
 
     defmodule TestPersist do
@@ -562,8 +567,8 @@ defmodule ExtremeTest do
         {:ok, %{ subscription: subscription, sender: sender }}
       end
 
-      def handle_info({:on_event, event}, %{ subscription: subscription } = state ) do
-        :ok = Extreme.PersistentSubscription.ack(subscription, event)
+      def handle_info({:on_event, event, correlation_id}, %{ subscription: subscription } = state ) do
+        :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
         send(state.sender, {:on_event, event})
         {:noreply, state}
       end

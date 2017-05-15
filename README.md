@@ -438,22 +438,22 @@ _people_.
 
 You must acknowledge receipt, and successful processing, of each received event. The Event Store will remember the last acknowledged event. The subscription will resume from this position should the subscriber process terminate and reconnect. This simplifies the client logic - the code you must write.
 
-`Extreme.PersistentSubscription.ack/2` function is used to acknowledge receipt of an event.
+`Extreme.PersistentSubscription.ack/3` function is used to acknowledge receipt of an event.
 
 ```elixir
 receive do
-  {:on_event, event} ->
+  {:on_event, event, correlation_id} ->
     Logger.debug "New event added to stream 'people': #{inspect event}"
-    :ok = Extreme.PersistentSubscription.ack(subscription, event)
+    :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
 end
 ```
 
 You must track the `subscription` PID returned from the `Extreme.connect_to_persistent_subscription/5` function as part of the process state when using a `GenServer` subscriber.
 
 ```elixir
-def handle_info({:on_event, event}, %{subscription: subscription} = state) do
+def handle_info({:on_event, event, correlation_id}, %{subscription: subscription} = state) do
   Logger.debug "New event added to stream 'people': #{inspect event}"
-  :ok = Extreme.PersistentSubscription.ack(subscription, event)
+  :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
   {:noreply, state}
 end
 ```
