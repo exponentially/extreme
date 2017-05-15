@@ -517,6 +517,38 @@ defmodule ExtremeTest do
       assert Subscriber.received_events(subscriber) == events
     end
 
+    test "ack received event by id", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+      buffer_size = 1
+
+      # create persistent subscription
+      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
+
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      # assert events are received
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event.event.event_id)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event.event.event_id)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event.event.event_id)
+
+      # assert events came in expected order
+      assert Subscriber.received_events(subscriber) == events
+    end
+
     test "connect to existing persistent subscription on category stream", %{server: server} do
       stream_prefix = "persistent#{String.replace(UUID.uuid4(), "-", "")}"
       stream = stream_prefix <> "-subscription"
