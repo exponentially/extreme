@@ -31,7 +31,7 @@ defmodule Extreme.PersistentSubscription do
   end
 
   def ack(subscription, event_id, correlation_id) when is_binary(event_id) do
-    GenServer.call(subscription, {:ack, event_id})
+    GenServer.call(subscription, {:ack, event_id, correlation_id})
   end
 
   def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
