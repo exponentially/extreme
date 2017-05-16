@@ -22,8 +22,16 @@ defmodule Extreme.PersistentSubscription do
   end
 
   # confirm receipt of an event
-  def ack(subscription, %ExMsg.ResolvedIndexedEvent{event: event}, correlation_id) do
+  def ack(subscription, %{link: link}, correlation_id) when not is_nil(link) do
+    GenServer.call(subscription, {:ack, link.event_id, correlation_id})
+  end
+
+  def ack(subscription, %{event: event}, correlation_id) when not is_nil(event) do
     GenServer.call(subscription, {:ack, event.event_id, correlation_id})
+  end
+
+  def ack(subscription, event_id, correlation_id) when is_binary(event_id) do
+    GenServer.call(subscription, {:ack, event_id})
   end
 
   def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
