@@ -19,7 +19,7 @@ defmodule Extreme.Response do
   def reply(%{result: :Success} = data, _correlation_id),               do: {:ok, data}
   def reply(%ExMsg.SubscriptionConfirmation{} = data, _correlation_id), do: {:ok, data}
   def reply(%ExMsg.PersistentSubscriptionConfirmation{} = data, _correlation_id), do: {:ok, data}
-  #def reply(%ExMsg.SubscriptionDropped{} = data, _correlation_id),     do: {:ok, data}
+  def reply(%ExMsg.SubscriptionDropped{} = data, _correlation_id),     do: {:ok, data}
   def reply(%ExMsg.StreamEventAppeared{} = data, _correlation_id),      do: {:ok, data}
   def reply(%ExMsg.PersistentSubscriptionStreamEventAppeared{} = data, correlation_id), do: {:ok, data, correlation_id}
   def reply(%{result: _} = data, _correlation_id),                      do: {:error, data.result, data}

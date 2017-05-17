@@ -34,6 +34,10 @@ defmodule Extreme.PersistentSubscription do
     GenServer.call(subscription, {:ack, event_id, correlation_id})
   end
 
+  def nak(subscription, %{event: event}, correlation_id, nak_action, message \\ nil) when is_atom(nak_action) do
+    GenServer.call(subscription, {:nak, event.event_id, correlation_id, nak_action, message})
+  end
+
   def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
     # create a connection to the event store for this persistent subscription
     {:ok, connection} = Extreme.start_link(connection_settings)
@@ -51,9 +55,20 @@ defmodule Extreme.PersistentSubscription do
     {:noreply, state}
   end
 
+  def handle_cast({:ok, %ExMsg.SubscriptionDropped{ reason: :Unsubscribed}}, %{subscription_id: subscription_id} = state) do
+    Logger.info(fn -> "Stopping persistent subscription #{inspect subscription_id} as subscriber has been unsubscribed" end)
+    {:stop, {:shutdown, :subscriber_down}, state}
+  end
+
   def handle_call({:ack, event_id, correlation_id}, _from, %{connection: connection, subscription_id: subscription_id} = state) do
     Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} ack event id: #{inspect event_id} correlation_id: #{inspect correlation_id}" end)
     :ok = GenServer.call(connection, {:ack, ack_event(subscription_id, event_id), correlation_id})
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:nak, event_id, correlation_id, nak_action, message}, _from, %{connection: connection, subscription_id: subscription_id} = state) do
+    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} nak event id: #{inspect event_id} correlation_id: #{inspect correlation_id} nak_action: #{inspect nak_action}" end)
+    :ok = GenServer.call(connection, {:nak, nak_event(subscription_id, event_id, nak_action, message), correlation_id})
     {:reply, :ok, state}
   end
 
@@ -68,6 +83,15 @@ defmodule Extreme.PersistentSubscription do
       subscription_id: params.subscription,
       event_stream_id: params.stream,
       allowed_in_flight_messages: params.buffer_size
+    )
+  end
+
+  defp nak_event(subscription_id, event_id, nak_action, message) do
+    ExMsg.PersistentSubscriptionNakEvents.new(
+      subscription_id: subscription_id,
+      processed_event_ids: [event_id],
+      message: message,
+      action: nak_action
     )
   end
 

@@ -685,6 +685,78 @@ defmodule ExtremeTest do
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "4"}
       assert_receive {:on_event, event}
       assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "5"}
+
+      assert {:ok, response} = Extreme.execute(server, delete_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.DeletePersistentSubscriptionCompleted{reason: "", result: :Success}
+    end
+
+    defmodule TestPersistRetry do
+      use GenServer
+
+      def start_link(server, sender, group, stream) do
+        GenServer.start_link(__MODULE__, {:ok, server, sender, group, stream})
+      end
+
+      def init({:ok, server, sender, group, stream}) do
+        { :ok, subscription } = Extreme.connect_to_persistent_subscription(server, self(), group, stream, 1)
+        {:ok, %{ subscription: subscription, sender: sender, retry_count: 0 }}
+      end
+
+      def handle_info({:on_event, event, correlation_id}, %{ retry_count: retry_count, subscription: subscription } = state ) do
+        Logger.debug("retry_count: #{inspect retry_count}")
+        if retry_count < 2 do
+          :ok = Extreme.PersistentSubscription.nak(subscription, event, correlation_id, :Retry)
+          send(state.sender, {:on_event, event})
+          {:noreply, %{ state| retry_count: retry_count + 1 }}
+        else
+          :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
+          send(state.sender, {:on_event, event})
+          {:noreply, %{ state| retry_count: 0 }}
+        end
+      end
+    end
+
+    test "Try retry nak action", %{server: server} do
+      stream = "persistent-subscription-#{UUID.uuid4()}"
+      group = "subscription-#{UUID.uuid4()}"
+
+      events = [
+        %PersonCreated{name: "1"},
+        %PersonCreated{name: "2"},
+        %PersonCreated{name: "3"}
+      ]
+
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      assert {:ok, response} = Extreme.execute(server, create_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{reason: "", result: :Success}
+
+      TestPersistRetry.start_link(server, self(), group, stream)
+
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+      assert_receive {:on_event, event}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "3"}
+
+      assert {:ok, response} = Extreme.execute(server, delete_persistent_subscription(group, stream))
+
+      assert response == %Extreme.Msg.DeletePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
   end
 
@@ -767,6 +839,13 @@ defmodule ExtremeTest do
       checkpoint_max_count: 500,
       checkpoint_min_count: 1,
       subscriber_max_count: 1
+    )
+  end
+
+  defp delete_persistent_subscription(group, stream) do
+    ExMsg.DeletePersistentSubscription.new(
+      subscription_group_name: group,
+      event_stream_id: stream
     )
   end
 end
