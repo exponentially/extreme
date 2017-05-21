@@ -758,6 +758,47 @@ defmodule ExtremeTest do
 
       assert response == %Extreme.Msg.DeletePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
+
+    test "connect to existing persistent subscription on category stream and check nack retry works", %{server: server} do
+      stream_prefix = "persistent#{String.replace(UUID.uuid4(), "-", "")}"
+      stream = stream_prefix <> "-subscription"
+      category_stream = "$ce-" <> stream_prefix
+      group = "subscription-#{UUID.uuid4()}"
+      buffer_size = 1
+
+      # create persistent subscription with resolved links to events
+      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, category_stream, true))
+
+      # subscribe to persistent subscription
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = Extreme.connect_to_persistent_subscription(server, subscriber, group, category_stream, buffer_size)
+
+      events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
+      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+
+      # assert events are received
+      assert_receive {:on_event, event, correlation_id}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.nack(subscription, event, correlation_id, :Retry)
+
+      assert_receive {:on_event, event, correlation_id}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "1"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
+
+      assert_receive {:on_event, event, correlation_id}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.nack(subscription, event, correlation_id, :Retry)
+
+      assert_receive {:on_event, event, correlation_id}
+      assert :erlang.binary_to_term(event.event.data) == %PersonCreated{name: "2"}
+      :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
+
+      # assert events came in expected order
+      assert Subscriber.received_events(subscriber) == [%PersonCreated{name: "1"}, %PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "2"}]
+
+      assert {:ok, response} = Extreme.execute(server, delete_persistent_subscription(group, category_stream))
+      assert response == %Extreme.Msg.DeletePersistentSubscriptionCompleted{reason: "", result: :Success}
+    end
   end
 
   defp shutdown(pid) when is_pid(pid) do
