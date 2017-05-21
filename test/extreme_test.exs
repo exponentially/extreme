@@ -706,7 +706,7 @@ defmodule ExtremeTest do
       def handle_info({:on_event, event, correlation_id}, %{ retry_count: retry_count, subscription: subscription } = state ) do
         Logger.debug("retry_count: #{inspect retry_count}")
         if retry_count < 2 do
-          :ok = Extreme.PersistentSubscription.nak(subscription, event, correlation_id, :Retry)
+          :ok = Extreme.PersistentSubscription.nack(subscription, event, correlation_id, :Retry)
           send(state.sender, {:on_event, event})
           {:noreply, %{ state| retry_count: retry_count + 1 }}
         else
@@ -717,7 +717,7 @@ defmodule ExtremeTest do
       end
     end
 
-    test "Try retry nak action", %{server: server} do
+    test "Try retry nack action", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid4()}"
       group = "subscription-#{UUID.uuid4()}"
 

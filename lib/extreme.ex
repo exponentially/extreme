@@ -367,9 +367,9 @@ defmodule Extreme do
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end
-  def handle_call({:nak, protobuf_msg, correlation_id}, _from, state) do
+  def handle_call({:nack, protobuf_msg, correlation_id}, _from, state) do
     {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials, correlation_id)
-    Logger.debug(fn -> "Nak received event: #{inspect protobuf_msg}" end)
+    Logger.debug(fn -> "Nack received event: #{inspect protobuf_msg}" end)
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end

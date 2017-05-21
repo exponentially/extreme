@@ -34,8 +34,8 @@ defmodule Extreme.PersistentSubscription do
     GenServer.call(subscription, {:ack, event_id, correlation_id})
   end
 
-  def nak(subscription, %{event: event}, correlation_id, nak_action, message \\ nil) when is_atom(nak_action) do
-    GenServer.call(subscription, {:nak, event.event_id, correlation_id, nak_action, message})
+  def nack(subscription, %{event: event}, correlation_id, nack_action, message \\ nil) when is_atom(nack_action) do
+    GenServer.call(subscription, {:nack, event.event_id, correlation_id, nack_action, message})
   end
 
   def handle_cast(:connect, %{connection_settings: connection_settings, params: params} = state) do
@@ -66,9 +66,9 @@ defmodule Extreme.PersistentSubscription do
     {:reply, :ok, state}
   end
 
-  def handle_call({:nak, event_id, correlation_id, nak_action, message}, _from, %{connection: connection, subscription_id: subscription_id} = state) do
-    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} nak event id: #{inspect event_id} correlation_id: #{inspect correlation_id} nak_action: #{inspect nak_action}" end)
-    :ok = GenServer.call(connection, {:nak, nak_event(subscription_id, event_id, nak_action, message), correlation_id})
+  def handle_call({:nack, event_id, correlation_id, nack_action, message}, _from, %{connection: connection, subscription_id: subscription_id} = state) do
+    Logger.debug(fn -> "Persistent subscription #{inspect subscription_id} nack event id: #{inspect event_id} correlation_id: #{inspect correlation_id} nack_action: #{inspect nack_action}" end)
+    :ok = GenServer.call(connection, {:nack, nack_event(subscription_id, event_id, nack_action, message), correlation_id})
     {:reply, :ok, state}
   end
 
@@ -86,12 +86,12 @@ defmodule Extreme.PersistentSubscription do
     )
   end
 
-  defp nak_event(subscription_id, event_id, nak_action, message) do
+  defp nack_event(subscription_id, event_id, nack_action, message) do
     ExMsg.PersistentSubscriptionNakEvents.new(
       subscription_id: subscription_id,
       processed_event_ids: [event_id],
       message: message,
-      action: nak_action
+      action: nack_action
     )
   end
 
