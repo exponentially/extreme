@@ -34,7 +34,12 @@ defmodule Extreme.PersistentSubscription do
     GenServer.call(subscription, {:ack, event_id, correlation_id})
   end
 
-  def nack(subscription, %{event: event}, correlation_id, nack_action, message \\ nil) when is_atom(nack_action) do
+  def nack(_, _, _, _, message \\ nil)
+  def nack(subscription, %{link: link}, correlation_id, nack_action, message) when not is_nil(link) and is_atom(nack_action) do
+    GenServer.call(subscription, {:nack, link.event_id, correlation_id, nack_action, message})
+  end
+
+  def nack(subscription, %{event: event}, correlation_id, nack_action, message) when is_atom(nack_action) do
     GenServer.call(subscription, {:nack, event.event_id, correlation_id, nack_action, message})
   end
 
