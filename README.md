@@ -458,13 +458,13 @@ def handle_info({:on_event, event, correlation_id}, %{subscription: subscription
 end
 ```
 
-Events can also be negatively acknowledged. They can be nak'd with a nak_action of :Park, :Retry, :Skip, or :Stop.
+Events can also be not acknowledged. They can be not acknowledged with a nack_action of :Park, :Retry, :Skip, or :Stop.
 
 ```elixir
 def handle_info({:on_event, event, correlation_id}, %{subscription: subscription} = state) do
   Logger.debug "New event added to stream 'people': #{inspect event}"
   if needs_to_retry do
-    :ok = Extreme.PersistentSubscription.nak(subscription, event, correlation_id, :Retry)
+    :ok = Extreme.PersistentSubscription.nack(subscription, event, correlation_id, :Retry)
   else
     :ok = Extreme.PersistentSubscription.ack(subscription, event, correlation_id)
   end
