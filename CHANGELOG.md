@@ -1,3 +1,6 @@
+# Changelog for Extreme v0.9.2
+  * Added support for nacking messages from persistent connections (thanks to [@nathanfox](https://github.com/nathanfox))
+
 # Changelog for Extreme v0.9.1
   * Support persistent subscriptions on projection streams (e.g. `$ce-category`)
 
