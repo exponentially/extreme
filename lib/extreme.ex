@@ -51,12 +51,14 @@ defmodule Extreme do
         username: "admin",
         password: "changeit",
         reconnect_delay: 2_000,
+        connection_name: :my_app,
         max_attempts: :infinity
 
     * `db_type` - defaults to :node, thus it can be omitted
     * `host` - check EXT IP setting of your EventStore
     * `port` - check EXT TCP PORT setting of your EventStore
     * `reconnect_delay` - in ms. Defaults to 1_000. If tcp connection fails this is how long it will wait for reconnection.
+    * `connection_name` - Optional param introduced in EventStore 4. Connection can be identified by this name on ES UI
     * `max_attempts` - Defaults to :infinity. Specifies how many times we'll try to connect to EventStore
 
 
@@ -70,6 +72,7 @@ defmodule Extreme do
           %{host: "10.10.10.28", port: 2113},
           %{host: "10.10.10.30", port: 2113}
         ],
+        connection_name: :my_app,
         username: "admin",
         password: "changeit"
 
@@ -86,6 +89,7 @@ defmodule Extreme do
        gossip_timeout: 300,
        host: "es-cluster.example.com", # accepts char list too, this whould be multy A record host enrty in your nameserver
        port: 2113, # the external gossip port
+       connection_name: :my_app,
        username: "admin",
        password: "changeit",
        max_attempts: :infinity

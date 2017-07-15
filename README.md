@@ -8,7 +8,7 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.0.5 through 3.9.3 and Elixir 1.3 and 1.4 and Erlang/OTP 18.3.4 and 19.2
+This version is tested with EventStore 3.9.3 - 4.0.1, Elixir 1.3 and 1.4 and Erlang/OTP 19.3
 
 ## INSTALL
 
@@ -16,7 +16,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.9"}]
+  [{:extreme, "~> 0.10.0"}]
 end
 ```
 
@@ -32,6 +32,14 @@ Extreme includes all its dependencies so you don't have to name them separately.
 
 After you are done, run `mix deps.get` in your shell to fetch and compile Extreme and its dependencies.
 
+### EventStore 4 note
+
+In build time env var `EXTREME_ES_VERSION` needs to be set to `4` in order for `Extreme` to use new proto file
+that supports 64-bit stream versions. You can do this in your config/config.exs file for example:
+
+```elixir
+:ok = System.put_env("EXTREME_ES_VERSION", "4")
+```
 
 ## USAGE
 
@@ -88,6 +96,7 @@ config :extreme, :event_store,
   username: "admin",
   password: "changeit",
   reconnect_delay: 2_000,
+  connection_name: :my_app,
   max_attempts: :infinity
 ```
 
@@ -95,6 +104,7 @@ config :extreme, :event_store,
 * `host` - check EXT IP setting of your EventStore
 * `port` - check EXT TCP PORT setting of your EventStore
 * `reconnect_delay` - in ms. Defaults to 1_000. If tcp connection fails this is how long it will wait for reconnection.
+* `connection_name` - Optional param introduced in EventStore 4. Connection can be identified by this name on ES UI
 * `max_attempts` - Defaults to :infinity. Specifies how many times we'll try to connect to EventStore
 
 
@@ -110,6 +120,7 @@ config :extreme, :event_store,
     %{host: "10.10.10.28", port: 2113},
     %{host: "10.10.10.30", port: 2113}
   ],
+  connection_name: :my_app,
   username: "admin",
   password: "changeit"
 ```
@@ -129,6 +140,7 @@ config :extreme, :event_store,
  gossip_timeout: 300,
  host: "es-cluster.example.com", # accepts char list too, this whould be multy A record host enrty in your nameserver
  port: 2113, # the external gossip port
+ connection_name: :my_app,
  username: "admin",
  password: "changeit",
  mode: :write,
