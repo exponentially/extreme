@@ -309,9 +309,7 @@ defmodule Extreme do
     opts = [:binary, active: :once]
     case :gen_tcp.connect(String.to_char_list(host), port, opts) do
       {:ok, socket} ->
-        Logger.info "Successfully connected to EventStore @ #{host}:#{port}"
-        :timer.send_after(1_000, :send_ping)
-        {:ok, socket}
+        socket |> on_connect(System.get_env("EXTREME_ES_VERSION"), connection_settings[:connection_name])
       _             ->
         max_attempts = Keyword.get(connection_settings, :max_attempts, :infinity)
         reconnect = case max_attempts do
@@ -330,6 +328,16 @@ defmodule Extreme do
           {:error, :max_attempt_exceeded}
         end
     end
+  end
+
+  defp on_connect(socket, "4", connection_name) do
+    send self(), {:identify_client, 1, to_string(connection_name)}
+    {:ok, socket}
+  end
+  defp on_connect(socket, _, _) do
+    Logger.info(fn -> "Successfully connected to EventStore < 4" end)
+    :timer.send_after 1_000, :send_ping
+    {:ok, socket}
   end
 
   def handle_call({:execute, protobuf_msg}, from, state) do
@@ -374,6 +382,16 @@ defmodule Extreme do
     {:reply, :ok, state}
   end
 
+  def handle_info({:identify_client, version, connection_name}, state) do
+    Logger.debug(fn -> "Identifying client with EventStore" end)
+    protobuf_msg = Extreme.Msg.IdentifyClient.new(
+      version:         version,
+      connection_name: connection_name
+    )
+    {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials)
+    :ok = :gen_tcp.send(state.socket, message)
+    {:noreply, state}
+  end
   def handle_info(:send_ping, state) do
     message = Request.prepare(:ping)
     :ok = :gen_tcp.send(state.socket, message)
@@ -434,6 +452,11 @@ defmodule Extreme do
     |> respond(state)
   end
 
+  defp respond({:client_identified, _correlation_id}, state) do
+    Logger.info(fn -> "Successfully connected to EventStore >= 4" end)
+    :timer.send_after 1_000, :send_ping
+    state
+  end
   defp respond({:pong, _correlation_id}, state) do
     #Logger.debug "#{inspect self()} got :pong"
     :timer.send_after 1_000, :send_ping

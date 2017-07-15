@@ -57,6 +57,8 @@ defmodule Extreme.MessageResolver do
   def encode_cmd(:authenticate),                                  do: 0xF2
   def encode_cmd(:authenticated),                                 do: 0xF3
   def encode_cmd(:not_authenticated),                             do: 0xF4
+  def encode_cmd(Msg.IdentifyClient),                             do: 0xF5
+  def encode_cmd(:client_identified),                             do: 0xF6
 
   ## Decode
 
@@ -84,4 +86,5 @@ defmodule Extreme.MessageResolver do
   def decode_cmd(0xCB),                                           do: Msg.DeletePersistentSubscriptionCompleted
   
   def decode_cmd(0xF4),                                           do: :not_authenticated
+  def decode_cmd(0xF6),                                           do: :client_identified
 end

@@ -1,5 +1,7 @@
 use Mix.Config
 
+:ok = System.put_env("EXTREME_ES_VERSION", "4")
+
 # EventStore
 config :extreme, :event_store,
   db_type:         :node,
@@ -9,6 +11,7 @@ config :extreme, :event_store,
   password:        "changeit",
   reconnect_delay: 2_000, #in ms. Defaults to 1_000
   mode:            :write,
+  connection_name: :extreme_test,
   max_attempts:    :infinity
 
 ## settings for cluster
@@ -40,4 +43,5 @@ config :logger, :console,
   metadata: [:user_id]
 
 config :ex_unit,
-  assert_receive_timeout: 2_000
+  assert_receive_timeout: 2_000,
+  capture_log: true
