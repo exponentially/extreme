@@ -307,7 +307,7 @@ defmodule Extreme do
   defp connect(host, port, connection_settings, attempt) do
     Logger.info "Connecting Extreme to #{host}:#{port}"
     opts = [:binary, active: :once]
-    case :gen_tcp.connect(String.to_char_list(host), port, opts) do
+    case :gen_tcp.connect(String.to_charlist(host), port, opts) do
       {:ok, socket} ->
         Logger.info "Successfully connected to EventStore @ #{host}:#{port}"
         :timer.send_after(1_000, :send_ping)

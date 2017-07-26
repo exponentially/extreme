@@ -19,7 +19,7 @@ defmodule Extreme.ClusterConnection do
   def get_hostname(connection_settings) do
     hostname       = Keyword.fetch!(connection_settings, :host)
     cond do
-      is_binary(hostname) -> to_char_list(hostname)
+      is_binary(hostname) -> to_charlist(hostname)
       true                -> hostname
     end
   end

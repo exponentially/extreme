@@ -4,7 +4,7 @@ defmodule Extreme.Mixfile do
   def project do
     [app: :extreme,
      version: "0.9.2",
-     elixir: "~> 1.3.0 or ~> 1.4.0",
+     elixir: "~> 1.3.0 or ~> 1.4.0 or ~> 1.5.0",
      source_url: "https://github.com/exponentially/extreme",
      description: """
      Elixir TCP adapter for EventStore.
