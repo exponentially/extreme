@@ -8,7 +8,7 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.0.5 through 3.9.3 and Elixir 1.3 and 1.4 and Erlang/OTP 18.3.4 and 19.2
+This version is tested with EventStore 3.9.3 and Elixir 1.5 and Erlang/OTP 20.0
 
 ## INSTALL
 
@@ -16,7 +16,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.9"}]
+  [{:extreme, "~> 0.10"}]
 end
 ```
 
