@@ -154,7 +154,7 @@ defmodule Extreme do
   you can check `test/extreme_test.exs` file.
   """
   def execute(server, message),
-    do: GenServer.call(server, {:execute, message})
+    do: GenServer.call(server, {:execute, message}, 30_000)
 
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
