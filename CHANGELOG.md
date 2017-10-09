@@ -1,3 +1,7 @@
+# Changelog for Extreme v0.10.1
+  * Dependecy upgrades
+  * Tested with Elixir 1.5.2 and OTP 20.1
+
 # Changelog for Extreme v0.9.2
   * Added support for nacking messages from persistent connections (thanks to [@nathanfox](https://github.com/nathanfox))
 
