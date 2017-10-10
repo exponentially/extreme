@@ -12,7 +12,7 @@ script:
   - "MIX_ENV=test mix do deps.get, compile, coveralls.travis"
 
 before_install:
-  - wget http://download.geteventstore.com/binaries/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
+  - wget https://eventstore.org/downloads/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
   - tar xf EventStore*.tar.gz
   - cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
 
