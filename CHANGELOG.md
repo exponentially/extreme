@@ -1,3 +1,6 @@
+# Changelog for Extreme v0.10.2
+  * Fix end of patching in Listener
+
 # Changelog for Extreme v0.10.1
   * Dependecy upgrades
   * Tested with Elixir 1.5.2 and OTP 20.1

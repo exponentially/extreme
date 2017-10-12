@@ -163,7 +163,7 @@ defmodule Extreme.Listener do
         state = if event_number == state.patch_until do
           :ok = patching_done state.stream_name
           GenServer.cast self(), :subscribe
-          %{state| last_event: event_number, subscription: nil, subscription_ref: nil, mode: :done}
+          %{state| last_event: event_number, patch_until: nil, subscription: nil, subscription_ref: nil, mode: :done}
         else
           %{state| last_event: event_number}
         end
