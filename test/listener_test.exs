@@ -7,33 +7,33 @@ defmodule Extreme.ListenerTest do
   defmodule PersonChangedName, do: defstruct [:name]
 
   defmodule DB do
-    def start_link,
-      do: Agent.start_link(fn -> %{} end, name: :db)
+    def start_link(name \\ :db, start_from \\ -1),
+      do: Agent.start_link(fn -> %{start_from: start_from} end, name: name)
 
-    def get_last_event(listener, stream),
-      do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}, -1) end)
+    def get_last_event(name \\ :db, listener, stream),
+      do: Agent.get(name, fn state -> Map.get(state, {listener, stream}, state[:start_from]) end)
 
-    def get_patch_range(listener, stream),
-      do: Agent.get(:db, fn state -> Map.get(state, {listener, stream}) end)
+    def get_patch_range(name \\ :db, listener, stream),
+      do: Agent.get(name, fn state -> Map.get(state, {listener, stream}) end)
 
-    def start_patching(listener, stream, from, until) do
-      Agent.update(:db, fn state -> Map.put(state, {listener, stream}, %{last_event: from, patch_until: until}) end)
+    def start_patching(name \\ :db, listener, stream, from, until) do
+      Agent.update(name, fn state -> Map.put(state, {listener, stream}, %{last_event: from, patch_until: until}) end)
       :ok
     end
 
-    def patching_done(listener, stream) do
-      Agent.update(:db, fn state -> Map.delete(state, {listener, stream}) end)
+    def patching_done(name \\ :db, listener, stream) do
+      Agent.update(name, fn state -> Map.delete(state, {listener, stream}) end)
       :ok
     end
 
-    def ack_event(listener, stream, event_number),
-      do: Agent.update(:db, fn state -> Map.put(state, {listener, stream}, event_number) end)
+    def ack_event(name \\ :db, listener, stream, event_number),
+      do: Agent.update(name, fn state -> Map.put(state, {listener, stream}, event_number) end)
 
     def in_transaction(fun), do: fun.()
   end
 
   defmodule MyListener do
-    use Extreme.Listener
+    use   Extreme.Listener
     alias Extreme.ListenerTest.DB
 
     defp get_last_event(stream_name) do
@@ -77,6 +77,24 @@ defmodule Extreme.ListenerTest do
     end
     # This override is optional
     def caught_up, do: Logger.debug("We are up to date. YEEEY!!!")
+  end
+
+  defmodule NewListener do
+    use   Extreme.Listener
+    alias Extreme.ListenerTest.DB
+
+    defp get_last_event(stream_name) do
+      DB.get_last_event :ignores_old_events_db, NewListener, stream_name
+    end
+
+    defp process_push(push, stream_name) do
+      DB.in_transaction fn ->
+        send :test, {:processing_push, push.event.event_type, push.event.data}
+        DB.ack_event(:ignores_old_events_db, NewListener, stream_name, push.event.event_number)
+        Logger.debug "Processed event ##{push.event.event_number}"
+      end
+      {:ok, push.event.event_number}
+    end
   end
 
   setup do
@@ -153,6 +171,34 @@ defmodule Extreme.ListenerTest do
     assert event_type == "Elixir.Extreme.ListenerTest.PersonChangedName"
     assert event3 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListener, stream) == 2
+  end
+
+  test "Listener doesn't process previous events but keeps listening for new ones", %{server: server} do
+    Logger.debug "TEST: Listener doesn't process previous events but keeps listening for new ones"
+    stream = to_string(UUID.uuid1)
+    event1 = %PersonCreated{name: "Pera Peric"}
+    event2 = %PersonChangedName{name: "Zika"}
+    {:ok, _db} = DB.start_link :ignores_old_events_db, :from_now
+    assert DB.get_last_event(:ignores_old_events_db, NewListener, stream) == :from_now
+
+    # write 2 events to stream
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event1, event2])
+
+    # run listener and expect it NOT to read them
+    {:ok, _listener} = NewListener.start_link(server, stream)
+    refute_receive {:processing_push, _, _}
+    refute_receive {:processing_push, _, _}
+    assert DB.get_last_event(:ignores_old_events_db, NewListener, stream) == :from_now
+
+    # write one more event to stream
+    event3 = %PersonChangedName{name: "Laza"}
+    {:ok, %{result: :Success}} = Extreme.execute server, write_events(stream, [event3])
+
+    # expect that listener got new event
+    assert_receive {:processing_push, event_type, event}
+    assert event_type == "Elixir.Extreme.ListenerTest.PersonChangedName"
+    assert event3 == :erlang.binary_to_term(event)
+    assert DB.get_last_event(:ignores_old_events_db, NewListener, stream) == 2
   end
 
   test "Listener can be paused and resumed", %{server: server} do

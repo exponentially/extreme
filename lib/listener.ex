@@ -7,7 +7,8 @@ defmodule Extreme.Listener do
         use Extreme.Listener
         import MyApp.MyProcessor
       
-        # returns last processed event by MyListener on stream_name, -1 if none has been processed so far
+        # returns last processed event by MyListener on stream_name,
+        # -1 if none has been processed so far, or `:from_now` if you don't care for previous events
         defp get_last_event(stream_name), do: DB.get_last_event MyListener, stream_name
       
         defp process_push(push, stream_name) do
@@ -105,6 +106,9 @@ defmodule Extreme.Listener do
 
 	  def handle_cast(:subscribe, state) do
         {:ok, state} = case get_last_event(state.stream_name) do
+          :from_now                         ->
+            {:ok, %{last_event_number: last_event}} = Extreme.execute state.event_store, _read_events_backward(state.stream_name)
+            start_live_subscription(last_event, state)
           {:patch, last_event, patch_until} -> start_patching(last_event, patch_until, state)
           last_event                        -> start_live_subscription(last_event, state)
         end
@@ -174,6 +178,16 @@ defmodule Extreme.Listener do
         {:noreply, state}
       end
       def handle_info(_msg, state), do: {:noreply, state}
+
+      defp _read_events_backward(stream, start \\ -1, count \\ 1) do
+        Extreme.Msg.ReadStreamEventsBackward.new(
+          event_stream_id: stream,
+          from_event_number: start,
+          max_count: count,
+          resolve_link_tos: true,
+          require_master: false
+        )
+      end
 
       def caught_up, do: Logger.debug "We are up to date"
       def register_patching_start(_, _, _), do: {:error, :not_implemented}
