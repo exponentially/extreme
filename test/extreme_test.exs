@@ -799,6 +799,41 @@ defmodule ExtremeTest do
       assert {:ok, response} = Extreme.execute(server, delete_persistent_subscription(group, category_stream))
       assert response == %Extreme.Msg.DeletePersistentSubscriptionCompleted{reason: "", result: :Success}
     end
+
+    @tag timeout: 300_000
+    @tag :manual
+    test "reading and writing simultaneously is ok", %{server: server} do
+      num_initial_events = 2_000
+      num_bytes = 2_000
+      # usualy older implementation fails on 50th iteration
+      # so 500 should be enough to confirm that seting :inte.setopts(socket, active: false) 
+      # works fo this kind of issues
+      num_test_events = 500 # if you incrase this ensure you change this test timout
+      stream = "some-stream-#{UUID.uuid1}"
+  
+      data = Enum.reduce(1..num_bytes, "", fn(_, acc) -> "a" <> acc end)
+      event = %{__struct__: SomeStruct, data: data}
+  
+      initial_events = Enum.map(1..num_initial_events, fn _ -> event end)
+      Extreme.execute(server, write_events(stream, initial_events))
+      Process.spawn(
+        fn ->
+          Enum.each(1..num_test_events, fn _x ->
+            # IO.puts "w#{x}"
+            assert {:ok, _} = Extreme.execute(server, write_events(stream, [event]))
+          end)
+        end, [])
+      p = self()
+      Process.spawn(
+        fn ->
+          Enum.each(1..num_test_events, fn _x ->
+            # IO.puts "r#{x}"
+            assert {:ok, _} = Extreme.execute(server, read_events(stream))
+          end)
+         send(p, :ok) # at the end, this should tell that we received all messages
+        end, [])
+      assert_receive( :ok, 300_000)
+    end
   end
 
   defp shutdown(pid) when is_pid(pid) do
