@@ -380,34 +380,42 @@ defmodule Extreme do
     {:noreply, state}
   end
   def handle_info({:tcp, socket, pkg}, state) do
-    :inet.setopts(socket, active: :once) # Allow the socket to send us the next message
+    :inet.setopts(socket, active: false) # will be reset to :once, once we receive and parse complete protobuff message
     state = process_package(pkg, state)
+    :inet.setopts(socket, active: :once)
     {:noreply, state}
   end
-  def handle_info({:tcp_closed, _port}, state), do: {:stop, :tcp_closed, state}
+  def handle_info({:tcp_closed, _port}, state) do
+    {:stop, :tcp_closed, state}
+  end
 
 
   # This package carries message from it's start. Process it and return new `state`
   defp process_package(<<message_length :: 32-unsigned-little-integer, content :: binary>>, %{socket: _socket, received_data: <<>>} = state) do
     #Logger.debug "Processing package with message_length of: #{message_length}"
-    slice_content(message_length, content)
+    slice_content(message_length, content, state)
     |> process_content(state)
   end
   # Process package for unfinished message. Process it and return new `state`
   defp process_package(pkg, %{socket: _socket} = state) do
     #Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
-    slice_content(state.should_receive, state.received_data <> pkg)
+    slice_content(state.should_receive, state.received_data <> pkg, state)
     |> process_content(state)
   end
 
-  defp slice_content(message_length, content) do
+  defp slice_content(message_length, content, state) do
     if byte_size(content) < message_length do
       #Logger.debug "We have unfinished message of length #{message_length}(#{byte_size(content)}): #{inspect content}"
-      {:unfinished_message, message_length, content}
+      case :gen_tcp.recv(state.socket, message_length - byte_size(content)) do
+        {:ok, pkg} ->
+          slice_content(message_length, content <> pkg, state)
+        other -> 
+          other
+      end
     else
       case content do
-        <<message :: binary - size(message_length), next_message :: binary>> -> {message, next_message}
-        <<message :: binary - size(message_length)>>                         -> {message, <<>>}
+        <<message :: binary-size(message_length), next_message :: binary>> -> {message, next_message}
+        <<message :: binary-size(message_length)>>                         -> {message, <<>>}
       end
     end
   end
@@ -435,12 +443,12 @@ defmodule Extreme do
   end
 
   defp respond({:pong, _correlation_id}, state) do
-    #Logger.debug "#{inspect self()} got :pong"
+    # Logger.debug "#{inspect self()} got :pong"
     :timer.send_after 1_000, :send_ping
     state
   end
   defp respond({:heartbeat_request, correlation_id}, state) do
-    #Logger.debug "#{inspect self()} Tick-Tack"
+    # Logger.debug "#{inspect self()} Tick-Tack"
     message = Request.prepare(:heartbeat_response, correlation_id)
     :ok = :gen_tcp.send(state.socket, message)
     %{state|pending_responses: state.pending_responses}
