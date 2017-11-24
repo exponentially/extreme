@@ -1,6 +1,6 @@
 defmodule Extreme.ListenerTest do
-  use ExUnit.Case
-  alias Extreme.Msg, as: ExMsg
+  use     ExUnit.Case, async: false
+  alias   Extreme.Msg, as: ExMsg
   require Logger
 
   defmodule PersonCreated, do: defstruct [:name]
