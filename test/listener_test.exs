@@ -100,6 +100,7 @@ defmodule Extreme.ListenerTest do
   setup do
     {:ok, server}    = Application.get_env(:extreme, :event_store)
                        |> Extreme.start_link
+    :timer.sleep 10
     {:ok, _db}       = DB.start_link
     Process.register self(), :test
     {:ok, server: server}
