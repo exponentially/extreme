@@ -462,6 +462,35 @@ defmodule ExtremeTest do
     assert time < 2_100_000
   end
 
+  @tag timeout: 300_000
+  @tag :manual
+  test "reading and writing simultaneously is ok", %{server: server} do
+
+    num_initial_events = 2_000
+    num_bytes = 2_000
+    num_test_events = 5_000
+    stream = "some-stream-#{UUID.uuid1}"
+
+    data = Enum.reduce(1..num_bytes, "", fn(_, acc) -> "a" <> acc end)
+    event = %{__struct__: SomeStruct, data: data}
+
+    initial_events = Enum.map(1..num_initial_events, fn _ -> event end)
+    Extreme.execute(server, write_events(stream, initial_events))
+
+    Process.spawn(
+      fn ->
+        Enum.each(1..num_test_events, fn x ->
+          IO.puts "w#{x}"
+          Extreme.execute(server, write_events(stream, [event]))
+        end)
+      end, [])
+
+    Enum.each(1..num_test_events, fn x ->
+      IO.puts "r#{x}"
+      Extreme.execute(server, read_events(stream))
+    end)
+  end
+
   describe "persistent subscription" do
     test "create on existing stream is success", %{server: server} do
       stream = "persistent-subscription-#{UUID.uuid4()}"
