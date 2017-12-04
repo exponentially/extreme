@@ -12,7 +12,7 @@ config :extreme, :event_store,
   connection_name: :extreme_test,
   max_attempts:    :infinity
 
-  config :extreme, :protocol_version, 3
+  config :extreme, :protocol_version, System.get_env("ES_VERSION") || 3
 
 ## settings for cluster
 #config :extreme, :event_store,
