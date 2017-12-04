@@ -1,7 +1,5 @@
 use Mix.Config
 
-:ok = System.put_env("EXTREME_ES_VERSION", "4")
-
 # EventStore
 config :extreme, :event_store,
   db_type:         :node,
@@ -13,6 +11,8 @@ config :extreme, :event_store,
   mode:            :write,
   connection_name: :extreme_test,
   max_attempts:    :infinity
+
+  config :extreme, :protocol_version, 3
 
 ## settings for cluster
 #config :extreme, :event_store,

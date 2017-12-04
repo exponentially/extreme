@@ -32,13 +32,15 @@ Extreme includes all its dependencies so you don't have to name them separately.
 
 After you are done, run `mix deps.get` in your shell to fetch and compile Extreme and its dependencies.
 
-### EventStore 4 note
+### EventStore v4 and later note
 
-In build time env var `EXTREME_ES_VERSION` needs to be set to `4` in order for `Extreme` to use new proto file
-that supports 64-bit stream versions. You can do this in your config/config.exs file for example:
+Starting from EventStore version 4.0 there are some upgrades to communication protocol. Event number size is changed to 64bits 
+and there is new messages `IdentifyClient` and `ClientIdentified`. Since we would like to keep backward compatibility with older v3 protocol, 
+we introduced new configuration for `:extreme` application, where you have to set `:protocol_version` equal to `4` if you want to use new protocol, default is `3`. 
+Below is exact line you have to add in you application config file inorder to activate new protocol:
 
 ```elixir
-:ok = System.put_env("EXTREME_ES_VERSION", "4")
+config :extreme, :protocol_version, 4
 ```
 
 ## USAGE

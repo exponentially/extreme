@@ -313,13 +313,13 @@ defmodule Extreme do
     opts = [:binary, active: :once]
     case :gen_tcp.connect(String.to_char_list(host), port, opts) do
       {:ok, socket} ->
-        socket |> on_connect(System.get_env("EXTREME_ES_VERSION"), connection_settings[:connection_name])
-      _             ->
+        on_connect(socket, Application.get_env(:extreme, :protocol_version, 3), connection_settings[:connection_name])
+      _other        ->
         max_attempts = Keyword.get(connection_settings, :max_attempts, :infinity)
         reconnect = case max_attempts do
           :infinity -> true
           max when attempt <= max -> true
-          _ -> false
+          _any -> false
         end
         if reconnect do
           reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1_000
@@ -334,12 +334,13 @@ defmodule Extreme do
     end
   end
 
-  defp on_connect(socket, "4", connection_name) do
+  defp on_connect(socket, protocol_version, connection_name) when protocol_version >= 4 do
+    Logger.info(fn -> "Successfully connected to EventStore using protocol version #{protocol_version}" end)
     send self(), {:identify_client, 1, to_string(connection_name)}
     {:ok, socket}
   end
-  defp on_connect(socket, _, _) do
-    Logger.info(fn -> "Successfully connected to EventStore < 4" end)
+  defp on_connect(socket, protocol_version, _) do
+    Logger.info(fn -> "Successfully connected to EventStore using protocol version #{protocol_version}" end)
     :timer.send_after 1_000, :send_ping
     {:ok, socket}
   end
