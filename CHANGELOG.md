@@ -1,4 +1,7 @@
-# Changelog for Extreme v0.10.3
+# Changelog for extreme v0.10.4
+  * Fixed issue with concurrent read and write where messages get stuck into extreme process state
+  
+# Changelog for extreme v0.10.3
   * Extreme.Listener - if get_last_event/1 returns `:from_now`, catching events will start from current event
 
 # Changelog for Extreme v0.10.2

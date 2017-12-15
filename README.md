@@ -16,7 +16,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.10.1"}]
+  [{:extreme, "~> 0.10.4"}]
 end
 ```
 
