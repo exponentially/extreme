@@ -1,3 +1,6 @@
+# Changelog for extreme v0.11.0
+  * Added support for EventStore 4
+  
 # Changelog for extreme v0.10.4
   * Fixed issue with concurrent read and write where messages get stuck into extreme process state
   

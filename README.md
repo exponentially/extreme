@@ -16,7 +16,7 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.10.4"}]
+  [{:extreme, "~> 0.11.0"}]
 end
 ```
 
@@ -37,7 +37,7 @@ After you are done, run `mix deps.get` in your shell to fetch and compile Extrem
 Starting from EventStore version 4.0 there are some upgrades to communication protocol. Event number size is changed to 64bits 
 and there is new messages `IdentifyClient` and `ClientIdentified`. Since we would like to keep backward compatibility with older v3 protocol, 
 we introduced new configuration for `:extreme` application, where you have to set `:protocol_version` equal to `4` if you want to use new protocol, default is `3`. 
-Below is exact line you have to add in you application config file inorder to activate new protocol:
+Below is exact line you have to add in you application config file in order to activate new protocol:
 
 ```elixir
 config :extreme, :protocol_version, 4
