@@ -1,3 +1,16 @@
+# Changelog for extreme v0.10.4
+  * Fixed issue with concurrent read and write where messages get stuck into extreme process state
+  
+# Changelog for extreme v0.10.3
+  * Extreme.Listener - if get_last_event/1 returns `:from_now`, catching events will start from current event
+
+# Changelog for Extreme v0.10.2
+  * Fix end of patching in Listener
+
+# Changelog for Extreme v0.10.1
+  * Dependecy upgrades
+  * Tested with Elixir 1.5.2 and OTP 20.1
+
 # Changelog for Extreme v0.9.2
   * Added support for nacking messages from persistent connections (thanks to [@nathanfox](https://github.com/nathanfox))
 

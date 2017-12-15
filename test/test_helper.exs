@@ -1,1 +1,2 @@
-ExUnit.start(exclude: [:skip])
+ExUnit.start()
+ExUnit.configure exclude: [:manual]
