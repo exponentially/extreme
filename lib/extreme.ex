@@ -411,21 +411,15 @@ defmodule Extreme do
     {:stop, :tcp_closed, state}
   end
 
-
-  defp process_package(state, pkg) do
+  defp process_package(state, <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >>) do
     # Handle binary data containing zero, one or many messages
     # All messages start with a 32 bit unsigned little endian integer of the content length + a binary body of that size
-    case pkg do
-      <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >> ->
-        # At least one message received, handle it and re-prase rest
-        state
-        |> process_message(content)
-        |> process_package(rest)
-      data ->
-        # No full message left, keep state in GenServer to reprocess once more data arrives
-        %{state|received_data: data}
-    end
+    state
+    |> process_message(content)
+    |> process_package(rest)
   end
+  # No full message left, keep state in GenServer to reprocess once more data arrives
+  defp process_package(state, incomplete_package), do: %{state|received_data: incomplete_package}
 
 
   defp process_message(state, message) do
