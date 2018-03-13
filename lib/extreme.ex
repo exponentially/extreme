@@ -419,11 +419,25 @@ defmodule Extreme do
     slice_content(message_length, content, state)
     |> process_content(state)
   end
-  # Process package for unfinished message. Process it and return new `state`
   defp process_package(pkg, %{socket: _socket} = state) do
-    #Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
-    slice_content(state.should_receive, state.received_data <> pkg, state)
-    |> process_content(state)
+    # Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
+
+    # we know how long the next message should be
+    if state.should_receive do
+      slice_content(state.should_receive, state.received_data <> pkg, state)
+      |> process_content(state)
+    else
+      # we don't know how long the next message should be, let's capture more data
+      if byte_size(state.received_data <> pkg) >= 4 do
+        process_package(state.received_data <> pkg, %{
+          state
+          | should_receive: nil,
+            received_data: <<>>
+        })
+      else
+        %{state | received_data: state.received_data <> pkg}
+      end
+    end
   end
 
   defp slice_content(message_length, content, state) do
