@@ -403,9 +403,9 @@ defmodule Extreme do
     {:noreply, state}
   end
   def handle_info({:tcp, socket, pkg}, state = %{received_data: received_data}) do
-    rest = process_package(received_data <> pkg, state)
+    state = process_package(state, received_data <> pkg)
     :inet.setopts(socket, active: :once)
-    {:noreply, %{state|received_data: rest}}
+    {:noreply, state}
   end
   def handle_info({:tcp_closed, _port}, state) do
     {:stop, :tcp_closed, state}
@@ -413,22 +413,22 @@ defmodule Extreme do
 
 
   # This package carries message from it's start. Process it and return new `state`
-  defp process_package(pkg, state) do
+  defp process_package(state, pkg) do
     #Logger.debug "Processing package with message_length of: #{message_length}"
     case pkg do
       <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >> ->
         # full frame received, handle content
-        process_message(content, state)
-        # handle rest of the received data
-        process_package(rest, state)
+        state
+        |> process_message(content)
+        |> process_package(rest)
       data ->
         # partial frame -> aggregate more data
-        data
+        %{state|received_data: data}
     end
   end
 
 
-  defp process_message(message, state) do
+  defp process_message(state, message) do
     # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
     Response.parse(message)
     |> respond(state)
