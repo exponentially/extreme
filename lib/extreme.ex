@@ -412,17 +412,17 @@ defmodule Extreme do
   end
 
 
-  # This package carries message from it's start. Process it and return new `state`
   defp process_package(state, pkg) do
-    #Logger.debug "Processing package with message_length of: #{message_length}"
+    # Handle binary data containing zero, one or many messages
+    # All messages start with a 32 bit unsigned little endian integer of the content length + a binary body of that size
     case pkg do
       <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >> ->
-        # full frame received, handle content
+        # At least one message received, handle it and re-prase rest
         state
         |> process_message(content)
         |> process_package(rest)
       data ->
-        # partial frame -> aggregate more data
+        # No full message left, keep state in GenServer to reprocess once more data arrives
         %{state|received_data: data}
     end
   end
