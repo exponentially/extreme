@@ -402,11 +402,10 @@ defmodule Extreme do
     :ok = :gen_tcp.send(state.socket, message)
     {:noreply, state}
   end
-  def handle_info({:tcp, socket, pkg}, state) do
-    :inet.setopts(socket, active: false) # will be reset to :once, once we receive and parse complete protobuff message
-    state = process_package(pkg, state)
+  def handle_info({:tcp, socket, pkg}, state = %{received_data: received_data}) do
+    rest = process_package(received_data <> pkg, state)
     :inet.setopts(socket, active: :once)
-    {:noreply, state}
+    {:noreply, %{state|received_data: rest}}
   end
   def handle_info({:tcp_closed, _port}, state) do
     {:stop, :tcp_closed, state}
@@ -414,50 +413,20 @@ defmodule Extreme do
 
 
   # This package carries message from it's start. Process it and return new `state`
-  defp process_package(<<message_length :: 32-unsigned-little-integer, content :: binary>>, %{socket: _socket, received_data: <<>>} = state) do
+  defp process_package(pkg, state) do
     #Logger.debug "Processing package with message_length of: #{message_length}"
-    slice_content(message_length, content, state)
-    |> process_content(state)
-  end
-  # Process package for unfinished message. Process it and return new `state`
-  defp process_package(pkg, %{socket: _socket} = state) do
-    #Logger.debug "Processing next package. We need #{state.should_receive} bytes and we have collected #{byte_size(state.received_data)} so far and we have #{byte_size(pkg)} more"
-    slice_content(state.should_receive, state.received_data <> pkg, state)
-    |> process_content(state)
-  end
-
-  defp slice_content(message_length, content, state) do
-    if byte_size(content) < message_length do
-      #Logger.debug "We have unfinished message of length #{message_length}(#{byte_size(content)}): #{inspect content}"
-      case :gen_tcp.recv(state.socket, message_length - byte_size(content)) do
-        {:ok, pkg} ->
-          slice_content(message_length, content <> pkg, state)
-        other -> 
-          other
-      end
-    else
-      case content do
-        <<message :: binary-size(message_length), next_message :: binary>> -> {message, next_message}
-        <<message :: binary-size(message_length)>>                         -> {message, <<>>}
-      end
+    case pkg do
+      <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >> ->
+        # full frame received, handle content
+        process_message(content, state)
+        # handle rest of the received data
+        process_package(rest, state)
+      data ->
+        # partial frame -> aggregate more data
+        data
     end
   end
 
-  defp process_content({:unfinished_message, expected_message_length, data}, state) do
-    %{state|should_receive: expected_message_length, received_data: data}
-  end
-  defp process_content({message, <<>>}, state) do
-    #Logger.debug "Processing single message: #{inspect message} and we have already received: #{inspect state.received_data}"
-    state = process_message(message, state)
-    #Logger.debug "After processing content state is #{inspect state}"
-    %{state|should_receive: nil, received_data: <<>>}
-  end
-  defp process_content({message, rest}, state) do
-    #Logger.debug "Processing message: #{inspect message}"
-    #Logger.debug "But we have something else in package: #{inspect rest}"
-    state = process_message(message, %{state|should_receive: nil, received_data: <<>>})
-    process_package(rest, state)
-  end
 
   defp process_message(message, state) do
     # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
