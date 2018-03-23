@@ -807,8 +807,8 @@ defmodule ExtremeTest do
       num_initial_events = 2_000
       num_bytes = 2_000
       # usualy older implementation fails on 50th iteration
-      # so 500 should be enough to confirm that seting :inte.setopts(socket, active: false) 
-      # works fo this kind of issues
+      # so 500 should be enough to confirm that seting :inet.setopts(socket, active: false) 
+      # works for this kind of issues
       num_test_events = 500 # if you incrase this ensure you change this test timout
       stream = "some-stream-#{UUID.uuid1}"
   
