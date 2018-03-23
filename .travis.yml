@@ -1,13 +1,13 @@
 language: elixir
 
 elixir:
-  - 1.6.3
+  - 1.6.4
 otp_release:
   - 20.2
 
 env:
-  - EVENT_STORE_VERSION='14.04-v3.9.3' ES_VERSION=3
-  - EVENT_STORE_VERSION='14.04-v4.0.2' ES_VERSION=4
+  - EVENT_STORE_VERSION='14.04-v3.9.4' ES_VERSION=3
+  - EVENT_STORE_VERSION='14.04-v4.1.0' ES_VERSION=4
 
 script:
   - "MIX_ENV=test mix do deps.get, compile, coveralls.travis"
