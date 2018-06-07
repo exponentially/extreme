@@ -970,6 +970,7 @@ defmodule ExtremeTest do
     end
 
     @tag timeout: 300_000
+    @tag :benchmark
     test "reading and writing simultaneously is ok", %{server: server} do
       num_initial_events = 2_000
       num_bytes = 200

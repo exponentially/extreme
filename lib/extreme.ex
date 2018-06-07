@@ -365,7 +365,7 @@ defmodule Extreme do
             "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} ms."
           end)
 
-          timer.sleep(reconnect_delay)
+          :timer.sleep(reconnect_delay)
 
           db_type =
             Keyword.get(connection_settings, :db_type, :node)
