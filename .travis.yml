@@ -17,8 +17,8 @@ before_install:
   - tar xf EventStore*.tar.gz
   - cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
 
-after_scripts:
+after_script:
   - killall -SIGINT clusternode
-  - cat EventStore*/eventstore.log
   - MIX_ENV=docs mix deps.get
   - MIX_ENV=docs mix inch.report
+  - cat EventStore*/eventstore.log
