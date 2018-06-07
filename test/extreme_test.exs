@@ -448,7 +448,7 @@ defmodule ExtremeTest do
     {:error, :StreamDeleted, _} = Extreme.execute server, write_events(stream, events)
   end
 
-  @tag :manual
+  @tag :benchmark
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug "TEST: it writes 1_000 events in less then 2 seconds"
     stream = "people-#{UUID.uuid1}"
@@ -802,13 +802,12 @@ defmodule ExtremeTest do
     end
 
     @tag timeout: 300_000
-    @tag :manual
     test "reading and writing simultaneously is ok", %{server: server} do
       num_initial_events = 2_000
-      num_bytes = 2_000
+      num_bytes = 200
       # usualy older implementation fails on 50th iteration
-      # so 500 should be enough to confirm that seting :inte.setopts(socket, active: false) 
-      # works fo this kind of issues
+      # so 500 should be enough to confirm that seting :inet.setopts(socket, active: false) 
+      # works for this kind of issues
       num_test_events = 500 # if you incrase this ensure you change this test timout
       stream = "some-stream-#{UUID.uuid1}"
   
