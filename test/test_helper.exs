@@ -1,2 +1,2 @@
 ExUnit.start()
-ExUnit.configure exclude: [:benchmark]
+ExUnit.configure(exclude: [:benchmark])

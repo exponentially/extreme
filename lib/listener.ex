@@ -2,7 +2,7 @@ defmodule Extreme.Listener do
   @moduledoc ~S"""
   Since it is common on read side of system to read events and denormalize them,
   there is Extreme.Listener macro that hides noise from listener:
-  
+
       defmodule MyApp.MyListener do
         use Extreme.Listener
         import MyApp.MyProcessor
@@ -35,9 +35,9 @@ defmodule Extreme.Listener do
         end
         def process_event(_, _), do: :ok # Just acknowledge events we are not interested in
       end
-  
+
   Listener can be started manually but it is most common to place it in supervisor AFTER specifing Extreme:
-  
+
       defmodule MyApp.Supervisor do
         use Supervisor
       
@@ -62,21 +62,29 @@ defmodule Extreme.Listener do
       {:ok, last_event_number} = MyApp.MyListener.pause MyListener
 
   and resumed
-  
+
       :ok = MyApp.MyListener.resume MyListener
   """
   defmacro __using__(_) do
     quote do
-      use     GenServer
+      use GenServer
       require Logger
 
-      def start_link(event_store, stream_name, opts \\ []), 
-        do: GenServer.start_link __MODULE__, {event_store, stream_name}, opts
-      
+      def start_link(event_store, stream_name, opts \\ []),
+        do: GenServer.start_link(__MODULE__, {event_store, stream_name}, opts)
+
       def init({event_store, stream_name}) do
-        state = %{ event_store: event_store, last_event: nil, subscription: nil, subscription_ref: nil, 
-                   stream_name: stream_name, mode: :init, patch_until: nil }
-        GenServer.cast self(), :subscribe
+        state = %{
+          event_store: event_store,
+          last_event: nil,
+          subscription: nil,
+          subscription_ref: nil,
+          stream_name: stream_name,
+          mode: :init,
+          patch_until: nil
+        }
+
+        GenServer.cast(self(), :subscribe)
         {:ok, state}
       end
 
@@ -85,14 +93,14 @@ defmodule Extreme.Listener do
       last event number from event store that was processed
       """
       def pause(server),
-        do: GenServer.call server, :pause
+        do: GenServer.call(server, :pause)
 
       @doc """
       Resumes subscription with event store, returning :ok. get_last_event/1 from callback will be called, and its
       result will be used as starting event from which processing should continue.
       """
       def resume(server),
-        do: GenServer.call server, :resume
+        do: GenServer.call(server, :resume)
 
       @doc """
       Pauses subscription with event store and runs events from `first_event` (defaults to 0)
@@ -101,82 +109,158 @@ defmodule Extreme.Listener do
       After all events upto `last_event_number` are processed subscription is resumed.
       """
       def patch(server, first_event \\ 0),
-        do: GenServer.call server, {:patch, first_event}
+        do: GenServer.call(server, {:patch, first_event})
 
+      def handle_cast(:subscribe, state) do
+        {:ok, state} =
+          case get_last_event(state.stream_name) do
+            :from_now ->
+              {:ok, %{last_event_number: last_event}} =
+                Extreme.execute(state.event_store, _read_events_backward(state.stream_name))
 
-	  def handle_cast(:subscribe, state) do
-        {:ok, state} = case get_last_event(state.stream_name) do
-          :from_now                         ->
-            {:ok, %{last_event_number: last_event}} = Extreme.execute state.event_store, _read_events_backward(state.stream_name)
-            start_live_subscription(last_event, state)
-          {:patch, last_event, patch_until} -> start_patching(last_event, patch_until, state)
-          last_event                        -> start_live_subscription(last_event, state)
-        end
-	    {:noreply, state}
-	  end
+              start_live_subscription(last_event, state)
+
+            {:patch, last_event, patch_until} ->
+              start_patching(last_event, patch_until, state)
+
+            last_event ->
+              start_live_subscription(last_event, state)
+          end
+
+        {:noreply, state}
+      end
 
       defp start_live_subscription(last_event, state) do
-	    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream_name, last_event + 1
-	    ref = Process.monitor subscription
-        Logger.info "Listener subscribed to stream #{state.stream_name}. Start processing live events from event no: #{last_event + 1}"
-        {:ok, %{state|subscription: subscription, subscription_ref: ref, last_event: last_event, mode: :live}}
+        {:ok, subscription} =
+          Extreme.read_and_stay_subscribed(
+            state.event_store,
+            self(),
+            state.stream_name,
+            last_event + 1
+          )
+
+        ref = Process.monitor(subscription)
+
+        Logger.info(
+          "Listener subscribed to stream #{state.stream_name}. Start processing live events from event no: #{
+            last_event + 1
+          }"
+        )
+
+        {:ok,
+         %{
+           state
+           | subscription: subscription,
+             subscription_ref: ref,
+             last_event: last_event,
+             mode: :live
+         }}
       end
 
       defp start_patching(last_event, patch_until, state) do
-	    {:ok, subscription} = Extreme.read_and_stay_subscribed state.event_store, self(), state.stream_name, last_event + 1
-	    ref = Process.monitor subscription
-        Logger.info "Listener patching from stream #{state.stream_name} from event no: #{last_event + 1} until #{patch_until}"
-        {:ok, %{state|subscription: subscription, subscription_ref: ref, last_event: last_event, mode: :patch, patch_until: patch_until}}
+        {:ok, subscription} =
+          Extreme.read_and_stay_subscribed(
+            state.event_store,
+            self(),
+            state.stream_name,
+            last_event + 1
+          )
+
+        ref = Process.monitor(subscription)
+
+        Logger.info(
+          "Listener patching from stream #{state.stream_name} from event no: #{last_event + 1} until #{
+            patch_until
+          }"
+        )
+
+        {:ok,
+         %{
+           state
+           | subscription: subscription,
+             subscription_ref: ref,
+             last_event: last_event,
+             mode: :patch,
+             patch_until: patch_until
+         }}
       end
 
       def handle_call(:pause, _from, state) do
-        true = Process.exit state.subscription, :pause
-        Logger.info "Pausing listening stream #{state.stream_name}"
-        {:reply, {:ok, state.last_event}, %{state| subscription: nil, subscription_ref: nil, mode: :pause}}
+        true = Process.exit(state.subscription, :pause)
+        Logger.info("Pausing listening stream #{state.stream_name}")
+
+        {:reply, {:ok, state.last_event},
+         %{state | subscription: nil, subscription_ref: nil, mode: :pause}}
       end
+
       def handle_call(:resume, _from, state) do
-        GenServer.cast self(), :subscribe
-        Logger.info "Resuming listening stream #{state.stream_name}"
+        GenServer.cast(self(), :subscribe)
+        Logger.info("Resuming listening stream #{state.stream_name}")
         {:reply, :ok, state}
       end
-      def handle_call({:patch, first_event}, _from, %{mode: mode}=state) when mode in [:pause, :live] do
+
+      def handle_call({:patch, first_event}, _from, %{mode: mode} = state)
+          when mode in [:pause, :live] do
         unless mode == :pause,
-          do: true = Process.exit state.subscription, :pause
-        :ok  = register_patching_start(state.stream_name, first_event-1, state.last_event)
-        GenServer.cast self(), :subscribe
-        {:reply, {:ok, state.last_event}, %{state| subscription: nil, subscription_ref: nil, mode: :pause}}
+          do: true = Process.exit(state.subscription, :pause)
+
+        :ok = register_patching_start(state.stream_name, first_event - 1, state.last_event)
+        GenServer.cast(self(), :subscribe)
+
+        {:reply, {:ok, state.last_event},
+         %{state | subscription: nil, subscription_ref: nil, mode: :pause}}
       end
-	  
-	  def handle_info({:DOWN, ref, :process, _pid, reason}, %{subscription_ref: ref} = state) when reason in [:pause, :done] do
-        Logger.info "Subscription to stream #{state.stream_name} is #{inspect reason}"
-	    {:noreply, %{state|subscription: nil, subscription_ref: nil, mode: reason}}
+
+      def handle_info({:DOWN, ref, :process, _pid, reason}, %{subscription_ref: ref} = state)
+          when reason in [:pause, :done] do
+        Logger.info("Subscription to stream #{state.stream_name} is #{inspect(reason)}")
+        {:noreply, %{state | subscription: nil, subscription_ref: nil, mode: reason}}
       end
-	  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
+
+      def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
-        Logger.warn "Subscription to EventStore is down. Will retry in #{reconnect_delay} ms."
+        Logger.warn("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
         :timer.sleep(reconnect_delay)
-	    GenServer.cast self(), :subscribe
-	    {:noreply, state}
-	  end
-      def handle_info({:on_event, push}, %{subscription: subscription, mode: :live}=state) when not is_nil(subscription) do
-        {:ok, event_number} = process_push(push, state.stream_name)
-        {:noreply, %{state|last_event: event_number}}
-      end
-      def handle_info({:on_event, push}, %{subscription: subscription, mode: :patch}=state) when not is_nil(subscription) do
-        {:ok, event_number} = process_patch(push, state.stream_name)
-        state = if event_number == state.patch_until do
-          :ok = patching_done state.stream_name
-          GenServer.cast self(), :subscribe
-          %{state| last_event: event_number, patch_until: nil, subscription: nil, subscription_ref: nil, mode: :done}
-        else
-          %{state| last_event: event_number}
-        end
+        GenServer.cast(self(), :subscribe)
         {:noreply, state}
       end
-      def handle_info(:caught_up, %{subscription: subscription}=state) when not is_nil(subscription) do
+
+      def handle_info({:on_event, push}, %{subscription: subscription, mode: :live} = state)
+          when not is_nil(subscription) do
+        {:ok, event_number} = process_push(push, state.stream_name)
+        {:noreply, %{state | last_event: event_number}}
+      end
+
+      def handle_info({:on_event, push}, %{subscription: subscription, mode: :patch} = state)
+          when not is_nil(subscription) do
+        {:ok, event_number} = process_patch(push, state.stream_name)
+
+        state =
+          if event_number == state.patch_until do
+            :ok = patching_done(state.stream_name)
+            GenServer.cast(self(), :subscribe)
+
+            %{
+              state
+              | last_event: event_number,
+                patch_until: nil,
+                subscription: nil,
+                subscription_ref: nil,
+                mode: :done
+            }
+          else
+            %{state | last_event: event_number}
+          end
+
+        {:noreply, state}
+      end
+
+      def handle_info(:caught_up, %{subscription: subscription} = state)
+          when not is_nil(subscription) do
         caught_up()
         {:noreply, state}
       end
+
       def handle_info(_msg, state), do: {:noreply, state}
 
       defp _read_events_backward(stream, start \\ -1, count \\ 1) do
@@ -189,12 +273,12 @@ defmodule Extreme.Listener do
         )
       end
 
-      def caught_up, do: Logger.debug "We are up to date"
+      def caught_up, do: Logger.debug("We are up to date")
       def register_patching_start(_, _, _), do: {:error, :not_implemented}
       def patching_done(_), do: {:error, :not_implemented}
       def process_patch(_, _), do: {:error, :not_implemented}
 
-      defoverridable [caught_up: 0, register_patching_start: 3, patching_done: 1, process_patch: 2]
+      defoverridable caught_up: 0, register_patching_start: 3, patching_done: 1, process_patch: 2
     end
   end
 end

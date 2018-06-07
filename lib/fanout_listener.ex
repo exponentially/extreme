@@ -8,7 +8,7 @@ defmodule Extreme.FanoutListener do
 
   It's not uncommon situation to listen live events and propagate them (for example on web sockets).
   For that situation there is Extreme.FanoutListener macro that hides noise from listener:
-  
+
       defmodule MyApp.MyFanoutListener do
         use Extreme.FanoutListener
         import MyApp.MyPusher
@@ -28,9 +28,9 @@ defmodule Extreme.FanoutListener do
         end
         def process_event(_, _), do: :ok # Just acknowledge events we are not interested in
       end
-  
+
   Listener can be started manually but it is most common to place it in supervisor AFTER specifing Extreme:
-  
+
       defmodule MyApp.Supervisor do
         use Supervisor
       
@@ -52,35 +52,37 @@ defmodule Extreme.FanoutListener do
   """
   defmacro __using__(_) do
     quote do
-      use     GenServer
+      use GenServer
       require Logger
 
-      def start_link(event_store, stream_name, opts \\ []), 
-        do: GenServer.start_link __MODULE__, {event_store, stream_name}, opts
-      
+      def start_link(event_store, stream_name, opts \\ []),
+        do: GenServer.start_link(__MODULE__, {event_store, stream_name}, opts)
+
       def init({event_store, stream_name}) do
-        state = %{ event_store: event_store, subscription_ref: nil, stream_name: stream_name }
-        GenServer.cast self(), :subscribe
+        state = %{event_store: event_store, subscription_ref: nil, stream_name: stream_name}
+        GenServer.cast(self(), :subscribe)
         {:ok, state}
       end
 
-	  def handle_cast(:subscribe, state) do
-        {:ok, subscription} = Extreme.subscribe_to state.event_store, self(), state.stream_name
-        ref = Process.monitor subscription
-        {:noreply, %{state|subscription_ref: ref}}
-	  end
-	  
-	  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
+      def handle_cast(:subscribe, state) do
+        {:ok, subscription} = Extreme.subscribe_to(state.event_store, self(), state.stream_name)
+        ref = Process.monitor(subscription)
+        {:noreply, %{state | subscription_ref: ref}}
+      end
+
+      def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
-        Logger.warn "Subscription to EventStore is down. Will retry in #{reconnect_delay} ms."
+        Logger.warn("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
         :timer.sleep(reconnect_delay)
-	    GenServer.cast self(), :subscribe
-	    {:noreply, state}
-	  end
+        GenServer.cast(self(), :subscribe)
+        {:noreply, state}
+      end
+
       def handle_info({:on_event, push}, state) do
         :ok = process_push(push)
         {:noreply, state}
       end
+
       def handle_info(_msg, state), do: {:noreply, state}
     end
   end

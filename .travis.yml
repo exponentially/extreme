@@ -1,7 +1,7 @@
 language: elixir
 
 elixir:
-  - 1.6.4
+  - 1.6.5
 otp_release:
   - 20.3
 
@@ -10,7 +10,7 @@ env:
   - EVENT_STORE_VERSION='14.04-v4.1.1' ES_VERSION=4
 
 script:
-  - "MIX_ENV=test mix do deps.get, compile, coveralls.travis"
+  - "MIX_ENV=test mix do deps.get, format --check-formatted, coveralls.travis"
 
 before_install:
   - wget https://eventstore.org/downloads/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz

@@ -11,8 +11,9 @@ defmodule Extreme.PersistentSubscriptionsSupervisor do
 
   def init(connection_settings) do
     children = [
-      worker(Extreme.PersistentSubscription, [connection_settings], restart: :temporary),
+      worker(Extreme.PersistentSubscription, [connection_settings], restart: :temporary)
     ]
+
     supervise(children, strategy: :simple_one_for_one)
   end
 end

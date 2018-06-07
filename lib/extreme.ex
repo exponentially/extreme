@@ -111,7 +111,7 @@ defmodule Extreme do
 
   Once client is disconnected from EventStore, supervisor should respawn it and connection starts over again.
   """
-  def start_link(connection_settings, opts \\[]),
+  def start_link(connection_settings, opts \\ []),
     do: GenServer.start_link(__MODULE__, connection_settings, opts)
 
   @doc """
@@ -223,8 +223,20 @@ defmodule Extreme do
   Since there's a lot of boilerplate code here, you can use `Extreme.Listener` to reduce it and focus only
   on business part of code.
   """
-  def read_and_stay_subscribed(server, subscriber, stream, from_event_number \\ 0, per_page \\ 4096, resolve_link_tos \\ true, require_master \\ false) do
-    GenServer.call(server, {:read_and_stay_subscribed, subscriber, {stream, from_event_number, per_page, resolve_link_tos, require_master}})
+  def read_and_stay_subscribed(
+        server,
+        subscriber,
+        stream,
+        from_event_number \\ 0,
+        per_page \\ 4096,
+        resolve_link_tos \\ true,
+        require_master \\ false
+      ) do
+    GenServer.call(
+      server,
+      {:read_and_stay_subscribed, subscriber,
+       {stream, from_event_number, per_page, resolve_link_tos, require_master}}
+    )
   end
 
   @doc """
@@ -257,9 +269,18 @@ defmodule Extreme do
 
   Returns {:ok, subscription} when subscription is success.
   """
-  def connect_to_persistent_subscription(server, subscriber, subscription, stream, buffer_size \\ 1),
-    do: GenServer.call(server, {:connect_to_persistent_subscription, subscriber, {subscription, stream, buffer_size}})
-
+  def connect_to_persistent_subscription(
+        server,
+        subscriber,
+        subscription,
+        stream,
+        buffer_size \\ 1
+      ),
+      do:
+        GenServer.call(
+          server,
+          {:connect_to_persistent_subscription, subscriber, {subscription, stream, buffer_size}}
+        )
 
   ## Server Callbacks
 
@@ -270,7 +291,9 @@ defmodule Extreme do
     GenServer.cast(self(), {:connect, connection_settings, 1})
 
     {:ok, subscriptions_sup} = Extreme.SubscriptionsSupervisor.start_link(self())
-    {:ok, persistent_subscriptions_sup} = Extreme.PersistentSubscriptionsSupervisor.start_link(connection_settings)
+
+    {:ok, persistent_subscriptions_sup} =
+      Extreme.PersistentSubscriptionsSupervisor.start_link(connection_settings)
 
     state = %{
       socket: nil,
@@ -280,18 +303,20 @@ defmodule Extreme do
       persistent_subscriptions_sup: persistent_subscriptions_sup,
       credentials: %{user: user, pass: pass},
       received_data: <<>>,
-      should_receive: nil,
+      should_receive: nil
     }
 
     {:ok, state}
   end
 
   def handle_cast({:connect, connection_settings, attempt}, state) do
-    db_type = Keyword.get(connection_settings, :db_type, :node)
-    |> cast_to_atom
+    db_type =
+      Keyword.get(connection_settings, :db_type, :node)
+      |> cast_to_atom
+
     case connect(db_type, connection_settings, attempt) do
-      {:ok, socket} -> {:noreply, %{state|socket: socket}}
-      error         -> {:stop, error, state}
+      {:ok, socket} -> {:noreply, %{state | socket: socket}}
+      error -> {:stop, error, state}
     end
   end
 
@@ -299,34 +324,53 @@ defmodule Extreme do
     {:ok, host, port} = Extreme.ClusterConnection.get_node(connection_settings)
     connect(host, port, connection_settings, attempt)
   end
+
   defp connect(:node, connection_settings, attempt) do
     host = Keyword.fetch!(connection_settings, :host)
     port = Keyword.fetch!(connection_settings, :port)
     connect(host, port, connection_settings, attempt)
   end
+
   defp connect(:cluster_dns, connection_settings, attempt) do
     {:ok, host, port} = Extreme.ClusterConnection.get_node(:cluster_dns, connection_settings)
     connect(host, port, connection_settings, attempt)
   end
+
   defp connect(host, port, connection_settings, attempt) do
-    Logger.info "Connecting Extreme to #{host}:#{port}"
+    Logger.info(fn -> "Connecting Extreme to #{host}:#{port}" end)
     opts = [:binary, active: :once]
+
     case :gen_tcp.connect(String.to_charlist(host), port, opts) do
       {:ok, socket} ->
-        on_connect(socket, Application.get_env(:extreme, :protocol_version, 3), connection_settings[:connection_name])
-      _other        ->
+        on_connect(
+          socket,
+          Application.get_env(:extreme, :protocol_version, 3),
+          connection_settings[:connection_name]
+        )
+
+      _other ->
         max_attempts = Keyword.get(connection_settings, :max_attempts, :infinity)
-        reconnect = case max_attempts do
-          :infinity -> true
-          max when attempt <= max -> true
-          _any -> false
-        end
+
+        reconnect =
+          case max_attempts do
+            :infinity -> true
+            max when attempt <= max -> true
+            _any -> false
+          end
+
         if reconnect do
-          reconnect_delay = Keyword.get connection_settings, :reconnect_delay, 1_000
-          Logger.warn "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} ms."
-          :timer.sleep(reconnect_delay)
-          db_type = Keyword.get(connection_settings, :db_type, :node)
-          |> cast_to_atom
+          reconnect_delay = Keyword.get(connection_settings, :reconnect_delay, 1_000)
+
+          Logger.warn(fn ->
+            "Error connecting to EventStore @ #{host}:#{port}. Will retry in #{reconnect_delay} ms."
+          end)
+
+          timer.sleep(reconnect_delay)
+
+          db_type =
+            Keyword.get(connection_settings, :db_type, :node)
+            |> cast_to_atom
+
           connect(db_type, connection_settings, attempt + 1)
         else
           {:error, :max_attempt_exceeded}
@@ -335,92 +379,141 @@ defmodule Extreme do
   end
 
   defp on_connect(socket, protocol_version, connection_name) when protocol_version >= 4 do
-    Logger.info(fn -> "Successfully connected to EventStore using protocol version #{protocol_version}" end)
-    send self(), {:identify_client, 1, to_string(connection_name)}
+    Logger.info(fn ->
+      "Successfully connected to EventStore using protocol version #{protocol_version}"
+    end)
+
+    send(self(), {:identify_client, 1, to_string(connection_name)})
     {:ok, socket}
   end
+
   defp on_connect(socket, protocol_version, _) do
-    Logger.info(fn -> "Successfully connected to EventStore using protocol version #{protocol_version}" end)
-    :timer.send_after 1_000, :send_ping
+    Logger.info(fn ->
+      "Successfully connected to EventStore using protocol version #{protocol_version}"
+    end)
+
+    :timer.send_after(1_000, :send_ping)
     {:ok, socket}
   end
 
   def handle_call({:execute, protobuf_msg}, from, state) do
     {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
-    #Logger.debug "Will execute #{inspect protobuf_msg}"
+    # Logger.debug "Will execute #{inspect protobuf_msg}"
     :ok = :gen_tcp.send(state.socket, message)
-    state = put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
+
+    state =
+      put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
+
     {:noreply, state}
   end
+
   def handle_call({:read_and_stay_subscribed, subscriber, params}, _from, state) do
-    {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription(state.subscriptions_sup, subscriber, params)
-    #Logger.debug "Subscription is: #{inspect subscription}"
+    {:ok, subscription} =
+      Extreme.SubscriptionsSupervisor.start_subscription(
+        state.subscriptions_sup,
+        subscriber,
+        params
+      )
+
+    # Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
+
   def handle_call({:subscribe_to, subscriber, stream, resolve_link_tos}, _from, state) do
-    {:ok, subscription} = Extreme.SubscriptionsSupervisor.start_subscription(state.subscriptions_sup, subscriber, stream, resolve_link_tos)
-    #Logger.debug "Subscription is: #{inspect subscription}"
+    {:ok, subscription} =
+      Extreme.SubscriptionsSupervisor.start_subscription(
+        state.subscriptions_sup,
+        subscriber,
+        stream,
+        resolve_link_tos
+      )
+
+    # Logger.debug "Subscription is: #{inspect subscription}"
     {:reply, {:ok, subscription}, state}
   end
+
   def handle_call({:connect_to_persistent_subscription, subscriber, params}, _from, state) do
-    {:ok, persistent_subscription} = Extreme.PersistentSubscriptionsSupervisor.start_persistent_subscription(state.persistent_subscriptions_sup, subscriber, params)
+    {:ok, persistent_subscription} =
+      Extreme.PersistentSubscriptionsSupervisor.start_persistent_subscription(
+        state.persistent_subscriptions_sup,
+        subscriber,
+        params
+      )
+
     {:reply, {:ok, persistent_subscription}, state}
   end
+
   def handle_call({:subscribe, subscriber, msg}, from, state) do
-    #Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
+    # Logger.debug "Subscribing #{inspect subscriber} with: #{inspect msg}"
     {message, correlation_id} = Request.prepare(msg, state.credentials)
     :ok = :gen_tcp.send(state.socket, message)
-    state = put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
-    state = put_in(state.subscriptions,     Map.put(state.subscriptions, correlation_id, subscriber))
+
+    state =
+      put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
+
+    state = put_in(state.subscriptions, Map.put(state.subscriptions, correlation_id, subscriber))
     {:noreply, state}
   end
+
   def handle_call({:ack, protobuf_msg, correlation_id}, _from, state) do
     {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials, correlation_id)
     # Logger.debug(fn -> "Ack received event: #{inspect protobuf_msg}" end)
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end
+
   def handle_call({:nack, protobuf_msg, correlation_id}, _from, state) do
     {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials, correlation_id)
-    Logger.debug(fn -> "Nack received event: #{inspect protobuf_msg}" end)
+    Logger.debug(fn -> "Nack received event: #{inspect(protobuf_msg)}" end)
     :ok = :gen_tcp.send(state.socket, message)
     {:reply, :ok, state}
   end
 
   def handle_info({:identify_client, version, connection_name}, state) do
     Logger.debug(fn -> "Identifying client with EventStore" end)
-    protobuf_msg = Extreme.Msg.IdentifyClient.new(
-      version:         version,
-      connection_name: connection_name
-    )
+
+    protobuf_msg =
+      Extreme.Msg.IdentifyClient.new(
+        version: version,
+        connection_name: connection_name
+      )
+
     {message, _correlation_id} = Request.prepare(protobuf_msg, state.credentials)
     :ok = :gen_tcp.send(state.socket, message)
     {:noreply, state}
   end
+
   def handle_info(:send_ping, state) do
     message = Request.prepare(:ping)
     :ok = :gen_tcp.send(state.socket, message)
     {:noreply, state}
   end
+
   def handle_info({:tcp, socket, pkg}, state = %{received_data: received_data}) do
     state = process_package(state, received_data <> pkg)
     :inet.setopts(socket, active: :once)
     {:noreply, state}
   end
+
   def handle_info({:tcp_closed, _port}, state) do
     {:stop, :tcp_closed, state}
   end
 
-  defp process_package(state, <<message_length :: 32-unsigned-little-integer, content :: binary-size(message_length), rest :: binary >>) do
+  defp process_package(
+         state,
+         <<message_length::32-unsigned-little-integer, content::binary-size(message_length),
+           rest::binary>>
+       ) do
     # Handle binary data containing zero, one or many messages
     # All messages start with a 32 bit unsigned little endian integer of the content length + a binary body of that size
     state
     |> process_message(content)
     |> process_package(rest)
   end
-  # No full message left, keep state in GenServer to reprocess once more data arrives
-  defp process_package(state, incomplete_package), do: %{state|received_data: incomplete_package}
 
+  # No full message left, keep state in GenServer to reprocess once more data arrives
+  defp process_package(state, incomplete_package),
+    do: %{state | received_data: incomplete_package}
 
   defp process_message(state, message) do
     # Logger.debug(fn -> "Received tcp message: #{inspect Response.parse(message)}" end)
@@ -430,47 +523,56 @@ defmodule Extreme do
 
   defp respond({:client_identified, _correlation_id}, state) do
     Logger.info(fn -> "Successfully connected to EventStore >= 4" end)
-    :timer.send_after 1_000, :send_ping
+    :timer.send_after(1_000, :send_ping)
     state
   end
+
   defp respond({:pong, _correlation_id}, state) do
     # Logger.debug "#{inspect self()} got :pong"
-    :timer.send_after 1_000, :send_ping
+    :timer.send_after(1_000, :send_ping)
     state
   end
+
   defp respond({:heartbeat_request, correlation_id}, state) do
     # Logger.debug "#{inspect self()} Tick-Tack"
     message = Request.prepare(:heartbeat_response, correlation_id)
     :ok = :gen_tcp.send(state.socket, message)
-    %{state|pending_responses: state.pending_responses}
+    %{state | pending_responses: state.pending_responses}
   end
+
   defp respond({:error, :not_authenticated, correlation_id}, state) do
     {:error, :not_authenticated}
     |> respond_with(correlation_id, state)
   end
+
   defp respond({_auth, correlation_id, response}, state) do
     response
     |> respond_with(correlation_id, state)
   end
 
   defp respond_with(response, correlation_id, state) do
-    #Logger.debug "Responding with response: #{inspect response}"
+    # Logger.debug "Responding with response: #{inspect response}"
     case Map.get(state.pending_responses, correlation_id) do
       nil ->
         respond_to_subscription(response, correlation_id, state.subscriptions)
         state
+
       from ->
         :ok = GenServer.reply(from, Response.reply(response, correlation_id))
         pending_responses = Map.delete(state.pending_responses, correlation_id)
-        %{state|pending_responses: pending_responses}
+        %{state | pending_responses: pending_responses}
     end
   end
 
   defp respond_to_subscription(response, correlation_id, subscriptions) do
     # Logger.debug "Attempting to respond to subscription with response: #{inspect response}"
     case Map.get(subscriptions, correlation_id) do
-      nil          -> :ok #Logger.error "Can't find correlation_id #{inspect correlation_id} for response #{inspect response}"
-      subscription -> GenServer.cast(subscription, Response.reply(response, correlation_id))
+      # Logger.error "Can't find correlation_id #{inspect correlation_id} for response #{inspect response}"
+      nil ->
+        :ok
+
+      subscription ->
+        GenServer.cast(subscription, Response.reply(response, correlation_id))
     end
   end
 
@@ -480,6 +582,7 @@ defmodule Extreme do
   """
   def cast_to_atom(value) when is_binary(value),
     do: String.to_atom(value)
+
   def cast_to_atom(value),
     do: value
 end

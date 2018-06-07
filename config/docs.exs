@@ -2,17 +2,18 @@ use Mix.Config
 
 # EventStore
 config :extreme, :event_store,
-  db_type:         :node, 
-  host:            "localhost", 
-  port:            1113, 
-  username:        "admin", 
-  password:        "changeit",
-  reconnect_delay: 2_000, #in ms. Defaults to 1_000
-  mode:            :write,
-  max_attempts:    :infinity
+  db_type: :node,
+  host: "localhost",
+  port: 1113,
+  username: "admin",
+  password: "changeit",
+  # in ms. Defaults to 1_000
+  reconnect_delay: 2_000,
+  mode: :write,
+  max_attempts: :infinity
 
 ## settings for cluster
-#config :extreme, :event_store,
+# config :extreme, :event_store,
 #  db_type: :cluster, #default is :node
 #  gossip_timeout: 300, #in ms. Defaults to 1_000
 #  nodes: [
@@ -35,7 +36,6 @@ config :extreme, :event_store,
 #  max_attempts: :infinity #default is :infinity
 
 config :logger, :console,
-  level:    :debug,
-  format:   "$time [$level] $metadata$message\n",
+  level: :debug,
+  format: "$time [$level] $metadata$message\n",
   metadata: [:user_id]
-
