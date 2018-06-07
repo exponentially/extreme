@@ -7,7 +7,7 @@ otp_release:
 
 env:
   - EVENT_STORE_VERSION='14.04-v3.9.4' ES_VERSION=3
-  - EVENT_STORE_VERSION='14.04-v4.1.1' ES_VERSION=4
+  - EVENT_STORE_VERSION='14.04-v4.1.1-hotfix1' ES_VERSION=4
 
 script:
   - "MIX_ENV=test mix do deps.get, format --check-formatted, coveralls.travis"
