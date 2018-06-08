@@ -15,7 +15,7 @@ defmodule Extreme.Mixfile do
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
-        coveralls: :test,
+        "coveralls": :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
@@ -39,7 +39,7 @@ defmodule Extreme.Mixfile do
       {:ex_doc, "~> 0.16", only: :test},
       {:earmark, "~> 1.2", only: :test},
       {:inch_ex, "~> 0.5", only: :test},
-      {:excoveralls, "~> 0.6", only: :test},
+      {:excoveralls, "~> 0.8", only: :test},
       {:mix_test_watch, "~> 0.2", only: :dev}
     ]
   end
