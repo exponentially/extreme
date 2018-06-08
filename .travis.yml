@@ -1,16 +1,16 @@
 language: elixir
 
-elixir:
-  - 1.6.5
 otp_release:
   - 20.3
+elixir:
+  - 1.6.5
 
 env:
   - EVENT_STORE_VERSION='14.04-v3.9.4' ES_VERSION=3
   - EVENT_STORE_VERSION='14.04-v4.1.1-hotfix1' ES_VERSION=4
 
 script:
-  - "MIX_ENV=test mix do deps.get, format --check-formatted, coveralls.travis"
+  - "mix do format --check-formatted, coveralls.travis"
 
 before_install:
   - wget https://eventstore.org/downloads/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
@@ -18,7 +18,7 @@ before_install:
   - cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
 
 after_success:
-  - MIX_ENV=test mix inch.report
+  - mix inch.report
   - head -n 7 EventStore*/eventstore.log
 
 after_failure:
