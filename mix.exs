@@ -36,9 +36,9 @@ defmodule Extreme.Mixfile do
       {:poison, "~> 2.2 or ~> 3.0"},
       {:exprotobuf, "~> 1.2"},
       {:uuid, "~> 1.1.4"},
-      {:ex_doc, "~> 0.16.2", only: [:test]},
-      {:earmark, "~> 1.2.2", only: [:test]},
-      {:inch_ex, "~> 0.5.6", only: :docs},
+      {:ex_doc, "~> 0.16", only: :test},
+      {:earmark, "~> 1.2", only: :test},
+      {:inch_ex, "~> 0.5", only: :test},
       {:excoveralls, "~> 0.6", only: :test},
       {:mix_test_watch, "~> 0.2", only: :dev}
     ]
