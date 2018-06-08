@@ -13,10 +13,12 @@ config :extreme, :event_store,
   connection_name: :extreme_test,
   max_attempts: :infinity
 
-ver = case System.get_env("ES_VERSION") do
-  nil -> 3
-  other -> other |> String.to_integer
-end
+ver =
+  case System.get_env("ES_VERSION") do
+    nil -> 3
+    other -> other |> String.to_integer()
+  end
+
 config :extreme, :protocol_version, ver
 
 ## settings for cluster
