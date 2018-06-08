@@ -55,7 +55,10 @@ defmodule Extreme.Subscription do
     {:ok, subscription_confirmation} =
       GenServer.call(state.connection, {:subscribe, self(), subscribe(state.read_params)})
 
-    Logger.debug("Successfully subscribed to stream #{inspect(subscription_confirmation)}")
+    Logger.debug(fn ->
+      "Successfully subscribed to stream #{inspect(subscription_confirmation)}"
+    end)
+
     GenServer.cast(self(), :read_events)
     read_until = subscription_confirmation.last_event_number + 1
     {:noreply, %{state | read_until: read_until, status: :reading_events}}
@@ -65,7 +68,10 @@ defmodule Extreme.Subscription do
     {:ok, subscription_confirmation} =
       GenServer.call(state.connection, {:subscribe, self(), subscribe(state.read_params)})
 
-    Logger.debug("Successfully subscribed to stream #{inspect(subscription_confirmation)}")
+    Logger.debug(fn ->
+      "Successfully subscribed to stream #{inspect(subscription_confirmation)}"
+    end)
+
     {:noreply, %{state | status: :subscribed}}
   end
 
@@ -113,7 +119,7 @@ defmodule Extreme.Subscription do
   end
 
   def process_response({:ok, %ExMsg.ReadStreamEventsCompleted{} = response}, state) do
-    Logger.debug("Last read event: #{inspect(response.next_event_number - 1)}")
+    Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
     push_events({:ok, response}, state.subscriber)
     send_next_request(response, state)
   end
@@ -122,7 +128,7 @@ defmodule Extreme.Subscription do
         {:error, :StreamDeleted, %ExMsg.ReadStreamEventsCompleted{} = response},
         state
       ) do
-    Logger.error("Stream is HARD deleted")
+    Logger.error(fn -> "Stream is HARD deleted" end)
 
     push_events(
       {:extreme, :error, :stream_hard_deleted, state.read_params.stream},
@@ -133,7 +139,7 @@ defmodule Extreme.Subscription do
   end
 
   def process_response({:error, :NoStream, %ExMsg.ReadStreamEventsCompleted{} = response}, state) do
-    Logger.warn("Stream doesn't exist yet")
+    Logger.warn(fn -> "Stream doesn't exist yet" end)
     push_events({:extreme, :warn, :no_stream, state.read_params.stream}, state.subscriber)
     send_next_request(response, state)
   end
