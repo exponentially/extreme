@@ -26,12 +26,12 @@ defmodule Extreme.FanoutListenerTest do
 
   test "Listener doesn't read events persisted before it is started", %{server: server} do
     Logger.debug("TEST: Listener doesn't read events persisted before it is started")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and don't expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
@@ -41,12 +41,12 @@ defmodule Extreme.FanoutListenerTest do
 
   test "Listener doesnt read existing events but keeps listening for new ones", %{server: server} do
     Logger.debug("TEST: Listener doesn't read existing events but keeps listening for new ones")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and don't expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
@@ -55,7 +55,7 @@ defmodule Extreme.FanoutListenerTest do
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event3]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event3]))
 
     # expect that listener got new event
     assert_receive {:processing_push, event_type, event}
@@ -63,7 +63,9 @@ defmodule Extreme.FanoutListenerTest do
     assert event3 == :erlang.binary_to_term(event)
   end
 
-  defp write_events(stream, events) do
+  defp _random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+
+  defp _write_events(stream, events) do
     proto_events =
       Enum.map(events, fn event ->
         ExMsg.NewEvent.new(

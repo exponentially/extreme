@@ -1,5 +1,5 @@
 defmodule ExtremeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
   alias Extreme.Msg, as: ExMsg
   require Logger
 
@@ -22,7 +22,7 @@ defmodule ExtremeTest do
       |> Keyword.put(:password, "wrong")
       |> Extreme.start_link()
 
-    assert {:error, :not_authenticated} = Extreme.execute(server, write_events())
+    assert {:error, :not_authenticated} = Extreme.execute(server, _write_events())
   end
 
   ## Writing events
@@ -31,45 +31,45 @@ defmodule ExtremeTest do
     Logger.debug("TEST: writing events is success for non existing stream")
 
     assert {:ok, %{result: :Success} = response} =
-             Extreme.execute(server, write_events(to_string(UUID.uuid1())))
+             Extreme.execute(server, _write_events(_random_stream_name()))
 
     Logger.debug("Write response: #{inspect(response)}")
   end
 
   test "writing events is success for existing stream", %{server: server} do
     Logger.debug("TEST: writing events is success for existing stream")
-    stream = to_string(UUID.uuid1())
-    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, write_events(stream))
+    stream = _random_stream_name()
+    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("First write response: #{inspect(response)}")
-    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, write_events(stream))
+    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("Second write response: #{inspect(response)}")
   end
 
   test "writing events is success for soft deleted stream", %{server: server} do
     Logger.debug("TEST: writing events is success for soft deleted stream")
-    stream = to_string(UUID.uuid1())
-    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, write_events(stream))
+    stream = _random_stream_name()
+    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("First write response: #{inspect(response)}")
 
     assert {:ok, %{result: :Success} = response} =
-             Extreme.execute(server, delete_stream(stream, false))
+             Extreme.execute(server, _delete_stream(stream, false))
 
     Logger.debug("Deletion response: #{inspect(response)}")
-    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, write_events(stream))
+    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("Second write response: #{inspect(response)}")
   end
 
   test "writing events is NOT success for hard deleted stream", %{server: server} do
     Logger.debug("TEST: writing events is NOT success for hard deleted stream")
-    stream = to_string(UUID.uuid1())
-    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, write_events(stream))
+    stream = _random_stream_name()
+    assert {:ok, %{result: :Success} = response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("First write response: #{inspect(response)}")
 
     assert {:ok, %{result: :Success} = response} =
-             Extreme.execute(server, delete_stream(stream, true))
+             Extreme.execute(server, _delete_stream(stream, true))
 
     Logger.debug("Deletion response: #{inspect(response)}")
-    assert {:error, :StreamDeleted, response} = Extreme.execute(server, write_events(stream))
+    assert {:error, :StreamDeleted, response} = Extreme.execute(server, _write_events(stream))
     Logger.debug("Second write response: #{inspect(response)}")
   end
 
@@ -82,7 +82,7 @@ defmodule ExtremeTest do
       "TEST: reading events is success even when response data is received in more tcp packages"
     )
 
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
 
     events = [
       %PersonCreated{name: "Reading"},
@@ -106,8 +106,8 @@ defmodule ExtremeTest do
       %PersonChangedName{name: "Reading Test"}
     ]
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    {:ok, response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    {:ok, response} = Extreme.execute(server, _read_events(stream))
 
     assert events ==
              Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -117,34 +117,34 @@ defmodule ExtremeTest do
     Logger.debug("TEST: reading events from non existing stream returns :NoStream")
 
     {:error, :NoStream, _es_response} =
-      Extreme.execute(server, read_events(to_string(UUID.uuid1())))
+      Extreme.execute(server, _read_events(_random_stream_name()))
   end
 
   test "reading events from soft deleted stream returns :NoStream", %{server: server} do
     Logger.debug("TEST: reading events from soft deleted stream returns :NoStream")
-    stream = to_string(UUID.uuid1())
-    {:ok, _} = Extreme.execute(server, write_events(stream))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, false))
-    {:error, :NoStream, _es_response} = Extreme.execute(server, read_events(stream))
+    stream = _random_stream_name()
+    {:ok, _} = Extreme.execute(server, _write_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, false))
+    {:error, :NoStream, _es_response} = Extreme.execute(server, _read_events(stream))
   end
 
   test "reading events from hard deleted stream returns :NoStream", %{server: server} do
     Logger.debug("TEST: reading events from hard deleted stream returns :StreamDeleted")
-    stream = to_string(UUID.uuid1())
-    {:ok, _} = Extreme.execute(server, write_events(stream))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, true))
-    {:error, :StreamDeleted, _es_response} = Extreme.execute(server, read_events(stream))
+    stream = _random_stream_name()
+    {:ok, _} = Extreme.execute(server, _write_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, true))
+    {:error, :StreamDeleted, _es_response} = Extreme.execute(server, _read_events(stream))
   end
 
   test "reading last event is success", %{server: server} do
     Logger.debug("TEST: reading last event is success")
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
 
     events =
       [_, event2] = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    {:ok, response} = Extreme.execute(server, read_events_backward(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    {:ok, response} = Extreme.execute(server, _read_events_backward(stream))
 
     assert %{is_end_of_stream: false, last_event_number: 1, next_event_number: 0} = response
     assert [ev2] = response.events
@@ -154,7 +154,7 @@ defmodule ExtremeTest do
 
   test "reading events backward is success", %{server: server} do
     Logger.debug("TEST: reading events backward is success")
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
 
     events =
       [event1, event2] = [
@@ -162,8 +162,8 @@ defmodule ExtremeTest do
         %PersonChangedName{name: "Reading Test"}
       ]
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    {:ok, response} = Extreme.execute(server, read_events_backward(stream, -1, 4096))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    {:ok, response} = Extreme.execute(server, _read_events_backward(stream, -1, 4096))
 
     assert %{is_end_of_stream: true, last_event_number: 1, next_event_number: -1} = response
     assert [ev2, ev1] = response.events
@@ -228,10 +228,10 @@ defmodule ExtremeTest do
 
   test "subscribe to existing stream is success", %{server: server} do
     Logger.debug("TEST: subscribe to existing stream is success")
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     # prepopulate stream
     events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events1))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events1))
 
     # subscribe to existing stream
     {:ok, subscriber} = Subscriber.start_link(self())
@@ -243,7 +243,7 @@ defmodule ExtremeTest do
 
     # write two more events after subscription
     events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events2))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events2))
 
     # assert rest events have arrived
     assert_receive {:on_event, _event}
@@ -256,15 +256,15 @@ defmodule ExtremeTest do
   test "subscribe to non existing stream is success", %{server: server} do
     Logger.debug("TEST: subscribe to non existing stream is success")
     # subscribe to stream
-    stream = "domain-people-#{UUID.uuid1()}"
-    {:error, :NoStream, _es_response} = Extreme.execute(server, read_events(stream))
+    stream = _random_stream_name()
+    {:error, :NoStream, _es_response} = Extreme.execute(server, _read_events(stream))
     {:ok, subscriber} = Subscriber.start_link(self())
     {:ok, subscription} = Extreme.subscribe_to(server, subscriber, stream)
     Logger.debug(inspect(subscription))
 
     # write two events after subscription
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
     # assert rest events have arrived
     assert_receive {:on_event, _event}
@@ -276,12 +276,12 @@ defmodule ExtremeTest do
 
   test "subscribe to soft deleted stream is success", %{server: server} do
     Logger.debug("TEST: subscribe to soft deleted stream is success")
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     # prepopulate stream
     events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events1))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, false))
-    {:error, :NoStream, _es_response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events1))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, false))
+    {:error, :NoStream, _es_response} = Extreme.execute(server, _read_events(stream))
 
     # subscribe to stream
     {:ok, subscriber} = Subscriber.start_link(self())
@@ -290,7 +290,7 @@ defmodule ExtremeTest do
 
     # write two more events after subscription
     events2 = [%PersonCreated{name: "4"}, %PersonCreated{name: "5"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events2))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events2))
 
     # assert rest events have arrived
     assert_receive {:on_event, _event}
@@ -300,19 +300,18 @@ defmodule ExtremeTest do
     assert Subscriber.received_events(subscriber) == events2
   end
 
-  # Subscribe to hard deleted stream is ok as per EventStore!?
+  ## Subscribe to hard deleted stream is ok as per EventStore!?
   # test "subscribe to hard deleted stream is NOT success", %{server: server} do
-  #  Logger.debug "TEST: subscribe to hard deleted stream is NOT success"
-  #  stream = "domain-people-#{UUID.uuid1}"
+  #  stream = _random_stream_name()
   #  # prepopulate stream
   #  events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-  #  {:ok, _} = Extreme.execute server, write_events(stream, events1)
-  #  {:ok, _} = Extreme.execute server, delete_stream(stream, true)
-  #  {:error, :StreamDeleted, _es_response} = Extreme.execute server, read_events(stream)
+  #  {:ok, _} = Extreme.execute(server, _write_events(stream, events1))
+  #  {:ok, _} = Extreme.execute(server, _delete_stream(stream, true))
+  #  {:error, :StreamDeleted, _es_response} = Extreme.execute(server, _read_events(stream))
 
   #  # subscribe to stream
-  #  {:ok, subscriber} = Subscriber.start_link self()
-  #  {:ok, _subscription} = Extreme.subscribe_to server, subscriber, stream
+  #  {:ok, subscriber} = Subscriber.start_link(self())
+  #  {:ok, _subscription} = Extreme.subscribe_to(server, subscriber, stream)
 
   #  assert_receive {:extreme, :error, :stream_hard_deleted, ^stream}
   # end
@@ -327,10 +326,10 @@ defmodule ExtremeTest do
     Logger.debug("SELF: #{inspect(self())}")
     Logger.debug("Connection 1: #{inspect(server)}")
     Logger.debug("Connection 2: #{inspect(server2)}")
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     # prepopulate stream
     events1 = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events1))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events1))
 
     # subscribe to existing stream
     {:ok, subscriber} = Subscriber.start_link(self())
@@ -372,7 +371,7 @@ defmodule ExtremeTest do
       %PersonCreated{name: "27"}
     ]
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events2))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events2))
 
     # assert rest events have arrived as well
     assert_receive {:on_event, _event}
@@ -403,7 +402,7 @@ defmodule ExtremeTest do
     ## check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events1 ++ events2
 
-    {:ok, response} = Extreme.execute(server, read_events(stream))
+    {:ok, response} = Extreme.execute(server, _read_events(stream))
 
     assert events1 ++ events2 ==
              Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -411,8 +410,8 @@ defmodule ExtremeTest do
 
   test "read events and stay subscribed for never existed stream is ok", %{server: server} do
     # subscribe to stream
-    stream = "domain-people-#{UUID.uuid1()}"
-    {:error, :NoStream, _} = Extreme.execute(server, read_events(stream))
+    stream = _random_stream_name()
+    {:error, :NoStream, _} = Extreme.execute(server, _read_events(stream))
     {:ok, subscriber} = Subscriber.start_link(self())
     {:ok, _subscription} = Extreme.read_and_stay_subscribed(server, subscriber, stream, 0, 2)
 
@@ -421,7 +420,7 @@ defmodule ExtremeTest do
 
     # write two events after subscription
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
     # assert rest events have arrived as well
     assert_receive {:on_event, _event}
@@ -430,7 +429,7 @@ defmodule ExtremeTest do
     # check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events
 
-    {:ok, response} = Extreme.execute(server, read_events(stream))
+    {:ok, response} = Extreme.execute(server, _read_events(stream))
 
     assert events ==
              Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -438,11 +437,11 @@ defmodule ExtremeTest do
 
   test "read events and stay subscribed for soft deleted stream is ok", %{server: server} do
     # soft delete stream
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    {:ok, _} = Extreme.execute(server, read_events(stream))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, false))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _read_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, false))
 
     # subscribe to stream
     {:ok, subscriber} = Subscriber.start_link(self())
@@ -453,7 +452,7 @@ defmodule ExtremeTest do
 
     # write two events after subscription
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
     # assert rest events have arrived as well
     assert_receive {:on_event, _event}
@@ -462,19 +461,19 @@ defmodule ExtremeTest do
     # check if they came in correct order.
     assert Subscriber.received_events(subscriber) == events
 
-    {:ok, response} = Extreme.execute(server, read_events(stream))
+    {:ok, response} = Extreme.execute(server, _read_events(stream))
 
     assert events ==
              Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
   end
 
   test "read events and stay subscribed for hard deleted stream is not ok", %{server: server} do
-    # soft delete stream
-    stream = "domain-people-#{UUID.uuid1()}"
+    # hard delete stream
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    {:ok, _} = Extreme.execute(server, read_events(stream))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, true))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _read_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, true))
 
     # subscribe to stream
     {:ok, subscriber} = Subscriber.start_link(self())
@@ -485,63 +484,63 @@ defmodule ExtremeTest do
   end
 
   test "reading single existing event is success", %{server: server} do
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
     expected_event = List.last(events)
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    assert {:ok, response} = Extreme.execute(server, read_event(stream, 1))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    assert {:ok, response} = Extreme.execute(server, _read_event(stream, 1))
     assert expected_event == :erlang.binary_to_term(response.event.event.data)
   end
 
   test "trying to read non existing event from existing stream returns :NotFound", %{
     server: server
   } do
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
     expected_event = List.last(events)
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    assert {:ok, response} = Extreme.execute(server, read_event(stream, 1))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    assert {:ok, response} = Extreme.execute(server, _read_event(stream, 1))
     assert expected_event == :erlang.binary_to_term(response.event.event.data)
 
     assert {:error, :NotFound, _read_event_completed} =
-             Extreme.execute(server, read_event(stream, 2))
+             Extreme.execute(server, _read_event(stream, 2))
   end
 
   test "soft deleting stream can be done multiple times", %{server: server} do
-    stream = "soft_deleted"
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "Reading"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    assert {:ok, _response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    assert {:ok, _response} = Extreme.execute(server, _read_events(stream))
 
-    {:ok, _} = Extreme.execute(server, delete_stream(stream))
-    assert {:error, :NoStream, _es_response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream))
+    assert {:error, :NoStream, _es_response} = Extreme.execute(server, _read_events(stream))
 
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    assert {:ok, _response} = Extreme.execute(server, read_events(stream))
-    {:ok, _} = Extreme.execute(server, delete_stream(stream))
-    assert {:error, :NoStream, _es_response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    assert {:ok, _response} = Extreme.execute(server, _read_events(stream))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream))
+    assert {:error, :NoStream, _es_response} = Extreme.execute(server, _read_events(stream))
   end
 
   test "hard deleted stream can be done only once", %{server: server} do
-    stream = "domain-people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
     events = [%PersonCreated{name: "Reading"}]
-    {:ok, _} = Extreme.execute(server, write_events(stream, events))
-    assert {:ok, _response} = Extreme.execute(server, read_events(stream))
+    {:ok, _} = Extreme.execute(server, _write_events(stream, events))
+    assert {:ok, _response} = Extreme.execute(server, _read_events(stream))
 
-    {:ok, _} = Extreme.execute(server, delete_stream(stream, true))
-    assert {:error, :StreamDeleted, _es_response} = Extreme.execute(server, read_events(stream))
-    {:error, :StreamDeleted, _} = Extreme.execute(server, write_events(stream, events))
+    {:ok, _} = Extreme.execute(server, _delete_stream(stream, true))
+    assert {:error, :StreamDeleted, _es_response} = Extreme.execute(server, _read_events(stream))
+    {:error, :StreamDeleted, _} = Extreme.execute(server, _write_events(stream, events))
   end
 
   @tag :benchmark
   test "it writes 1_000 events in less then 2 seconds", %{server: server} do
     Logger.debug("TEST: it writes 1_000 events in less then 2 seconds")
-    stream = "people-#{UUID.uuid1()}"
+    stream = _random_stream_name()
 
     fun = fn ->
-      for(_ <- 0..499, do: Extreme.execute(server, write_events(stream)))
+      for(_ <- 0..499, do: Extreme.execute(server, _write_events(stream)))
     end
 
     time =
@@ -558,12 +557,12 @@ defmodule ExtremeTest do
       stream = "persistent-subscription-#{UUID.uuid4()}"
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
 
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       assert {:ok, response} =
                Extreme.execute(
                  server,
-                 create_persistent_subscription("subscription-#{UUID.uuid4()}", stream)
+                 _create_persistent_subscription("subscription-#{UUID.uuid4()}", stream)
                )
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{
@@ -577,10 +576,10 @@ defmodule ExtremeTest do
       group = "subscription-#{UUID.uuid4()}"
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
 
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       assert {:ok, response} =
-               Extreme.execute(server, create_persistent_subscription(group, stream))
+               Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{
                reason: "",
@@ -588,7 +587,7 @@ defmodule ExtremeTest do
              }
 
       assert {:error, :AlreadyExists, response} =
-               Extreme.execute(server, create_persistent_subscription(group, stream))
+               Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{
                reason: "Group '#{group}' already exists.",
@@ -602,7 +601,7 @@ defmodule ExtremeTest do
       buffer_size = 1
 
       # create persistent subscription
-      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+      {:ok, _} = Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -611,7 +610,7 @@ defmodule ExtremeTest do
         Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       # assert events are received
       assert_receive {:on_event, event, correlation_id}
@@ -636,7 +635,7 @@ defmodule ExtremeTest do
       buffer_size = 1
 
       # create persistent subscription
-      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+      {:ok, _} = Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -645,7 +644,7 @@ defmodule ExtremeTest do
         Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       # assert events are received
       assert_receive {:on_event, event, correlation_id}
@@ -673,7 +672,7 @@ defmodule ExtremeTest do
 
       # create persistent subscription with resolved links to events
       {:ok, _} =
-        Extreme.execute(server, create_persistent_subscription(group, category_stream, true))
+        Extreme.execute(server, _create_persistent_subscription(group, category_stream, true))
 
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -688,7 +687,7 @@ defmodule ExtremeTest do
         )
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       # assert events are received
       assert_receive {:on_event, event, correlation_id}
@@ -715,7 +714,7 @@ defmodule ExtremeTest do
       buffer_size = 1
 
       # create persistent subscription
-      {:ok, _} = Extreme.execute(server, create_persistent_subscription(group, stream))
+      {:ok, _} = Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -724,7 +723,7 @@ defmodule ExtremeTest do
         Extreme.connect_to_persistent_subscription(server, subscriber, group, stream, buffer_size)
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}, %PersonCreated{name: "3"}]
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       # receive and ack first event only
       assert_receive {:on_event, event, correlation_id}
@@ -735,7 +734,7 @@ defmodule ExtremeTest do
       subscription_ref = Process.monitor(subscription)
 
       # shutdown subscriber to terminate persistent subscription and its connection
-      shutdown(subscriber)
+      _shutdown(subscriber)
 
       assert_receive {:DOWN, ^subscriber_ref, _, _, _}
       refute Process.alive?(subscriber)
@@ -794,10 +793,10 @@ defmodule ExtremeTest do
         %PersonCreated{name: "5"}
       ]
 
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       assert {:ok, response} =
-               Extreme.execute(server, create_persistent_subscription(group, stream))
+               Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{
                reason: "",
@@ -868,10 +867,10 @@ defmodule ExtremeTest do
         %PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       assert {:ok, response} =
-               Extreme.execute(server, create_persistent_subscription(group, stream))
+               Extreme.execute(server, _create_persistent_subscription(group, stream))
 
       assert response == %Extreme.Msg.CreatePersistentSubscriptionCompleted{
                reason: "",
@@ -918,7 +917,7 @@ defmodule ExtremeTest do
 
       # create persistent subscription with resolved links to events
       {:ok, _} =
-        Extreme.execute(server, create_persistent_subscription(group, category_stream, true))
+        Extreme.execute(server, _create_persistent_subscription(group, category_stream, true))
 
       # subscribe to persistent subscription
       {:ok, subscriber} = Subscriber.start_link(self())
@@ -933,7 +932,7 @@ defmodule ExtremeTest do
         )
 
       events = [%PersonCreated{name: "1"}, %PersonCreated{name: "2"}]
-      {:ok, _} = Extreme.execute(server, write_events(stream, events))
+      {:ok, _} = Extreme.execute(server, _write_events(stream, events))
 
       # assert events are received
       assert_receive {:on_event, event, correlation_id}
@@ -979,19 +978,19 @@ defmodule ExtremeTest do
       # works for this kind of issues
       # if you incrase this ensure you change this test timout
       num_test_events = 500
-      stream = "some-stream-#{UUID.uuid1()}"
+      stream = _random_stream_name()
 
       data = Enum.reduce(1..num_bytes, "", fn _, acc -> "a" <> acc end)
       event = %{__struct__: SomeStruct, data: data}
 
       initial_events = Enum.map(1..num_initial_events, fn _ -> event end)
-      Extreme.execute(server, write_events(stream, initial_events))
+      Extreme.execute(server, _write_events(stream, initial_events))
 
       Process.spawn(
         fn ->
           Enum.each(1..num_test_events, fn _x ->
             # IO.puts "w#{x}"
-            assert {:ok, _} = Extreme.execute(server, write_events(stream, [event]))
+            assert {:ok, _} = Extreme.execute(server, _write_events(stream, [event]))
           end)
         end,
         []
@@ -1003,7 +1002,7 @@ defmodule ExtremeTest do
         fn ->
           Enum.each(1..num_test_events, fn _x ->
             # IO.puts "r#{x}"
-            assert {:ok, _} = Extreme.execute(server, read_events(stream))
+            assert {:ok, _} = Extreme.execute(server, _read_events(stream))
           end)
 
           # at the end, this should tell that we received all messages
@@ -1016,13 +1015,15 @@ defmodule ExtremeTest do
     end
   end
 
-  defp shutdown(pid) when is_pid(pid) do
+  defp _shutdown(pid) when is_pid(pid) do
     Process.unlink(pid)
     Process.exit(pid, :shutdown)
   end
 
-  defp write_events(
-         stream \\ "people",
+  defp _random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+
+  defp _write_events(
+         stream \\ "extreme_test",
          events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
        ) do
     proto_events =
@@ -1045,7 +1046,7 @@ defmodule ExtremeTest do
     )
   end
 
-  defp read_events(stream) do
+  defp _read_events(stream) do
     ExMsg.ReadStreamEvents.new(
       event_stream_id: stream,
       from_event_number: 0,
@@ -1055,7 +1056,7 @@ defmodule ExtremeTest do
     )
   end
 
-  defp read_events_backward(stream, start \\ -1, count \\ 1) do
+  defp _read_events_backward(stream, start \\ -1, count \\ 1) do
     ExMsg.ReadStreamEventsBackward.new(
       event_stream_id: stream,
       from_event_number: start,
@@ -1065,7 +1066,7 @@ defmodule ExtremeTest do
     )
   end
 
-  defp read_event(stream, position) do
+  defp _read_event(stream, position) do
     ExMsg.ReadEvent.new(
       event_stream_id: stream,
       event_number: position,
@@ -1074,7 +1075,7 @@ defmodule ExtremeTest do
     )
   end
 
-  defp delete_stream(stream, hard_delete \\ false) do
+  defp _delete_stream(stream, hard_delete \\ false) do
     ExMsg.DeleteStream.new(
       event_stream_id: stream,
       expected_version: -2,
@@ -1083,9 +1084,9 @@ defmodule ExtremeTest do
     )
   end
 
-  defp create_persistent_subscription(groupName, stream, resolve_link_tos \\ false)
+  defp _create_persistent_subscription(groupName, stream, resolve_link_tos \\ false)
 
-  defp create_persistent_subscription(groupName, stream, resolve_link_tos) do
+  defp _create_persistent_subscription(groupName, stream, resolve_link_tos) do
     ExMsg.CreatePersistentSubscription.new(
       subscription_group_name: groupName,
       event_stream_id: stream,

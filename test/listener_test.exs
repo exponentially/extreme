@@ -117,13 +117,13 @@ defmodule Extreme.ListenerTest do
 
   test "Listener reads all events if never run before", %{server: server} do
     Logger.debug("TEST: Listener reads all events if never run before")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
     assert DB.get_last_event(MyListener, stream) == -1
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
@@ -138,12 +138,12 @@ defmodule Extreme.ListenerTest do
 
   test "Listener reads existing unacked events", %{server: server} do
     Logger.debug("TEST: Listener reads existing unacked events")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
     # fake that first event is already processed
     DB.ack_event(MyListener, stream, 0)
     assert DB.get_last_event(MyListener, stream) == 0
@@ -158,13 +158,13 @@ defmodule Extreme.ListenerTest do
 
   test "Listener reads all events and keeps listening for new ones", %{server: server} do
     Logger.debug("TEST: Listener reads all events and keeps listening for new ones")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
     assert DB.get_last_event(MyListener, stream) == -1
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and expect it to read them
     {:ok, _listener} = MyListener.start_link(server, stream)
@@ -174,7 +174,7 @@ defmodule Extreme.ListenerTest do
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event3]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event3]))
 
     # expect that listener got new event
     assert_receive {:processing_push, event_type, event}
@@ -190,14 +190,14 @@ defmodule Extreme.ListenerTest do
       "TEST: Listener doesn't process previous events but keeps listening for new ones"
     )
 
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
     {:ok, _db} = DB.start_link(:ignores_old_events_db, :from_now)
     assert DB.get_last_event(:ignores_old_events_db, NewListener, stream) == :from_now
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and expect it NOT to read them
     {:ok, _listener} = NewListener.start_link(server, stream)
@@ -207,7 +207,7 @@ defmodule Extreme.ListenerTest do
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event3]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event3]))
 
     # expect that listener got new event
     assert_receive {:processing_push, event_type, event}
@@ -218,13 +218,13 @@ defmodule Extreme.ListenerTest do
 
   test "Listener can be paused and resumed", %{server: server} do
     Logger.debug("TEST: Listener can be paused and resumed")
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
     assert DB.get_last_event(MyListener, stream) == -1
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and expect it to read them
     {:ok, listener} = MyListener.start_link(server, stream)
@@ -237,7 +237,7 @@ defmodule Extreme.ListenerTest do
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event3]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event3]))
 
     # expect that listener didn't process new event
     refute_receive {:processing_push, _event_type, _event}
@@ -259,13 +259,13 @@ defmodule Extreme.ListenerTest do
       "TEST: Listener can pause processing, run patches retroactively and then resume listening"
     )
 
-    stream = to_string(UUID.uuid1())
+    stream = _random_stream_name()
     event1 = %PersonCreated{name: "Pera Peric"}
     event2 = %PersonChangedName{name: "Zika"}
     assert DB.get_last_event(MyListener, stream) == -1
 
     # write 2 events to stream
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event1, event2]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
     Logger.debug("Written 2 events")
 
     # run listener and expect it to process them
@@ -279,7 +279,7 @@ defmodule Extreme.ListenerTest do
 
     # write one more event to stream
     event3 = %PersonChangedName{name: "Laza"}
-    {:ok, %{result: :Success}} = Extreme.execute(server, write_events(stream, [event3]))
+    {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event3]))
     Logger.debug("Written 1 event")
 
     # first two events are processed with PatchCallbacks module
@@ -296,7 +296,9 @@ defmodule Extreme.ListenerTest do
     assert DB.get_last_event(MyListener, stream) == 2
   end
 
-  defp write_events(stream, events) do
+  defp _random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+
+  defp _write_events(stream, events) do
     proto_events =
       Enum.map(events, fn event ->
         ExMsg.NewEvent.new(
