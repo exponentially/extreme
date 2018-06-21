@@ -11,7 +11,7 @@ defmodule Extreme.ClusterConnection do
   def get_node(:cluster_dns, connection_settings) do
     {:ok, ips} = :inet.getaddrs(get_hostname(connection_settings), :inet, 1_000)
     gossip_timeout = Keyword.get(connection_settings, :gossip_timeout, 1_000)
-    gossip_port = Keyword.get(connection_settings, :port, 2113)
+    gossip_port = Extreme.Tools.normalize_port(Keyword.get(connection_settings, :port, 2113))
     mode = Keyword.get(connection_settings, :mode, :write)
     nodes = ips |> Enum.map(fn ip -> %{host: to_string(:inet.ntoa(ip)), port: gossip_port} end)
     gossip_with(nodes, gossip_timeout, mode)
