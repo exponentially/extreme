@@ -327,7 +327,7 @@ defmodule Extreme do
 
   defp connect(:node, connection_settings, attempt) do
     host = Keyword.fetch!(connection_settings, :host)
-    port = Keyword.fetch!(connection_settings, :port)
+    port = Extreme.Tools.normalize_port(Keyword.fetch!(connection_settings, :port))
     connect(host, port, connection_settings, attempt)
   end
 
