@@ -26,7 +26,7 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      applications: [:logger, :exprotobuf, :uuid, :gpb, :httpoison, :poison]
+      applications: [:logger, :exprotobuf, :elixir_uuid, :gpb, :httpoison, :poison]
     ]
   end
 
