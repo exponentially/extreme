@@ -35,7 +35,7 @@ defmodule Extreme.Mixfile do
       {:httpoison, "~> 0.11"},
       {:poison, "~> 2.2 or ~> 3.0"},
       {:exprotobuf, "~> 1.2"},
-      {:uuid, "~> 1.1.4"},
+      {:elixir_uuid, "~> 1.2"},
       {:ex_doc, "~> 0.16", only: :test},
       {:earmark, "~> 1.2", only: :test},
       {:inch_ex, "~> 0.5", only: :test},
