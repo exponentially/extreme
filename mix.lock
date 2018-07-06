@@ -27,6 +27,5 @@
   "providers": {:hex, :providers, "1.6.0", "db0e2f9043ae60c0155205fcd238d68516331d0e5146155e33d1e79dc452964a", [], [{:getopt, "0.8.2", [hex: :getopt, repo: "hexpm", optional: false]}], "hexpm"},
   "relx": {:hex, :relx, "3.22.2", "aee2ef6e9ac6d21d6661133b7a0be6e81424de9cdca0012fc008bc677297c469", [:rebar3], [{:bbmustache, "1.0.4", [hex: :bbmustache, repo: "hexpm", optional: false]}, {:cf, "0.2.2", [hex: :cf, repo: "hexpm", optional: false]}, {:erlware_commons, "0.22.0", [hex: :erlware_commons, repo: "hexpm", optional: false]}, {:getopt, "0.8.2", [hex: :getopt, repo: "hexpm", optional: false]}, {:providers, "1.6.0", [hex: :providers, repo: "hexpm", optional: false]}], "hexpm"},
   "ssl_verify_fun": {:hex, :ssl_verify_fun, "1.1.1", "28a4d65b7f59893bc2c7de786dec1e1555bd742d336043fe644ae956c3497fbe", [:make, :rebar], [], "hexpm"},
-  "unicode_util_compat": {:hex, :unicode_util_compat, "0.3.1", "a1f612a7b512638634a603c8f401892afbf99b8ce93a45041f8aaca99cadb85e", [:rebar3], [], "hexpm"},
-  "uuid": {:hex, :uuid, "1.1.8", "e22fc04499de0de3ed1116b770c7737779f226ceefa0badb3592e64d5cfb4eb9", [:mix], [], "hexpm"},
+  "unicode_util_compat": {:hex, :unicode_util_compat, "0.3.1", "a1f612a7b512638634a603c8f401892afbf99b8ce93a45041f8aaca99cadb85e", [:rebar3], [], "hexpm"}
 }
