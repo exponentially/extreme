@@ -136,7 +136,8 @@ defmodule Extreme.Listener do
             state.event_store,
             self(),
             state.stream_name,
-            last_event + 1
+            last_event + 1,
+            500
           )
 
         ref = Process.monitor(subscription)
