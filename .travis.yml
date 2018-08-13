@@ -3,7 +3,7 @@ language: elixir
 otp_release:
   - 21.0
 elixir:
-  - 1.7.0
+  - 1.7.2
 
 env:
   - EVENT_STORE_VERSION='14.04-v3.9.4' ES_VERSION=3
