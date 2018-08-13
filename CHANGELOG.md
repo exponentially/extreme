@@ -1,3 +1,6 @@
+# Changelog for extreme v0.13.1
+  * Dependency version upgrades
+
 # Changelog for extreme v0.13.0
   * Support Elixir 1.7.0 and OTP 21.0
   * Listener reads events in chunks of 500 events (instead of 4096)
