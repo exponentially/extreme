@@ -32,15 +32,15 @@ defmodule Extreme.Mixfile do
 
   defp deps do
     [
-      {:httpoison, "~> 0.11"},
-      {:poison, "~> 2.2 or ~> 3.0"},
+      {:httpoison, "~> 1.2"},
+      {:poison, "~> 2.2 or ~> 3.0 or ~> 4.0"},
       {:exprotobuf, "~> 1.2"},
       {:elixir_uuid, "~> 1.2"},
-      {:ex_doc, "~> 0.16", only: :test},
+      {:ex_doc, "~> 0.19", only: :test},
       {:earmark, "~> 1.2", only: :test},
-      {:inch_ex, "~> 0.5", only: :test},
-      {:excoveralls, "~> 0.8", only: :test},
-      {:mix_test_watch, "~> 0.2", only: :dev}
+      {:inch_ex, "~> 1.0", only: :test},
+      {:excoveralls, "~> 0.9", only: :test},
+      {:mix_test_watch, "~> 0.8", only: :dev}
     ]
   end
 
