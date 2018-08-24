@@ -50,7 +50,7 @@ defmodule Extreme.Listener do
       
           children = [
             worker(Extreme, [event_store_settings, [name: @event_store]]),
-            worker(MyApp.MyListener, [@event_store, "my_indexed_stream", [name: MyListener]]),
+            worker(MyApp.MyListener, [@event_store, "my_indexed_stream", [name: MyListener, read_per_page: 1_000]]),
             # ... other workers / supervisors
           ]
           supervise children, strategy: :one_for_one
@@ -70,10 +70,16 @@ defmodule Extreme.Listener do
       use GenServer
       require Logger
 
-      def start_link(event_store, stream_name, opts \\ []),
-        do: GenServer.start_link(__MODULE__, {event_store, stream_name}, opts)
+      @default_read_per_page 500
 
-      def init({event_store, stream_name}) do
+      @doc """
+      Starts Listener GenServer with `event_store` connection, for particular `stream_name`
+      and options (`name` of process and `read_per_page` which defaults to 500.
+      """
+      def start_link(event_store, stream_name, opts \\ []),
+        do: GenServer.start_link(__MODULE__, {event_store, stream_name, opts[:read_per_page] || @default_read_per_page}, opts)
+
+      def init({event_store, stream_name, read_per_page}) do
         state = %{
           event_store: event_store,
           last_event: nil,
@@ -81,7 +87,8 @@ defmodule Extreme.Listener do
           subscription_ref: nil,
           stream_name: stream_name,
           mode: :init,
-          patch_until: nil
+          patch_until: nil,
+          per_page: read_per_page
         }
 
         GenServer.cast(self(), :subscribe)
@@ -137,7 +144,7 @@ defmodule Extreme.Listener do
             self(),
             state.stream_name,
             last_event + 1,
-            500
+            state.per_page
           )
 
         ref = Process.monitor(subscription)
@@ -164,7 +171,8 @@ defmodule Extreme.Listener do
             state.event_store,
             self(),
             state.stream_name,
-            last_event + 1
+            last_event + 1,
+            state.per_page
           )
 
         ref = Process.monitor(subscription)

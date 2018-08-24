@@ -1,3 +1,6 @@
+# Changelog for extreme v0.13.2
+  * Listener accepts `:read_per_page` option in `start_link/3` which defaults to 500
+
 # Changelog for extreme v0.13.1
   * Dependency version upgrades
 

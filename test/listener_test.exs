@@ -126,7 +126,7 @@ defmodule Extreme.ListenerTest do
     {:ok, %{result: :Success}} = Extreme.execute(server, _write_events(stream, [event1, event2]))
 
     # run listener and expect it to read them
-    {:ok, _listener} = MyListener.start_link(server, stream)
+    {:ok, _listener} = MyListener.start_link(server, stream, read_per_page: 20)
     assert_receive {:processing_push, event_type, event}
     assert event_type == "Elixir.Extreme.ListenerTest.PersonCreated"
     assert event1 == :erlang.binary_to_term(event)
