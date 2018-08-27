@@ -77,7 +77,12 @@ defmodule Extreme.Listener do
       and options (`name` of process and `read_per_page` which defaults to 500.
       """
       def start_link(event_store, stream_name, opts \\ []),
-        do: GenServer.start_link(__MODULE__, {event_store, stream_name, opts[:read_per_page] || @default_read_per_page}, opts)
+        do:
+          GenServer.start_link(
+            __MODULE__,
+            {event_store, stream_name, opts[:read_per_page] || @default_read_per_page},
+            opts
+          )
 
       def init({event_store, stream_name, read_per_page}) do
         state = %{
