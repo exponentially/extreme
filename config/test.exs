@@ -6,3 +6,11 @@ config :logger, :console,
 
 config :ex_unit,
   capture_log: true
+
+config :extreme, :event_store,
+  db_type: :node,
+  host: "localhost",
+  port: 1113,
+  username: "admin",
+  password: "changeit",
+  connection_name: "extreme_test"

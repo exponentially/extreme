@@ -11,13 +11,14 @@ defmodule Extreme.Mixfile do
       Elixir TCP adapter for EventStore.
       """,
       package: _package(),
-      start_permanent: Mix.env() == :prod,
+      start_permanent: true,#Mix.env() == :prod,
       deps: _deps()
     ]
   end
 
   def application do
     [
+      mod: {App, []},
       extra_applications: [:logger]
     ]
   end
@@ -35,7 +36,7 @@ defmodule Extreme.Mixfile do
 
   defp _package do
     [
-      files: ["lib", "include", "mix.exs", "README*", "LICENSE*"],
+      files: ["lib", "mix.exs", "README*", "LICENSE*"],
       maintainers: ["Milan Burmaja", "Milan Jaric"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/exponentially/extreme"}

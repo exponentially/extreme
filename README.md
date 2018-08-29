@@ -486,6 +486,17 @@ def handle_info({:on_event, event, correlation_id}, %{subscription: subscription
 end
 ```
 
+## Building modules from .proto file
+
+Follow steps 1. and 2. from https://github.com/tony612/protobuf-elixir#generate-elixir-code,
+then run:
+
+```bash
+protoc --elixir_out=./ include/event_store.proto && \
+sed -i '' 's/EventStore\.Client/Extreme/g' include/event_store.pb.ex && \
+mv include/event_store.pb.ex lib/extreme/messages.ex
+```
+
 ## Contributing
 
 1. Fork it
