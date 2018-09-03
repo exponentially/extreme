@@ -26,15 +26,24 @@ defmodule Extreme.Connection do
 
   @impl true
   def init({base_name, configuration}) do
-    {:ok,
-     %State{
-       base_name: base_name,
-       received_data: ""
-     }, {:continue, {:connect, configuration}}}
+    GenServer.cast(self(), {:connect, configuration})
+
+    state = %State{
+      base_name: base_name,
+      received_data: ""
+    }
+
+    {:ok, state}
   end
 
   @impl true
-  def handle_continue({:connect, configuration}, %State{} = state) do
+  def handle_call({:execute, message}, _from, %State{} = state) do
+    :ok = Impl.execute(message, state)
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_cast({:connect, configuration}, state) do
     configuration
     |> _connect()
     |> case do
@@ -53,13 +62,6 @@ defmodule Extreme.Connection do
     end
   end
 
-  @impl true
-  def handle_call({:execute, message}, _from, %State{} = state) do
-    :ok = Impl.execute(message, state)
-    {:reply, :ok, state}
-  end
-
-  @impl true
   def handle_cast({:execute, message}, %State{} = state) do
     :ok = Impl.execute(message, state)
     {:noreply, state}

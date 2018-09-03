@@ -8,7 +8,7 @@ defmodule ExtremeTest do
 
   @base_name ExtremeTest
 
-  setup do
+  setup_all do
     {:ok, _} = Extreme.start_link(@base_name, _test_configuration())
     :ok
   end
@@ -121,7 +121,7 @@ defmodule ExtremeTest do
       {:ok, _} = Extreme.execute(@base_name, _write_events(stream, events))
 
       {:ok, %ExMsg.ReadStreamEventsCompleted{events: read_events}} =
-        Extreme.execute(@base_name, _read_events(stream))
+        Extreme.execute(@base_name, _read_events(stream, 0, 20))
 
       assert events ==
                Enum.map(read_events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -145,106 +145,39 @@ defmodule ExtremeTest do
       {:error, :stream_deleted} = Extreme.execute(@base_name, _read_events(stream))
     end
 
-    # test "reading events backward is success" do
-    #  stream = _random_stream_name()
-
-    #  events =
-    #    [event1, event2] = [
-    #      %PersonCreated{name: "Reading"},
-    #      %PersonChangedName{name: "Reading Test"}
-    #    ]
-
-    #  {:ok, _} = Extreme.execute(@base_name, _write_events(stream, events))
-    #  {:oks, response} = Extreme.execute(@base_name, _read_events_backward(stream, -1, 100))
-
-    #  assert %{is_end_of_stream: true, last_event_number: 1, next_event_number: -1} = response
-    #  assert [ev2, ev1] = response.events
-    #  assert event2 == :erlang.binary_to_term(ev2.event.data)
-    #  assert event1 == :erlang.binary_to_term(ev1.event.data)
-    #  assert ev2.event.event_number == 1
-    #  assert ev1.event.event_number == 0
-    # end
-  end
-
-  #  describe "Reading single event" do
-  #  test "reading last event is success" do
-  #    stream = _random_stream_name()
-  #
-  #    events =
-  #      [_, event2] = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
-  #
-  #    {:ok, _} = Extreme.execute(@base_name, _write_events(stream, events))
-  #    assert {:oks, response} = Extreme.execute(@base_name, _read_events_backward(stream))
-  #
-  #    assert %{is_end_of_stream: false, last_event_number: 1, next_event_number: 0} = response
-  #    assert [ev2] = response.events
-  #    assert event2 == :erlang.binary_to_term(ev2.event.data)
-  #    assert ev2.event.event_number == 1
-  #  end
-  #  end
-  #
-  describe "Benchmark" do
-    @tag :benchmark
-    test "it writes 1_000 events in less then 2 seconds" do
+    test "backward is success" do
       stream = _random_stream_name()
 
-      fun = fn ->
-        for(_ <- 0..499, do: Extreme.execute(@base_name, _write_events(stream)))
-      end
+      events =
+        [event1, event2] = [
+          %PersonCreated{name: "Reading"},
+          %PersonChangedName{name: "Reading Test"}
+        ]
 
-      time =
-        fun
-        |> :timer.tc()
-        |> elem(0)
-        |> IO.inspect(label: "Writing 1_000 events in")
+      {:ok, _} = Extreme.execute(@base_name, _write_events(stream, events))
+      {:ok, response} = Extreme.execute(@base_name, _read_events_backward(stream, -1, 100))
 
-      assert time < 2_100_000
+      assert %{is_end_of_stream: true, last_event_number: 1, next_event_number: -1} = response
+      assert [ev2, ev1] = response.events
+      assert event2 == :erlang.binary_to_term(ev2.event.data)
+      assert event1 == :erlang.binary_to_term(ev1.event.data)
+      assert ev2.event.event_number == 1
+      assert ev1.event.event_number == 0
     end
 
-    @tag timeout: 300_000
-    @tag :benchmark
-    test "reading and writing simultaneously is ok" do
-      num_initial_events = 2_000
-      num_bytes = 200
-      # usualy older implementation fails on 50th iteration
-      # so 500 should be enough to confirm that seting :inet.setopts(socket, active: false) 
-      # works for this kind of issues
-      # if you incrase this ensure you change this test timout
-      num_test_events = 500
+    test "backwards can give last event" do
       stream = _random_stream_name()
 
-      data = Enum.reduce(1..num_bytes, "", fn _, acc -> "a" <> acc end)
-      event = %{__struct__: SomeStruct, data: data}
+      events =
+        [_, event2] = [%PersonCreated{name: "Reading"}, %PersonChangedName{name: "Reading Test"}]
 
-      initial_events = Enum.map(1..num_initial_events, fn _ -> event end)
-      Extreme.execute(@base_name, _write_events(stream, initial_events))
+      {:ok, _} = Extreme.execute(@base_name, _write_events(stream, events))
+      assert {:ok, response} = Extreme.execute(@base_name, _read_events_backward(stream, -1, 1))
 
-      Process.spawn(
-        fn ->
-          Enum.each(1..num_test_events, fn _x ->
-            # IO.puts "w#{x}"
-            assert {:ok, _} = Extreme.execute(@base_name, _write_events(stream, [event]))
-          end)
-        end,
-        []
-      )
-
-      p = self()
-
-      Process.spawn(
-        fn ->
-          Enum.each(1..num_test_events, fn _x ->
-            # IO.puts "r#{x}"
-            assert {:ok, _} = Extreme.execute(@base_name, _read_events(stream))
-          end)
-
-          # at the end, this should tell that we received all messages
-          send(p, :ok)
-        end,
-        []
-      )
-
-      assert_receive(:ok, 300_000)
+      assert %{is_end_of_stream: false, last_event_number: 1, next_event_number: 0} = response
+      assert [ev2] = response.events
+      assert event2 == :erlang.binary_to_term(ev2.event.data)
+      assert ev2.event.event_number == 1
     end
   end
 
@@ -286,7 +219,7 @@ defmodule ExtremeTest do
     )
   end
 
-  defp _read_events(stream, start \\ 0, count \\ 4096) do
+  defp _read_events(stream, start \\ 0, count \\ 1) do
     ExMsg.ReadStreamEvents.new(
       event_stream_id: stream,
       from_event_number: start,
@@ -296,13 +229,13 @@ defmodule ExtremeTest do
     )
   end
 
-  # defp _read_events_backward(stream, start \\ -1, count \\ 1) do
-  #  ExMsg.ReadStreamEventsBackward.new(
-  #    event_stream_id: stream,
-  #    from_event_number: start,
-  #    max_count: count,
-  #    resolve_link_tos: true,
-  #    require_master: false
-  #  )
-  # end
+  defp _read_events_backward(stream, start, count) do
+    ExMsg.ReadStreamEventsBackward.new(
+      event_stream_id: stream,
+      from_event_number: start,
+      max_count: count,
+      resolve_link_tos: true,
+      require_master: false
+    )
+  end
 end

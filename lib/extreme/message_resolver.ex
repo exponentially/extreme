@@ -52,13 +52,10 @@ defmodule Extreme.MessageResolver do
   def encode_cmd(:scavenge_database), do: 0xD0
   def encode_cmd(:scavenge_database_completed), do: 0xD1
 
-  def encode_cmd(:bad_request), do: 0xF0
   def encode_cmd(:not_handled), do: 0xF1
   def encode_cmd(:authenticate), do: 0xF2
   def encode_cmd(:authenticated), do: 0xF3
-  def encode_cmd(:not_authenticated), do: 0xF4
   def encode_cmd(Msg.IdentifyClient), do: 0xF5
-  def encode_cmd(:client_identified), do: 0xF6
 
   ## Decode
 

@@ -360,6 +360,26 @@ defmodule Extreme.Messages.ReadStreamEvents do
   field(:require_master, 5, required: true, type: :bool)
 end
 
+defmodule Extreme.Messages.ReadStreamEventsBackward do
+  @moduledoc false
+  use Protobuf, syntax: :proto2
+
+  @type t :: %__MODULE__{
+          event_stream_id: String.t(),
+          from_event_number: integer,
+          max_count: integer,
+          resolve_link_tos: boolean,
+          require_master: boolean
+        }
+  defstruct [:event_stream_id, :from_event_number, :max_count, :resolve_link_tos, :require_master]
+
+  field(:event_stream_id, 1, required: true, type: :string)
+  field(:from_event_number, 2, required: true, type: :int64)
+  field(:max_count, 3, required: true, type: :int32)
+  field(:resolve_link_tos, 4, required: true, type: :bool)
+  field(:require_master, 5, required: true, type: :bool)
+end
+
 defmodule Extreme.Messages.ReadStreamEventsCompleted do
   @moduledoc false
   use Protobuf, syntax: :proto2

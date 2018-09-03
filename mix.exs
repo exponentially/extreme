@@ -11,14 +11,14 @@ defmodule Extreme.Mixfile do
       Elixir TCP adapter for EventStore.
       """,
       package: _package(),
-      start_permanent: true,#Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: _deps()
     ]
   end
 
   def application do
     [
-      mod: {App, []},
+      # mod: {App, []},
       extra_applications: [:logger]
     ]
   end
