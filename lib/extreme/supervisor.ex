@@ -1,10 +1,8 @@
 defmodule Extreme.Supervisor do
   use Supervisor
 
-  def start_link(base_name, configuration, opts) do
-    opts = Keyword.put(opts, :name, _name(base_name))
-    Supervisor.start_link(__MODULE__, {base_name, configuration}, opts)
-  end
+  def start_link(base_name, configuration),
+    do: Supervisor.start_link(__MODULE__, {base_name, configuration}, name: _name(base_name))
 
   @impl true
   def init({base_name, configuration}) do

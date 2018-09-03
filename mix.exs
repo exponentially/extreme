@@ -5,7 +5,8 @@ defmodule Extreme.Mixfile do
     [
       app: :extreme,
       version: "1.0.0+beta1",
-      elixir: "~> 1.7",
+      elixir: "~> 1.5",
+      elixirc_paths: _elixirc_paths(Mix.env()),
       source_url: "https://github.com/exponentially/extreme",
       description: """
       Elixir TCP adapter for EventStore.
@@ -22,6 +23,10 @@ defmodule Extreme.Mixfile do
       extra_applications: [:logger]
     ]
   end
+
+  # Specifies which paths to compile per environment.
+  defp _elixirc_paths(:test), do: ["lib", "test/support"]
+  defp _elixirc_paths(_), do: ["lib"]
 
   defp _deps do
     [

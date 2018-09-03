@@ -9,7 +9,7 @@ defmodule Extreme.TcpTest do
       host = Configuration.get_host(@test_configuration)
       port = Configuration.get_port(@test_configuration)
 
-      assert {:ok, socket} = Tcp.connect(host, port, [])
+      assert {:ok, _socket} = Tcp.connect(host, port, [])
     end
 
     test "returns {:error, :max_attempt_exceeded} for incorrect port when `max_attempts` exceeds" do

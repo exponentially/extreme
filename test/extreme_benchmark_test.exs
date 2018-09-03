@@ -1,25 +1,24 @@
 defmodule ExtremeBenchmarkTest do
   use ExUnit.Case, async: false
-  alias Extreme.Messages, as: ExMsg
-  require Logger
+  alias ExtremeTest.Helpers
+  alias ExtremeTest.Events, as: Event
 
-  defmodule(PersonCreated, do: defstruct([:name]))
-  defmodule(PersonChangedName, do: defstruct([:name]))
-
-  @base_name ExtremeBenchmarkTest
+  defmodule BenchmarkConn do
+    use Extreme
+  end
 
   setup_all do
-    {:ok, _} = Extreme.start_link(@base_name, _test_configuration())
+    {:ok, _} = BenchmarkConn.start_link(Helpers.test_configuration())
     :ok
   end
 
   describe "Benchmark" do
     @tag :benchmark
     test "writing 2 events 500 times" do
-      stream = _random_stream_name()
+      stream = Helpers.random_stream_name()
 
       fun = fn ->
-        for(_ <- 0..499, do: Extreme.execute(@base_name, _write_events(stream)))
+        for(_ <- 0..499, do: BenchmarkConn.execute(Helpers.write_events(stream)))
       end
 
       time =
@@ -37,16 +36,16 @@ defmodule ExtremeBenchmarkTest do
     @tag :benchmark
     test "writing 1_000 events at once" do
       num_events = 1_000
-      stream = _random_stream_name()
+      stream = Helpers.random_stream_name()
 
       events =
         1..num_events
-        |> Enum.map(fn _ -> %PersonCreated{name: "Pera Peric"} end)
+        |> Enum.map(fn _ -> %Event.PersonCreated{name: "Pera Peric"} end)
 
       assert Enum.count(events) == num_events
 
       fun = fn ->
-        Extreme.execute(@base_name, _write_events(stream, events))
+        BenchmarkConn.execute(Helpers.write_events(stream, events))
       end
 
       time =
@@ -65,19 +64,19 @@ defmodule ExtremeBenchmarkTest do
     test "reading and writing simultaneously is ok" do
       num_initial_events = 10_000
       num_additional_events = 1_000
-      stream = _random_stream_name()
+      stream = Helpers.random_stream_name()
 
       initial_events =
         1..num_initial_events
-        |> Enum.map(fn _ -> %PersonCreated{name: "Pera Peric"} end)
+        |> Enum.map(fn _ -> %Event.PersonCreated{name: "Pera Peric"} end)
 
       additional_events =
         1..num_additional_events
-        |> Enum.map(fn _ -> %PersonCreated{name: "Pera Peric II"} end)
+        |> Enum.map(fn _ -> %Event.PersonCreated{name: "Pera Peric II"} end)
 
       {time, _} =
         :timer.tc(fn ->
-          Extreme.execute(@base_name, _write_events(stream, initial_events))
+          BenchmarkConn.execute(Helpers.write_events(stream, initial_events))
         end)
 
       time
@@ -89,7 +88,7 @@ defmodule ExtremeBenchmarkTest do
 
         {time, _} =
           :timer.tc(fn ->
-            Extreme.execute(@base_name, _write_events(stream, additional_events))
+            BenchmarkConn.execute(Helpers.write_events(stream, additional_events))
           end)
 
         time
@@ -102,9 +101,9 @@ defmodule ExtremeBenchmarkTest do
       p = self()
 
       spawn_link(fn ->
-        num_total_events = num_initial_events + num_additional_events
         IO.inspect("Start reading...")
 
+        num_total_events = num_initial_events + num_additional_events
         read_batch_size = 1000
 
         {time, _} =
@@ -114,9 +113,12 @@ defmodule ExtremeBenchmarkTest do
                   |> Integer.floor_div(read_batch_size))
               |> Stream.flat_map(fn x ->
                 {:ok, %{events: events}} =
-                  Extreme.execute(
-                    @base_name,
-                    _read_events(stream, x * read_batch_size - read_batch_size, read_batch_size)
+                  BenchmarkConn.execute(
+                    Helpers.read_events(
+                      stream,
+                      x * read_batch_size - read_batch_size,
+                      read_batch_size
+                    )
                   )
 
                 events
@@ -124,7 +126,7 @@ defmodule ExtremeBenchmarkTest do
               |> Stream.map(fn event -> event.event.data |> :erlang.binary_to_term() end)
 
             assert read_events |> Enum.count() == num_total_events
-            assert %PersonCreated{} = read_events |> Enum.take(1) |> List.first()
+            assert %Event.PersonCreated{} = read_events |> Enum.take(1) |> List.first()
           end)
 
         time
@@ -139,45 +141,6 @@ defmodule ExtremeBenchmarkTest do
 
       assert_receive(:all_events_read, 60_000)
     end
-  end
-
-  defp _test_configuration,
-    do: Application.get_env(:extreme, :event_store)
-
-  defp _random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
-
-  defp _write_events(
-         stream,
-         events \\ [%PersonCreated{name: "Pera Peric"}, %PersonChangedName{name: "Zika"}]
-       ) do
-    proto_events =
-      Enum.map(events, fn event ->
-        ExMsg.NewEvent.new(
-          event_id: Extreme.Tools.generate_uuid(),
-          event_type: to_string(event.__struct__),
-          data_content_type: 0,
-          metadata_content_type: 0,
-          data: :erlang.term_to_binary(event),
-          metadata: ""
-        )
-      end)
-
-    ExMsg.WriteEvents.new(
-      event_stream_id: stream,
-      expected_version: -2,
-      events: proto_events,
-      require_master: false
-    )
-  end
-
-  defp _read_events(stream, start, count) do
-    ExMsg.ReadStreamEvents.new(
-      event_stream_id: stream,
-      from_event_number: start,
-      max_count: count,
-      resolve_link_tos: true,
-      require_master: false
-    )
   end
 
   defp _format(number, sufix \\ " µs") do
