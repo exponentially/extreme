@@ -8,7 +8,16 @@ defmodule Extreme do
   @doc false
   defmacro __using__(opts \\ []) do
     quote do
-      @config unquote(opts[:config]) || []
+      @otp_app Keyword.get(unquote(opts), :otp_app, [])
+      @config Application.get_env(@otp_app, __MODULE__)
+
+      def child_spec(opts) do
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [opts]},
+          type: :supervisor
+        }
+      end
 
       def start_link, do: Extreme.Supervisor.start_link(__MODULE__, @config)
       def start_link(config), do: Extreme.Supervisor.start_link(__MODULE__, config)

@@ -7,7 +7,7 @@ config :logger, :console,
 config :ex_unit,
   capture_log: true
 
-config :extreme, :event_store,
+config :extreme, TestConn,
   db_type: :node,
   host: "localhost",
   port: 1113,

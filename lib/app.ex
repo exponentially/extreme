@@ -1,16 +1,23 @@
+defmodule(ExtremeConn, do: use(Extreme))
+
 defmodule App do
   use Application
 
   def start(_type, _args) do
-    config = Application.get_env(:extreme, :event_store)
-
-    children = [
-      %{
-        id: Extreme,
-        start: {Extreme, :start_link, [config]}
-      }
+    [
+      {ExtremeConn, _config()}
     ]
+    |> Supervisor.start_link(strategy: :one_for_one)
+  end
 
-    Supervisor.start_link(children, strategy: :one_for_one)
+  defp _config do
+    [
+      db_type: :node,
+      host: "localhost",
+      port: 1113,
+      username: "admin",
+      password: "changeit",
+      connection_name: "extreme_dev"
+    ]
   end
 end

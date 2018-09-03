@@ -3,22 +3,13 @@ defmodule ExtremeBenchmarkTest do
   alias ExtremeTest.Helpers
   alias ExtremeTest.Events, as: Event
 
-  defmodule BenchmarkConn do
-    use Extreme
-  end
-
-  setup_all do
-    {:ok, _} = BenchmarkConn.start_link(Helpers.test_configuration())
-    :ok
-  end
-
   describe "Benchmark" do
     @tag :benchmark
     test "writing 2 events 500 times" do
       stream = Helpers.random_stream_name()
 
       fun = fn ->
-        for(_ <- 0..499, do: BenchmarkConn.execute(Helpers.write_events(stream)))
+        for(_ <- 0..499, do: TestConn.execute(Helpers.write_events(stream)))
       end
 
       time =
@@ -27,7 +18,7 @@ defmodule ExtremeBenchmarkTest do
         |> elem(0)
 
       time
-      |> _format()
+      |> _format(" µs")
       |> IO.inspect(label: "Writing 2 events 500 times in")
 
       assert time < 10_000_000
@@ -45,7 +36,7 @@ defmodule ExtremeBenchmarkTest do
       assert Enum.count(events) == num_events
 
       fun = fn ->
-        BenchmarkConn.execute(Helpers.write_events(stream, events))
+        TestConn.execute(Helpers.write_events(stream, events))
       end
 
       time =
@@ -54,7 +45,7 @@ defmodule ExtremeBenchmarkTest do
         |> elem(0)
 
       time
-      |> _format()
+      |> _format(" µs")
       |> IO.inspect(label: "Writing #{num_events} events at once in")
 
       assert time < 10_000_000
@@ -76,26 +67,24 @@ defmodule ExtremeBenchmarkTest do
 
       {time, _} =
         :timer.tc(fn ->
-          BenchmarkConn.execute(Helpers.write_events(stream, initial_events))
+          TestConn.execute(Helpers.write_events(stream, initial_events))
         end)
 
       time
-      |> _format()
-      |> IO.inspect(label: "Written initial #{num_initial_events |> _format("")} events in")
+      |> _format(" µs")
+      |> IO.inspect(label: "Written initial #{num_initial_events |> _format()} events in")
 
       spawn_link(fn ->
         IO.inspect("Start writing additional events...")
 
         {time, _} =
           :timer.tc(fn ->
-            BenchmarkConn.execute(Helpers.write_events(stream, additional_events))
+            TestConn.execute(Helpers.write_events(stream, additional_events))
           end)
 
         time
-        |> _format
-        |> IO.inspect(
-          label: "Written additional #{num_additional_events |> _format("")} events in"
-        )
+        |> _format(" µs")
+        |> IO.inspect(label: "Written additional #{num_additional_events |> _format()} events in")
       end)
 
       p = self()
@@ -113,7 +102,7 @@ defmodule ExtremeBenchmarkTest do
                   |> Integer.floor_div(read_batch_size))
               |> Stream.flat_map(fn x ->
                 {:ok, %{events: events}} =
-                  BenchmarkConn.execute(
+                  TestConn.execute(
                     Helpers.read_events(
                       stream,
                       x * read_batch_size - read_batch_size,
@@ -130,10 +119,10 @@ defmodule ExtremeBenchmarkTest do
           end)
 
         time
-        |> _format()
+        |> _format(" µs")
         |> IO.inspect(
           label:
-            "Read #{num_total_events |> _format("")} events (#{read_batch_size |> _format("")} per read) in"
+            "Read #{num_total_events |> _format()} events (#{read_batch_size |> _format()} per read) in"
         )
 
         send(p, :all_events_read)
@@ -143,7 +132,7 @@ defmodule ExtremeBenchmarkTest do
     end
   end
 
-  defp _format(number, sufix \\ " µs") do
+  defp _format(number, sufix \\ "") do
     number
     |> Integer.digits()
     |> Enum.reverse()

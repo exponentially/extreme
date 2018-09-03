@@ -2,7 +2,7 @@ defmodule Extreme.TcpTest do
   use ExUnit.Case, async: true
   alias Extreme.{Tcp, Configuration}
 
-  @test_configuration Application.get_env(:extreme, :event_store)
+  @test_configuration Application.get_env(:extreme, TestConn)
 
   describe "connect/3" do
     test "returns {:ok, socket} for correct host and port" do

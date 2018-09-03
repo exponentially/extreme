@@ -4,18 +4,9 @@ defmodule ExtremeTest do
   alias ExtremeTest.Events, as: Event
   alias Extreme.Messages, as: ExMsg
 
-  defmodule TestConn do
-    use Extreme, config: Application.get_env(:extreme, :event_store)
-  end
-
-  setup_all do
-    {:ok, _} = TestConn.start_link()
-    :ok
-  end
-
   describe "start_link/2" do
     test "accepts configuration and makes connection" do
-      assert ExtremeTest.TestConn
+      assert TestConn
              |> Extreme.RequestManager._name()
              |> Process.whereis()
              |> Process.alive?()
@@ -29,7 +20,8 @@ defmodule ExtremeTest do
 
     test ".execute is not authenticated for wrong credentials" do
       {:ok, _} =
-        Helpers.test_configuration()
+        :extreme
+        |> Application.get_env(TestConn)
         |> Keyword.put(:password, "wrong")
         |> ForbiddenConn.start_link()
 
