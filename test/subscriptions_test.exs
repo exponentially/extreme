@@ -2,7 +2,6 @@ defmodule ExtremeSubscriptionsTest do
   use ExUnit.Case, async: false
   alias ExtremeTest.Helpers
   alias ExtremeTest.Events, as: Event
-  # alias Extreme.Messages, as: ExMsg
   require Logger
 
   defmodule Subscriber do
@@ -48,6 +47,11 @@ defmodule ExtremeSubscriptionsTest do
       {:noreply, state}
     end
 
+    def handle_info({:extreme, :stream_deleted} = message, state) do
+      send(state.sender, message)
+      {:noreply, state}
+    end
+
     def handle_info(:caught_up, state) do
       send(state.sender, :caught_up)
       {:noreply, state}
@@ -55,7 +59,7 @@ defmodule ExtremeSubscriptionsTest do
   end
 
   describe "subscribe_to/3" do
-    test "subscribe to existing stream is success" do
+    test "subscription to existing stream is success" do
       stream = Helpers.random_stream_name()
       # prepopulate stream
       events1 = [
@@ -68,7 +72,7 @@ defmodule ExtremeSubscriptionsTest do
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link(self())
-      {:ok, _subscription} = TestConn.subscribe_to(stream, subscriber)
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # :caught_up is not received on subscription without previous read
       refute_receive :caught_up
@@ -87,6 +91,142 @@ defmodule ExtremeSubscriptionsTest do
 
       # check if only new events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
+
+      _unsubscribe(subscription)
     end
+
+    test "subscription to non existing stream is success" do
+      # subscribe to stream
+      stream = Helpers.random_stream_name()
+      {:warn, :empty_stream} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
+
+      # write two events after subscription
+      events = [%Event.PersonCreated{name: "1"}, %Event.PersonCreated{name: "2"}]
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      # assert rest events have arrived
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # check if only new events came in correct order.
+      assert Subscriber.received_events(subscriber) == events
+
+      _unsubscribe(subscription)
+    end
+
+    test "subscription to soft deleted stream is success" do
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.PersonCreated{name: "1"},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+
+      # soft delete stream
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+
+      # subscribe to stream
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
+
+      # write two more events after subscription
+      events2 = [%Event.PersonCreated{name: "4"}, %Event.PersonCreated{name: "5"}]
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert rest events have arrived
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # check if only new events came in correct order.
+      assert Subscriber.received_events(subscriber) == events2
+
+      _unsubscribe(subscription)
+    end
+
+    test "soft deleting stream while subscription exists doesn't affect subscription" do
+      stream = Helpers.random_stream_name()
+
+      # subscribe to stream
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
+
+      # write two events after subscription
+      events2 = [%Event.PersonCreated{name: "1"}, %Event.PersonCreated{name: "2"}]
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert events have arrived
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # soft delete stream
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events2
+      # subscription is alive
+      assert Process.alive?(subscription)
+      assert Process.alive?(subscriber)
+
+      _unsubscribe(subscription)
+    end
+
+    test "hard deleting stream will close its subscription" do
+      stream = Helpers.random_stream_name()
+
+      # subscribe to stream
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
+
+      # write two events after subscription
+      events2 = [%Event.PersonCreated{name: "1"}, %Event.PersonCreated{name: "2"}]
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert events have arrived
+      assert_receive {:on_event, _event}
+      assert_receive {:on_event, _event}
+
+      # hard delete stream
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events2
+      # ensure information of deleted stream is received
+      assert_receive {:extreme, :stream_deleted}
+      # subscription is dead, but subscriber may survive
+      assert Process.alive?(subscriber)
+      :timer.sleep(10)
+      refute Process.alive?(subscription)
+
+      assert %{received_data: ""} = TestConn.Connection |> :sys.get_state()
+
+      %{requests: requests, subscriptions: subscriptions} =
+        TestConn.RequestManager |> :sys.get_state()
+
+      assert Enum.empty?(requests)
+      assert Enum.empty?(subscriptions)
+
+      assert 0 ==
+               Extreme.RequestManager._process_supervisor_name(TestConn)
+               |> Supervisor.which_children()
+               |> Enum.count()
+    end
+  end
+
+  defp _unsubscribe(subscription) do
+    :unsubscribed = TestConn.unsubscribe(subscription)
+
+    %{requests: requests, subscriptions: subscriptions} =
+      TestConn.RequestManager |> :sys.get_state()
+
+    assert Enum.empty?(requests)
+    assert Enum.empty?(subscriptions)
   end
 end

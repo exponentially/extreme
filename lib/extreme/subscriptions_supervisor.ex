@@ -18,7 +18,8 @@ defmodule Extreme.SubscriptionsSupervisor do
       id: Subscription,
       start:
         {Subscription, :start_link,
-         [base_name, correlation_id, subscriber, stream, resolve_link_tos]}
+         [base_name, correlation_id, subscriber, stream, resolve_link_tos]},
+      restart: :transient
     })
   end
 end

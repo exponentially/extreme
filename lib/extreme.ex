@@ -34,6 +34,9 @@ defmodule Extreme do
           when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos),
           do:
             Extreme.RequestManager.subscribe_to(__MODULE__, stream, subscriber, resolve_link_tos)
+
+      def unsubscribe(subscription) when is_pid(subscription),
+        do: Extreme.Subscription.unsubscribe(subscription)
     end
   end
 

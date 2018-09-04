@@ -45,10 +45,9 @@ defmodule Extreme.RequestManager do
   `correlation_id` is used to find pending request/subscription.
   """
   def respond_with_server_message(base_name, correlation_id, response) do
-    :ok =
-      base_name
-      |> _name()
-      |> GenServer.cast({:respond_with_server_message, correlation_id, response})
+    base_name
+    |> _name()
+    |> GenServer.cast({:respond_with_server_message, correlation_id, response})
   end
 
   def execute(base_name, message, correlation_id) do
@@ -61,6 +60,12 @@ defmodule Extreme.RequestManager do
     base_name
     |> _name()
     |> GenServer.call({:subscribe_to, stream, subscriber, resolve_link_tos})
+  end
+
+  def _unregister_subscription(base_name, correlation_id) do
+    base_name
+    |> _name()
+    |> GenServer.cast({:unregister_subscription, correlation_id})
   end
 
   ## Server callbacks
@@ -160,6 +165,12 @@ defmodule Extreme.RequestManager do
   def handle_cast({:register_subscription, correlation_id, subscription}, %State{} = state) do
     subscriptions = Map.put(state.subscriptions, correlation_id, subscription)
     {:noreply, %State{state | subscriptions: subscriptions}}
+  end
+
+  def handle_cast({:unregister_subscription, correlation_id}, %State{} = state) do
+    subscriptions = Map.delete(state.subscriptions, correlation_id)
+    requests = Map.delete(state.requests, correlation_id)
+    {:noreply, %State{state | requests: requests, subscriptions: subscriptions}}
   end
 
   ## Helper functions

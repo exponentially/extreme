@@ -39,7 +39,7 @@ defmodule Extreme.MessageResolver do
   def encode_cmd(:read_all_events_backward_completed), do: 0xB9
 
   def encode_cmd(Msg.SubscribeToStream), do: 0xC0
-  def encode_cmd(:unsubscribe_from_stream), do: 0xC3
+  def encode_cmd(Msg.UnsubscribeFromStream), do: 0xC3
   def encode_cmd(Msg.ConnectToPersistentSubscription), do: 0xC5
   def encode_cmd(Msg.CreatePersistentSubscription), do: 0xC8
   def encode_cmd(Msg.DeletePersistentSubscription), do: 0xCA
