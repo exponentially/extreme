@@ -125,8 +125,9 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_cast({:process_server_message, message}, %State{} = state) do
-    correlation_id = message
-                     |> Response.get_correlation_id
+    correlation_id =
+      message
+      |> Response.get_correlation_id()
 
     state.subscriptions[correlation_id]
     |> _process_server_message(message, state)
@@ -177,12 +178,12 @@ defmodule Extreme.RequestManager do
       |> _respond_on(state.base_name)
     end)
   end
+
   # message is for subscription, decoding needs to be done there so we keep the order of incoming messages
   defp _process_server_message(subscription, message, _state) do
     subscription
     |> Extreme.Subscription.process_push(fn -> Response.parse(message) end)
   end
-
 
   defp _respond_on({:client_identified, _correlation_id}, _),
     do: :ok

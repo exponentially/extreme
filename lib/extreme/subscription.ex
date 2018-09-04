@@ -56,6 +56,7 @@ defmodule Extreme.Subscription do
     Logger.debug(fn ->
       "Successfully subscribed to stream #{inspect(subscription_confirmation)}"
     end)
+
     :ok
   end
 end
