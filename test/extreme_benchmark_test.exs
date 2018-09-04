@@ -5,11 +5,15 @@ defmodule ExtremeBenchmarkTest do
 
   describe "Benchmark" do
     @tag :benchmark
-    test "writing 2 events 500 times" do
+    test "writing 10 events 100 times" do
       stream = Helpers.random_stream_name()
 
+      events =
+        1..10
+        |> Enum.map(fn _ -> %Event.PersonCreated{name: "Alan Ford"} end)
+
       fun = fn ->
-        for(_ <- 0..499, do: TestConn.execute(Helpers.write_events(stream)))
+        for(_ <- 1..100, do: TestConn.execute(Helpers.write_events(stream, events)))
       end
 
       time =
@@ -19,7 +23,7 @@ defmodule ExtremeBenchmarkTest do
 
       time
       |> _format(" µs")
-      |> IO.inspect(label: "Writing 2 events 500 times in")
+      |> IO.inspect(label: "Writing 10 events 100 times in")
 
       assert time < 10_000_000
     end
@@ -129,6 +133,16 @@ defmodule ExtremeBenchmarkTest do
       end)
 
       assert_receive(:all_events_read, 60_000)
+
+      # Assert there are no leaks
+      assert %{received_data: ""} = TestConn.Connection |> :sys.get_state()
+      %{requests: requests} = TestConn.RequestManager |> :sys.get_state()
+      assert Enum.empty?(requests)
+
+      assert 0 ==
+               Extreme.RequestManager._process_supervisor_name(TestConn)
+               |> Supervisor.which_children()
+               |> Enum.count()
     end
   end
 

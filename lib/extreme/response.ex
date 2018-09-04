@@ -2,6 +2,9 @@ defmodule Extreme.Response do
   require Logger
   alias Extreme.Messages, as: Msg
 
+  def get_correlation_id(<<_message_type, _auth, correlation_id::16-binary, _data::binary>>),
+    do: correlation_id
+
   def parse(<<message_type, auth, correlation_id::16-binary, data::binary>>) do
     case Extreme.MessageResolver.decode_cmd(message_type) do
       :not_authenticated ->

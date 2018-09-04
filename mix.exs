@@ -5,7 +5,7 @@ defmodule Extreme.Mixfile do
     [
       app: :extreme,
       version: "1.0.0+beta1",
-      elixir: "~> 1.5",
+      elixir: "~> 1.6",
       elixirc_paths: _elixirc_paths(Mix.env()),
       source_url: "https://github.com/exponentially/extreme",
       description: """
@@ -19,7 +19,7 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      #mod: {App, []},
+      # mod: {App, []},
       extra_applications: [:logger]
     ]
   end

@@ -1,15 +1,15 @@
 defmodule Extreme.RequestManager do
   use GenServer
-  alias Extreme.{Configuration, Request, Response, Connection}
+  alias Extreme.{Tools, Configuration, Request, Response, Connection}
 
   defmodule State do
-    defstruct ~w(base_name credentials requests)a
+    defstruct ~w(base_name credentials requests subscriptions)a
   end
 
   def _name(base_name), do: (to_string(base_name) <> ".RequestManager") |> String.to_atom()
 
   def _process_supervisor_name(base_name),
-    do: (to_string(base_name) <> ".ProcessSupervisor") |> String.to_atom()
+    do: (to_string(base_name) <> ".MessageProcessingSupervisor") |> String.to_atom()
 
   def start_link(base_name, configuration),
     do: GenServer.start_link(__MODULE__, {base_name, configuration}, name: _name(base_name))
@@ -57,15 +57,28 @@ defmodule Extreme.RequestManager do
     |> GenServer.call({:execute, correlation_id, message})
   end
 
+  def subscribe_to(base_name, stream, subscriber, resolve_link_tos) do
+    base_name
+    |> _name()
+    |> GenServer.call({:subscribe_to, stream, subscriber, resolve_link_tos})
+  end
+
   ## Server callbacks
 
   @impl true
   def init({base_name, configuration}) do
+    # link me with SubscriptionsSupervisor, since I'm subscription register.
+    true =
+      Extreme.SubscriptionsSupervisor._name(base_name)
+      |> Process.whereis()
+      |> Process.link()
+
     {:ok,
      %State{
        base_name: base_name,
        credentials: Configuration.prepare_credentials(configuration),
-       requests: %{}
+       requests: %{},
+       subscriptions: %{}
      }}
   end
 
@@ -73,11 +86,32 @@ defmodule Extreme.RequestManager do
   def handle_call({:execute, correlation_id, message}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
-    state.base_name
-    |> _process_supervisor_name()
-    |> Task.Supervisor.start_child(fn ->
+    _in_task(state.base_name, fn ->
       {:ok, message} = Request.prepare(message, state.credentials, correlation_id)
       :ok = Connection.push(state.base_name, message)
+    end)
+
+    {:noreply, state}
+  end
+
+  def handle_call({:subscribe_to, stream, subscriber, resolve_link_tos}, from, %State{} = state) do
+    req_manager = self()
+
+    _in_task(state.base_name, fn ->
+      correlation_id = Tools.generate_uuid()
+
+      {:ok, subscription} =
+        Extreme.SubscriptionsSupervisor.start_subscription(
+          state.base_name,
+          correlation_id,
+          subscriber,
+          stream,
+          resolve_link_tos
+        )
+
+      GenServer.cast(req_manager, {:register_subscription, correlation_id, subscription})
+
+      GenServer.reply(from, {:ok, subscription})
     end)
 
     {:noreply, state}
@@ -86,19 +120,16 @@ defmodule Extreme.RequestManager do
   @impl true
   def handle_cast({:identify_client, connection_name}, %State{} = state) do
     {:ok, message} = Request.prepare(:identify_client, connection_name, state.credentials)
-
     :ok = Connection.push(state.base_name, message)
     {:noreply, state}
   end
 
   def handle_cast({:process_server_message, message}, %State{} = state) do
-    state.base_name
-    |> _process_supervisor_name()
-    |> Task.Supervisor.start_child(fn ->
-      message
-      |> Response.parse()
-      |> _respond_on(state.base_name)
-    end)
+    correlation_id = message
+                     |> Response.get_correlation_id
+
+    state.subscriptions[correlation_id]
+    |> _process_server_message(message, state)
 
     {:noreply, state}
   end
@@ -110,21 +141,48 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_cast({:respond_with_server_message, correlation_id, response}, %State{} = state) do
-    case Map.get(state.requests, correlation_id) do
-      nil ->
-        _respond_to_subscription(response, correlation_id, state.subscriptions)
-        state
+    state =
+      case Map.get(state.requests, correlation_id) do
+        nil ->
+          _respond_to_subscription(response, correlation_id, state.subscriptions)
+          state
 
-      from ->
-        :ok = GenServer.reply(from, response)
-        requests = Map.delete(state.requests, correlation_id)
-        %{state | requests: requests}
-    end
+        from ->
+          requests = Map.delete(state.requests, correlation_id)
+          :ok = GenServer.reply(from, response)
+          %{state | requests: requests}
+      end
 
     {:noreply, state}
   end
 
+  def handle_cast({:register_subscription, correlation_id, subscription}, %State{} = state) do
+    subscriptions = Map.put(state.subscriptions, correlation_id, subscription)
+    {:noreply, %State{state | subscriptions: subscriptions}}
+  end
+
   ## Helper functions
+
+  defp _in_task(base_name, fun) do
+    base_name
+    |> _process_supervisor_name()
+    |> Task.Supervisor.start_child(fun)
+  end
+
+  # message is response to pending request
+  defp _process_server_message(nil, message, state) do
+    _in_task(state.base_name, fn ->
+      message
+      |> Response.parse()
+      |> _respond_on(state.base_name)
+    end)
+  end
+  # message is for subscription, decoding needs to be done there so we keep the order of incoming messages
+  defp _process_server_message(subscription, message, _state) do
+    subscription
+    |> Extreme.Subscription.process_push(fn -> Response.parse(message) end)
+  end
+
 
   defp _respond_on({:client_identified, _correlation_id}, _),
     do: :ok
@@ -140,15 +198,13 @@ defmodule Extreme.RequestManager do
     :ok = respond_with_server_message(base_name, correlation_id, response)
   end
 
-  defp _respond_to_subscription(message, correlation_id, subscriptions) do
-    # Logger.debug "Attempting to respond to subscription with message: #{inspect message}"
+  defp _respond_to_subscription(response, correlation_id, subscriptions) do
     case Map.get(subscriptions, correlation_id) do
-      # Logger.error "Can't find correlation_id #{inspect correlation_id} for message #{inspect message}"
       nil ->
+        # Can't find correlation_id #{inspect(correlation_id)} for message #{inspect(response)}"
         :ok
 
       subscription ->
-        response = Response.reply(message, correlation_id)
         GenServer.cast(subscription, response)
     end
   end

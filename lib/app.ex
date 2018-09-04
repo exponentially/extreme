@@ -1,12 +1,13 @@
+# This file will be removed. Extreme won't be started as application,
+# but as part of supervision tree of host application
+
 defmodule(ExtremeConn, do: use(Extreme))
 
 defmodule App do
   use Application
 
   def start(_type, _args) do
-    [
-      {ExtremeConn, _config()}
-    ]
+    [{ExtremeConn, _config()}]
     |> Supervisor.start_link(strategy: :one_for_one)
   end
 

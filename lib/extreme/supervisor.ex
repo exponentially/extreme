@@ -7,6 +7,7 @@ defmodule Extreme.Supervisor do
   @impl true
   def init({base_name, configuration}) do
     [
+      {Extreme.SubscriptionsSupervisor, base_name},
       {Task.Supervisor, [name: Extreme.RequestManager._process_supervisor_name(base_name)]},
       %{
         id: RequestManager,
