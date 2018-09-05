@@ -47,7 +47,7 @@ defmodule ExtremeSubscriptionsTest do
       {:noreply, state}
     end
 
-    def handle_info({:extreme, :stream_deleted} = message, state) do
+    def handle_info({:extreme, _} = message, state) do
       send(state.sender, message)
       {:noreply, state}
     end
@@ -204,6 +204,40 @@ defmodule ExtremeSubscriptionsTest do
       assert Process.alive?(subscriber)
       :timer.sleep(10)
       refute Process.alive?(subscription)
+
+      Helpers.assert_no_leaks(TestConn)
+    end
+
+    test "events are not pushed after unsubscribe" do
+      stream = Helpers.random_stream_name()
+
+      # subscribe to stream
+      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
+
+      # push events
+      events1 =
+        1..3
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+
+      # ensure events are received
+      for _ <- 1..3, do: assert_receive({:on_event, _event})
+
+      # unsubscribe from stream
+      _unsubscribe(subscription)
+      assert_receive {:extreme, :unsubscribed}
+
+      # write more events after unsubscribe
+      events2 =
+        4..8
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert new events are not received
+      for _ <- 1..5, do: refute_receive({:on_event, _event})
 
       Helpers.assert_no_leaks(TestConn)
     end

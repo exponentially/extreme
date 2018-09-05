@@ -69,6 +69,7 @@ defmodule Extreme.Subscription do
         {:noreply, state}
 
       {_auth, _correlation_id, %Msg.SubscriptionDropped{reason: :Unsubscribed}} ->
+        send(state.subscriber, {:extreme, :unsubscribed})
         Extreme.RequestManager._unregister_subscription(state.base_name, state.correlation_id)
 
         Process.get(:reply_to)
