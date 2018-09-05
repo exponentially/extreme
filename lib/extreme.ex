@@ -58,4 +58,9 @@ defmodule Extreme do
   """
   @callback subscribe_to(stream :: String.t(), subscriber :: pid(), opts :: Keyword.t()) ::
               {:ok, pid}
+
+  @doc """
+  TODO
+  """
+  @callback unsubscribe(subscription :: pid()) :: :unsubscribed
 end

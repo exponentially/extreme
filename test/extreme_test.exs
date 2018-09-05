@@ -278,4 +278,125 @@ defmodule ExtremeTest do
       assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
     end
   end
+
+  describe "Soft deleting stream" do
+    test "multiple times in a row is ok" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Name 1"},
+        %Event.PersonChangedName{name: "Name Changed 1"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # soft delete stream
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+    end
+
+    test "can be done after writing to soft deleted stream" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Name 1"},
+        %Event.PersonChangedName{name: "Name Changed 1"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # soft delete stream
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # write again events
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # soft delete stream again
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+    end
+
+    test "that doesn't exist is ok" do
+      stream = Helpers.random_stream_name()
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+    end
+
+    test "can be done after stream is hard deleted" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Name 1"},
+        %Event.PersonChangedName{name: "Name Changed 1"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # hard delete stream
+
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # soft delete stream
+
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+    end
+  end
+
+  describe "Hard deleting stream" do
+    test "multiple times in a row is ok" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Name 1"},
+        %Event.PersonChangedName{name: "Name Changed 1"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # hard delete stream
+
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+    end
+
+    test "can be done after stream is soft deleted" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Name 1"},
+        %Event.PersonChangedName{name: "Name Changed 1"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # soft delete stream
+
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      # hard delete stream
+
+      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+    end
+
+    test "that doesn't exist is ok" do
+      stream = Helpers.random_stream_name()
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+    end
+  end
 end
