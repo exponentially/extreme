@@ -26,6 +26,8 @@ defmodule ExtremeBenchmarkTest do
       |> IO.inspect(label: "Writing 10 events 100 times in")
 
       assert time < 10_000_000
+
+      Helpers.assert_no_leaks(TestConn)
     end
 
     @tag :benchmark
@@ -53,6 +55,8 @@ defmodule ExtremeBenchmarkTest do
       |> IO.inspect(label: "Writing #{num_events} events at once in")
 
       assert time < 10_000_000
+
+      Helpers.assert_no_leaks(TestConn)
     end
 
     @tag :benchmark
@@ -134,15 +138,7 @@ defmodule ExtremeBenchmarkTest do
 
       assert_receive(:all_events_read, 60_000)
 
-      # Assert there are no leaks
-      assert %{received_data: ""} = TestConn.Connection |> :sys.get_state()
-      %{requests: requests} = TestConn.RequestManager |> :sys.get_state()
-      assert Enum.empty?(requests)
-
-      assert 0 ==
-               Extreme.RequestManager._process_supervisor_name(TestConn)
-               |> Supervisor.which_children()
-               |> Enum.count()
+      Helpers.assert_no_leaks(TestConn)
     end
   end
 

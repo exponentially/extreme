@@ -205,28 +205,12 @@ defmodule ExtremeSubscriptionsTest do
       :timer.sleep(10)
       refute Process.alive?(subscription)
 
-      assert %{received_data: ""} = TestConn.Connection |> :sys.get_state()
-
-      %{requests: requests, subscriptions: subscriptions} =
-        TestConn.RequestManager |> :sys.get_state()
-
-      assert Enum.empty?(requests)
-      assert Enum.empty?(subscriptions)
-
-      assert 0 ==
-               Extreme.RequestManager._process_supervisor_name(TestConn)
-               |> Supervisor.which_children()
-               |> Enum.count()
+      Helpers.assert_no_leaks(TestConn)
     end
   end
 
   defp _unsubscribe(subscription) do
     :unsubscribed = TestConn.unsubscribe(subscription)
-
-    %{requests: requests, subscriptions: subscriptions} =
-      TestConn.RequestManager |> :sys.get_state()
-
-    assert Enum.empty?(requests)
-    assert Enum.empty?(subscriptions)
+    Helpers.assert_no_leaks(TestConn)
   end
 end

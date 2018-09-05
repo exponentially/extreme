@@ -6,6 +6,8 @@ end
 defmodule ExtremeTest.Helpers do
   alias Extreme.Messages, as: ExMsg
   alias ExtremeTest.Events, as: Event
+  require ExUnit.Assertions
+  import ExUnit.Assertions
 
   def random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
 
@@ -63,5 +65,25 @@ defmodule ExtremeTest.Helpers do
       resolve_link_tos: true,
       require_master: false
     )
+  end
+
+  def assert_no_leaks(base_name) do
+    assert %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state()
+
+    %{requests: requests, subscriptions: subscriptions} =
+      Extreme.RequestManager._name(base_name) |> :sys.get_state()
+
+    assert Enum.empty?(requests)
+    assert Enum.empty?(subscriptions)
+
+    assert 0 ==
+             Extreme.RequestManager._process_supervisor_name(base_name)
+             |> Supervisor.which_children()
+             |> Enum.count()
+
+    assert 0 ==
+             Extreme.SubscriptionsSupervisor._name(base_name)
+             |> Supervisor.which_children()
+             |> Enum.count()
   end
 end
