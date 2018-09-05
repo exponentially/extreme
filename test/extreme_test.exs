@@ -183,12 +183,12 @@ defmodule ExtremeTest do
       stream = Helpers.random_stream_name()
 
       events = [
-        %Event.PersonCreated{name: "Reading"},
-        expected_event = %Event.PersonChangedName{name: "Reading Test"}
+        expected_event = %Event.PersonCreated{name: "Reading"},
+        %Event.PersonChangedName{name: "Reading Test"}
       ]
 
       {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 1))
+      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
       assert expected_event == :erlang.binary_to_term(response.event.event.data)
     end
 
@@ -234,6 +234,46 @@ defmodule ExtremeTest do
 
     test "returns {:error, :not_found} for non existing stream" do
       stream = Helpers.random_stream_name()
+
+      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+    end
+
+    test "returns {:error, :not_found} for soft deleted event" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        expected_event = %Event.PersonCreated{name: "Reading 1"},
+        %Event.PersonChangedName{name: "Reading Test 2"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert expected_event == :erlang.binary_to_term(response.event.event.data)
+
+      # soft delete stream
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+
+      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+    end
+
+    test "returns {:error, :not_found} for hard deleted event" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        expected_event = %Event.PersonCreated{name: "Reading 1"},
+        %Event.PersonChangedName{name: "Reading Test 2"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert expected_event == :erlang.binary_to_term(response.event.event.data)
+
+      # hard delete stream
+
+      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
 
       assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
     end
