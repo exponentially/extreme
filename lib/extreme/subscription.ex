@@ -41,10 +41,12 @@ defmodule Extreme.Subscription do
   @impl true
   def handle_call(:unsubscribe, from, state) do
     message = Msg.UnsubscribeFromStream.new()
+
     spawn_link(fn ->
       state.base_name
       |> RequestManager.execute(message, state.correlation_id)
     end)
+
     Process.put(:reply_to, from)
     {:noreply, state}
   end
@@ -68,8 +70,10 @@ defmodule Extreme.Subscription do
 
       {_auth, _correlation_id, %Msg.SubscriptionDropped{reason: :Unsubscribed}} ->
         Extreme.RequestManager._unregister_subscription(state.base_name, state.correlation_id)
+
         Process.get(:reply_to)
         |> GenServer.reply(:unsubscribed)
+
         {:stop, {:shutdown, :unsubscribed}, state}
     end
   end
