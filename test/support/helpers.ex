@@ -67,6 +67,15 @@ defmodule ExtremeTest.Helpers do
     )
   end
 
+  def read_event(stream, position) do
+    ExMsg.ReadEvent.new(
+      event_stream_id: stream,
+      event_number: position,
+      resolve_link_tos: true,
+      require_master: false
+    )
+  end
+
   def assert_no_leaks(base_name) do
     assert %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state()
 

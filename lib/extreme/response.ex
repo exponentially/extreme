@@ -19,6 +19,9 @@ defmodule Extreme.Response do
       :client_identified ->
         {:client_identified, correlation_id}
 
+      :bad_request ->
+        {:error, :bad_request, correlation_id}
+
       response_struct ->
         data = response_struct.decode(data)
         {auth, correlation_id, data}
@@ -64,6 +67,18 @@ defmodule Extreme.Response do
       )
       when last_event_number > -1,
       do: {:error, :stream_deleted}
+
+  def reply(
+        %Extreme.Messages.ReadEventCompleted{
+          error: nil,
+          event: %Extreme.Messages.ResolvedIndexedEvent{
+            event: nil,
+            link: nil
+          }
+        },
+        _correlation_id
+      ),
+      do: {:error, :not_found}
 
   def reply(response, _correlation_id), do: {:ok, response}
 

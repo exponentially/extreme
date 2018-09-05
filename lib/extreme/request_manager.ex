@@ -205,6 +205,9 @@ defmodule Extreme.RequestManager do
   defp _respond_on({:error, :not_authenticated, correlation_id}, base_name),
     do: :ok = respond_with_server_message(base_name, correlation_id, {:error, :not_authenticated})
 
+  defp _respond_on({:error, :bad_request, correlation_id}, base_name),
+    do: :ok = respond_with_server_message(base_name, correlation_id, {:error, :bad_request})
+
   defp _respond_on({_auth, correlation_id, message}, base_name) do
     response = Response.reply(message, correlation_id)
     :ok = respond_with_server_message(base_name, correlation_id, response)

@@ -177,4 +177,65 @@ defmodule ExtremeTest do
       assert ev2.event.event_number == 1
     end
   end
+
+  describe "Reading single event" do
+    test "is success if event exists" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Reading"},
+        expected_event = %Event.PersonChangedName{name: "Reading Test"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 1))
+      assert expected_event == :erlang.binary_to_term(response.event.event.data)
+    end
+
+    test "is success for last event (position: -1)" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Reading"},
+        %Event.PersonChangedName{name: "Reading Test"},
+        expected_event = %Event.PersonChangedName{name: "Reading Test 2"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, -1))
+      assert expected_event == :erlang.binary_to_term(response.event.event.data)
+    end
+
+    test "returns {:error, :not_found} for non existing event" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Reading"},
+        %Event.PersonChangedName{name: "Reading Test"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 2))
+    end
+
+    test "returns {:error, :bad_request} for position < -1" do
+      stream = Helpers.random_stream_name()
+
+      events = [
+        %Event.PersonCreated{name: "Reading"},
+        %Event.PersonChangedName{name: "Reading Test"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:error, :bad_request} = TestConn.execute(Helpers.read_event(stream, -2))
+    end
+
+    test "returns {:error, :not_found} for non existing stream" do
+      stream = Helpers.random_stream_name()
+
+      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+    end
+  end
 end
