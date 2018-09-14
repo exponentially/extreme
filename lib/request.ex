@@ -15,7 +15,17 @@ defmodule Extreme.Request do
     <<size::32-unsigned-little-integer>> <> res
   end
 
-  def prepare(protobuf_msg, credentials, correlation_id \\ Tools.gen_uuid()) do
+  def prepare(protobuf_msg, credentials, correlation_id \\ nil)
+  def prepare({cmd, payload}, credentials, correlation_id) do
+    correlation_id = correlation_id || Tools.gen_uuid()
+    data = payload.__struct__.encode(payload)
+    message = to_binary(cmd, correlation_id, {credentials.user, credentials.pass}, data)
+
+    {message, correlation_id}
+  end
+
+  def prepare(protobuf_msg, credentials, correlation_id) do
+    correlation_id = correlation_id || Tools.gen_uuid()
     cmd = protobuf_msg.__struct__
     data = protobuf_msg.__struct__.encode(protobuf_msg)
     message = to_binary(cmd, correlation_id, {credentials.user, credentials.pass}, data)

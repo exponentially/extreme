@@ -535,12 +535,15 @@ defmodule ExtremeTest do
   end
 
   @tag :benchmark
-  test "it writes 1_000 events in less then 2 seconds", %{server: server} do
+  @tag :a1000
+  test "it writes 1_000 events in less then 1.5 seconds in 50 appends", %{server: server} do
     Logger.debug("TEST: it writes 1_000 events in less then 2 seconds")
     stream = _random_stream_name()
 
     fun = fn ->
-      for(_ <- 0..499, do: Extreme.execute(server, _write_events(stream)))
+      for _ <- 1..50 do
+        Extreme.execute(server, _write_n_events(20, stream))
+      end
     end
 
     time =
@@ -549,7 +552,28 @@ defmodule ExtremeTest do
       |> elem(0)
 
     Logger.info("!!! Execution time: #{inspect(time)} !!!")
-    assert time < 2_100_000
+    assert time < 1_500_000
+  end
+
+  @tag :benchmark
+  @tag :a1000
+  test "it writes 1_000 events in less then 100 milliseconds in 2 appends", %{server: server} do
+
+    stream = _random_stream_name()
+
+    fun = fn ->
+      for _ <- 1..2 do
+        Extreme.execute(server, _write_n_events(500, stream))
+      end
+    end
+
+    time =
+      fun
+      |> :timer.tc()
+      |> elem(0)
+
+    Logger.info("!!! Execution time: #{inspect(time)} !!!")
+    assert time < 350_000
   end
 
   describe "persistent subscription" do
@@ -974,7 +998,7 @@ defmodule ExtremeTest do
       num_initial_events = 2_000
       num_bytes = 200
       # usualy older implementation fails on 50th iteration
-      # so 500 should be enough to confirm that seting :inet.setopts(socket, active: false) 
+      # so 500 should be enough to confirm that seting :inet.setopts(socket, active: false)
       # works for this kind of issues
       # if you incrase this ensure you change this test timout
       num_test_events = 500
@@ -1015,12 +1039,35 @@ defmodule ExtremeTest do
     end
   end
 
+  @tag :meta_stream
+  test "should write metadata to stream metadata", %{server: server} do
+    # intial write
+    {:ok, _} = Extreme.execute(server, _write_events("persona"))
+    assert {:ok, _} = Extreme.execute(server, _write_stream_metadata("persona", %{test: "test"}))
+  end
+
   defp _shutdown(pid) when is_pid(pid) do
     Process.unlink(pid)
     Process.exit(pid, :shutdown)
   end
 
   defp _random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+
+  defp _write_stream_metadata(stream, metadata, expected_version \\ -2) do
+    ExMsg.WriteEvents.new(
+      event_stream_id: "$$#{stream}",
+      expected_version: expected_version,
+      events: [ExMsg.NewEvent.new(
+                event_id: Extreme.Tools.gen_uuid(),
+                event_type: "$metadata",
+                data_content_type: 1,
+                metadata_content_type: 1,
+                data: Poison.encode!(metadata),
+                metadata: nil
+              )],
+      require_master: false
+    )
+  end
 
   defp _write_events(
          stream \\ "extreme_test",
@@ -1046,11 +1093,36 @@ defmodule ExtremeTest do
     )
   end
 
+  defp _write_n_events(
+         event_count,
+         stream \\ "extreme_test"
+       ) do
+    events = Enum.map(1..event_count, & %PersonCreated{name: "Pera Peric #{&1}"})
+    proto_events =
+      Enum.map(events, fn event ->
+        ExMsg.NewEvent.new(
+          event_id: Extreme.Tools.gen_uuid(),
+          event_type: to_string(event.__struct__),
+          data_content_type: 0,
+          metadata_content_type: 0,
+          data: :erlang.term_to_binary(event),
+          metadata: ""
+        )
+      end)
+
+    ExMsg.WriteEvents.new(
+      event_stream_id: stream,
+      expected_version: -2,
+      events: proto_events,
+      require_master: false
+    )
+  end
+
   defp _read_events(stream) do
     ExMsg.ReadStreamEvents.new(
       event_stream_id: stream,
       from_event_number: 0,
-      max_count: 4096,
+      max_count: 1096,
       resolve_link_tos: true,
       require_master: false
     )

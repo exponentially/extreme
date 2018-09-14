@@ -4,7 +4,7 @@ defmodule Extreme.Mixfile do
   def project do
     [
       app: :extreme,
-      version: "0.13.2",
+      version: "0.13.3",
       elixir: "~> 1.5.0 or ~> 1.6.0 or ~> 1.7.0",
       source_url: "https://github.com/exponentially/extreme",
       description: """
