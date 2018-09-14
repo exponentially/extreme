@@ -16,6 +16,7 @@ defmodule Extreme.Request do
   end
 
   def prepare(protobuf_msg, credentials, correlation_id \\ nil)
+
   def prepare({cmd, payload}, credentials, correlation_id) do
     correlation_id = correlation_id || Tools.gen_uuid()
     data = payload.__struct__.encode(payload)

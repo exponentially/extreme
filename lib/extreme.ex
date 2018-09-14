@@ -157,8 +157,7 @@ defmodule Extreme do
   take a look at their [documentation](http://docs.geteventstore.com) or for common use cases
   you can check `test/extreme_test.exs` file.
   """
-  def execute(server, message),
-    do: GenServer.call(server, {:execute, message})
+  def execute(server, message), do: GenServer.call(server, {:execute, message})
 
   @doc """
   Reads events specified in `read_events`, sends them to `subscriber`
@@ -396,7 +395,7 @@ defmodule Extreme do
     {:ok, socket}
   end
 
-  def handle_call({:execute, protobuf_msg}, from, %{socket: socket}=state) do
+  def handle_call({:execute, protobuf_msg}, from, %{socket: socket} = state) do
     {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
     # Logger.debug "Will execute #{inspect protobuf_msg}"
     # :inet.setopts(socket, active: false)
@@ -581,9 +580,7 @@ defmodule Extreme do
   Cast the provided value to an atom if appropriate.
   If the provided value is a string, convert it to an atom, otherwise return it as-is.
   """
-  def cast_to_atom(value) when is_binary(value),
-    do: String.to_atom(value)
+  def cast_to_atom(value) when is_binary(value), do: String.to_atom(value)
 
-  def cast_to_atom(value),
-    do: value
+  def cast_to_atom(value), do: value
 end

@@ -543,7 +543,7 @@ defmodule ExtremeTest do
 
     fun = fn ->
       Enum.each(1..50, fn i ->
-        events = Enum.map(1..20, & %PersonCreated{name: "name #{i * &1}"})
+        events = Enum.map(1..20, &%PersonCreated{name: "name #{i * &1}"})
         request = _write_events(stream, events)
         Extreme.execute(server, request)
       end)
@@ -561,7 +561,6 @@ defmodule ExtremeTest do
   @tag :benchmark
   @tag :a1000
   test "it writes 1_000 events in less then 100 milliseconds in 2 appends", %{server: server} do
-
     stream = _random_stream_name()
 
     fun = fn ->
@@ -574,6 +573,7 @@ defmodule ExtremeTest do
       fun
       |> :timer.tc()
       |> elem(0)
+
     Logger.info("!!! Execution time: #{inspect(time)} !!!")
     assert time < 350_000
   end
@@ -1059,14 +1059,16 @@ defmodule ExtremeTest do
     ExMsg.WriteEvents.new(
       event_stream_id: "$$#{stream}",
       expected_version: expected_version,
-      events: [ExMsg.NewEvent.new(
-                event_id: Extreme.Tools.gen_uuid(),
-                event_type: "$metadata",
-                data_content_type: 1,
-                metadata_content_type: 1,
-                data: Poison.encode!(metadata),
-                metadata: nil
-              )],
+      events: [
+        ExMsg.NewEvent.new(
+          event_id: Extreme.Tools.gen_uuid(),
+          event_type: "$metadata",
+          data_content_type: 1,
+          metadata_content_type: 1,
+          data: Poison.encode!(metadata),
+          metadata: nil
+        )
+      ],
       require_master: false
     )
   end
@@ -1099,7 +1101,8 @@ defmodule ExtremeTest do
          event_count,
          stream \\ "extreme_test"
        ) do
-    events = Enum.map(1..event_count, & %PersonCreated{name: "Pera Peric #{&1}"})
+    events = Enum.map(1..event_count, &%PersonCreated{name: "Pera Peric #{&1}"})
+
     proto_events =
       Enum.map(events, fn event ->
         ExMsg.NewEvent.new(
