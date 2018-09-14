@@ -536,14 +536,17 @@ defmodule ExtremeTest do
 
   @tag :benchmark
   @tag :a1000
-  test "it writes 1_000 events in less then 1.5 seconds in 50 appends", %{server: server} do
+  @tag :appends_50
+  test "it writes 1_000 events in less then 2 seconds in 50 appends", %{server: server} do
     Logger.debug("TEST: it writes 1_000 events in less then 2 seconds")
     stream = _random_stream_name()
 
     fun = fn ->
-      for _ <- 1..50 do
-        Extreme.execute(server, _write_n_events(20, stream))
-      end
+      Enum.each(1..50, fn i ->
+        events = Enum.map(1..20, & %PersonCreated{name: "name #{i * &1}"})
+        request = _write_events(stream, events)
+        Extreme.execute(server, request)
+      end)
     end
 
     time =
@@ -552,7 +555,7 @@ defmodule ExtremeTest do
       |> elem(0)
 
     Logger.info("!!! Execution time: #{inspect(time)} !!!")
-    assert time < 1_500_000
+    assert time < 2_100_000
   end
 
   @tag :benchmark
@@ -571,7 +574,6 @@ defmodule ExtremeTest do
       fun
       |> :timer.tc()
       |> elem(0)
-
     Logger.info("!!! Execution time: #{inspect(time)} !!!")
     assert time < 350_000
   end

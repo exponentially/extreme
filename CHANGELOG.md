@@ -1,3 +1,7 @@
+# Changelog for extreme v0.13.3
+  * Fixing read_all_events forward and backward
+  * simple benchmark app to test write speed
+
 # Changelog for extreme v0.13.2
   * Listener accepts `:read_per_page` option in `start_link/3` which defaults to 500
 
