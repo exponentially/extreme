@@ -31,7 +31,7 @@ defmodule ExtremeTest do
   end
 
   describe "Heartbeat" do
-    defmodule SecondConn, do: use Extreme
+    defmodule(SecondConn, do: use(Extreme))
 
     test "works when connection is idle" do
       {:ok, _} =
@@ -39,14 +39,14 @@ defmodule ExtremeTest do
         |> Application.get_env(TestConn)
         |> SecondConn.start_link()
 
-      :timer.sleep 5_000
+      :timer.sleep(5_000)
+
       assert SecondConn
              |> Extreme.RequestManager._name()
              |> Process.whereis()
              |> Process.alive?()
     end
   end
-
 
   describe "Writing events" do
     test "for non existing stream is success" do

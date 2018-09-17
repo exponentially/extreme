@@ -461,14 +461,14 @@ defmodule ExtremeSubscriptionsTest do
       {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 1)
 
-      spawn fn ->
+      spawn(fn ->
         {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
-        Logger.debug "Second pack of events written"
-      end
+        Logger.debug("Second pack of events written")
+      end)
 
       # assert first events are received
       for _ <- 1..num_events, do: assert_receive({:on_event, _event})
-      Logger.debug "First pack of events received"
+      Logger.debug("First pack of events received")
 
       # assert second pack of events is received as well
       for _ <- 1..num_events, do: assert_receive({:on_event, _event})
