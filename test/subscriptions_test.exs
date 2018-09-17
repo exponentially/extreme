@@ -7,8 +7,8 @@ defmodule ExtremeSubscriptionsTest do
   defmodule Subscriber do
     use GenServer
 
-    def start_link(sender),
-      do: GenServer.start_link(__MODULE__, sender)
+    def start_link(),
+      do: GenServer.start_link(__MODULE__, self())
 
     def received_events(server),
       do: GenServer.call(server, :received_events)
@@ -41,12 +41,6 @@ defmodule ExtremeSubscriptionsTest do
       {:noreply, %{state | received: [event | state.received]}}
     end
 
-    def handle_info({:extreme, _, problem, stream} = message, state) do
-      Logger.warn("Stream #{stream} issue: #{to_string(problem)}")
-      send(state.sender, message)
-      {:noreply, state}
-    end
-
     def handle_info({:extreme, _} = message, state) do
       send(state.sender, message)
       {:noreply, state}
@@ -71,7 +65,7 @@ defmodule ExtremeSubscriptionsTest do
       {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
 
       # subscribe to existing stream
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # :caught_up is not received on subscription without previous read
@@ -98,8 +92,8 @@ defmodule ExtremeSubscriptionsTest do
     test "subscription to non existing stream is success" do
       # subscribe to stream
       stream = Helpers.random_stream_name()
-      {:warn, :empty_stream} = TestConn.execute(Helpers.read_events(stream))
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:warn, :non_existing_stream} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # write two events after subscription
@@ -129,10 +123,10 @@ defmodule ExtremeSubscriptionsTest do
 
       # soft delete stream
       {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
-      {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+      {:warn, :stream_soft_deleted, 2} = TestConn.execute(Helpers.read_events(stream))
 
       # subscribe to stream
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # write two more events after subscription
@@ -153,7 +147,7 @@ defmodule ExtremeSubscriptionsTest do
       stream = Helpers.random_stream_name()
 
       # subscribe to stream
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # write two events after subscription
@@ -166,7 +160,7 @@ defmodule ExtremeSubscriptionsTest do
 
       # soft delete stream
       {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
-      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+      assert {:warn, :stream_soft_deleted, 1} = TestConn.execute(Helpers.read_events(stream))
 
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
@@ -181,7 +175,7 @@ defmodule ExtremeSubscriptionsTest do
       stream = Helpers.random_stream_name()
 
       # subscribe to stream
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # write two events after subscription
@@ -194,12 +188,12 @@ defmodule ExtremeSubscriptionsTest do
 
       # hard delete stream
       {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
-      assert {:error, :stream_deleted} = TestConn.execute(Helpers.read_events(stream))
+      assert {:error, :stream_hard_deleted} = TestConn.execute(Helpers.read_events(stream))
 
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
       # ensure information of deleted stream is received
-      assert_receive {:extreme, :stream_deleted}
+      assert_receive {:extreme, :stream_hard_deleted}
       # subscription is dead, but subscriber may survive
       assert Process.alive?(subscriber)
       :timer.sleep(10)
@@ -212,7 +206,7 @@ defmodule ExtremeSubscriptionsTest do
       stream = Helpers.random_stream_name()
 
       # subscribe to stream
-      {:ok, subscriber} = Subscriber.start_link(self())
+      {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
       # push events
@@ -240,6 +234,53 @@ defmodule ExtremeSubscriptionsTest do
       for _ <- 1..5, do: refute_receive({:on_event, _event})
 
       Helpers.assert_no_leaks(TestConn)
+    end
+  end
+
+  describe "read_and_stay_subscribed/6" do
+    #@tag :skip
+    test "read events and stay subscribed for existing stream is ok" do
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.PersonCreated{name: "1"},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 20)
+
+      # assert first events are received
+      for _ <- 1..3, do: assert_receive({:on_event, _event})
+
+      # assert :caught_up is received when existing events are read
+      assert_receive :caught_up
+
+      # write more events after subscription
+      num_additional_events = 100
+
+      events2 =
+        1..num_additional_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert new events are received as well
+      for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events1 ++ events2
+
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream))
+
+      assert events1 ++ events2 ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      _unsubscribe(subscription)
     end
   end
 

@@ -1,6 +1,6 @@
 defmodule Extreme.SubscriptionsSupervisor do
   use DynamicSupervisor
-  alias Extreme.Subscription
+  alias Extreme.{Subscription, ReadingSubscription}
 
   def _name(base_name),
     do: (to_string(base_name) <> ".SubscriptionsSupervisor") |> String.to_atom()
@@ -19,7 +19,18 @@ defmodule Extreme.SubscriptionsSupervisor do
       start:
         {Subscription, :start_link,
          [base_name, correlation_id, subscriber, stream, resolve_link_tos]},
-      restart: :transient
+      restart: :temporary
+    })
+  end
+
+  def start_subscription(base_name, correlation_id, subscriber, read_params) do
+    base_name
+    |> _name()
+    |> DynamicSupervisor.start_child(%{
+      id: ReadingSubscription,
+      start:
+        {ReadingSubscription, :start_link, [base_name, correlation_id, subscriber, read_params]},
+      restart: :temporary
     })
   end
 end

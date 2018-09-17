@@ -22,18 +22,36 @@ defmodule Extreme do
       def start_link, do: Extreme.Supervisor.start_link(__MODULE__, @config)
       def start_link(config), do: Extreme.Supervisor.start_link(__MODULE__, config)
 
-      def execute(message, correlation_id \\ nil),
-        do:
-          Extreme.RequestManager.execute(
-            __MODULE__,
-            message,
-            correlation_id || Extreme.Tools.generate_uuid()
-          )
+      def execute(message, correlation_id \\ nil) do
+        Extreme.RequestManager.execute(
+          __MODULE__,
+          message,
+          correlation_id || Extreme.Tools.generate_uuid()
+        )
+      end
 
       def subscribe_to(stream, subscriber, resolve_link_tos \\ true)
-          when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos),
-          do:
-            Extreme.RequestManager.subscribe_to(__MODULE__, stream, subscriber, resolve_link_tos)
+          when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) do
+        Extreme.RequestManager.subscribe_to(__MODULE__, stream, subscriber, resolve_link_tos)
+      end
+
+      def read_and_stay_subscribed(
+            stream,
+            subscriber,
+            from_event_number \\ 0,
+            per_page \\ 1_000,
+            resolve_link_tos \\ true,
+            require_master \\ false
+          )
+          when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) and
+                 is_boolean(require_master) and from_event_number > -2 and per_page >= 0 and
+                 per_page <= 4096 do
+        Extreme.RequestManager.read_and_stay_subscribed(
+          __MODULE__,
+          subscriber,
+          {stream, from_event_number, per_page, resolve_link_tos, require_master}
+        )
+      end
 
       def unsubscribe(subscription) when is_pid(subscription),
         do: Extreme.Subscription.unsubscribe(subscription)
@@ -63,4 +81,16 @@ defmodule Extreme do
   TODO
   """
   @callback unsubscribe(subscription :: pid()) :: :unsubscribed
+
+  @doc """
+  TODO
+  """
+  @callback read_and_stay_subscribed(
+              stream :: String.t(),
+              subscriber :: pid(),
+              from_event_number :: integer(),
+              per_page :: integer(),
+              resolve_link_tos :: boolean(),
+              require_master :: boolean()
+            ) :: {:ok, pid}
 end

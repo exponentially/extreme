@@ -44,7 +44,7 @@ defmodule Extreme.Response do
         %Msg.WriteEventsCompleted{message: "Stream is deleted.", current_version: -1},
         _correlation_id
       ),
-      do: {:error, :stream_deleted}
+      do: {:error, :stream_hard_deleted}
 
   def reply(
         %Msg.ReadStreamEventsCompleted{
@@ -54,7 +54,18 @@ defmodule Extreme.Response do
         },
         _correlation_id
       ),
-      do: {:warn, :empty_stream}
+      do: {:warn, :non_existing_stream}
+
+  def reply(
+        %Msg.ReadStreamEventsCompleted{
+          events: [],
+          is_end_of_stream: true,
+          last_event_number: 0x7FFFFFFFFFFFFFFF,
+          next_event_number: -1
+        },
+        _correlation_id
+      ),
+      do: {:error, :stream_hard_deleted}
 
   def reply(
         %Msg.ReadStreamEventsCompleted{
@@ -66,7 +77,7 @@ defmodule Extreme.Response do
         _correlation_id
       )
       when last_event_number > -1,
-      do: {:error, :stream_deleted}
+      do: {:warn, :stream_soft_deleted, last_event_number}
 
   def reply(
         %Extreme.Messages.ReadEventCompleted{

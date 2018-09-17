@@ -68,6 +68,12 @@ defmodule Extreme.RequestManager do
     |> GenServer.cast({:unregister_subscription, correlation_id})
   end
 
+  def read_and_stay_subscribed(base_name, subscriber, params) do
+    base_name
+    |> _name()
+    |> GenServer.call({:read_and_stay_subscribed, subscriber, params})
+  end
+
   ## Server callbacks
 
   @impl true
@@ -100,26 +106,42 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_call({:subscribe_to, stream, subscriber, resolve_link_tos}, from, %State{} = state) do
-    req_manager = self()
+    _start_subscription(self(), from, state.base_name, fn correlation_id ->
+      Extreme.SubscriptionsSupervisor.start_subscription(
+        state.base_name,
+        correlation_id,
+        subscriber,
+        stream,
+        resolve_link_tos
+      )
+    end)
 
-    _in_task(state.base_name, fn ->
+    {:noreply, state}
+  end
+
+  def handle_call({:read_and_stay_subscribed, subscriber, read_params}, from, %State{} = state) do
+    _start_subscription(self(), from, state.base_name, fn correlation_id ->
+      Extreme.SubscriptionsSupervisor.start_subscription(
+        state.base_name,
+        correlation_id,
+        subscriber,
+        read_params
+      )
+    end)
+
+    {:noreply, state}
+  end
+
+  defp _start_subscription(req_manager, from, base_name, fun) do
+    _in_task(base_name, fn ->
       correlation_id = Tools.generate_uuid()
 
-      {:ok, subscription} =
-        Extreme.SubscriptionsSupervisor.start_subscription(
-          state.base_name,
-          correlation_id,
-          subscriber,
-          stream,
-          resolve_link_tos
-        )
+      {:ok, subscription} = fun.(correlation_id)
 
       GenServer.cast(req_manager, {:register_subscription, correlation_id, subscription})
 
       GenServer.reply(from, {:ok, subscription})
     end)
-
-    {:noreply, state}
   end
 
   @impl true
@@ -191,10 +213,8 @@ defmodule Extreme.RequestManager do
   end
 
   # message is for subscription, decoding needs to be done there so we keep the order of incoming messages
-  defp _process_server_message(subscription, message, _state) do
-    subscription
-    |> Extreme.Subscription.process_push(fn -> Response.parse(message) end)
-  end
+  defp _process_server_message(subscription, message, _state),
+    do: GenServer.cast(subscription, {:process_push, fn -> Response.parse(message) end})
 
   defp _respond_on({:client_identified, _correlation_id}, _),
     do: :ok
