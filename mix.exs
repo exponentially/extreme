@@ -19,7 +19,6 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      # mod: {App, []},
       extra_applications: [:logger]
     ]
   end

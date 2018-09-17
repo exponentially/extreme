@@ -8,9 +8,9 @@ config :ex_unit,
   capture_log: true
 
 config :extreme, TestConn,
-  db_type: :node,
+  db_type: "node",
   host: "localhost",
-  port: 1113,
+  port: "1113",
   username: "admin",
   password: "changeit",
   connection_name: "extreme_test"

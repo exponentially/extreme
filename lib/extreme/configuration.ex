@@ -58,14 +58,4 @@ defmodule Extreme.Configuration do
     |> Keyword.get(:connection_name, "Extreme")
     |> to_string()
   end
-
-  @doc """
-  Returns `:ping_interval` from `configuration` as integer.
-  If one is not specified defaults to 1_000
-  """
-  def get_ping_interval(configuration) do
-    configuration
-    |> Keyword.get(:ping_interval, 1_000)
-    |> Tools.cast_to_integer()
-  end
 end

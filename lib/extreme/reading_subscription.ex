@@ -85,12 +85,9 @@ defmodule Extreme.ReadingSubscription do
         do: state,
         else: %{state | status: :pushing_buffered}
 
-    state =
-      state.base_name
-      |> RequestManager.execute(read_events_message, state.correlation_id)
-      |> _process_read_response(state)
-
-    {:noreply, state}
+    state.base_name
+    |> RequestManager.execute(read_events_message, Extreme.Tools.generate_uuid())
+    |> _process_read_response(state)
   end
 
   def handle_cast(:push_buffered_messages, state) do
@@ -105,7 +102,7 @@ defmodule Extreme.ReadingSubscription do
   defp _process_read_response({:error, :stream_hard_deleted}, state) do
     Logger.error(fn -> "Stream is hard deleted" end)
 
-    send(state.subscriber, {:extreme, :stream_hard_deleted})
+    send(state.subscriber, {:extreme, :error, :stream_hard_deleted, state.read_params.stream})
     RequestManager._unregister_subscription(state.base_name, state.correlation_id)
     {:stop, {:shutdown, :stream_hard_deleted}, state}
   end
@@ -117,19 +114,13 @@ defmodule Extreme.ReadingSubscription do
     |> _caught_up(state)
   end
 
-  defp _process_read_response({:warn, :non_existing_stream}, state) do
-    Logger.warn(fn -> "Stream doesn't exist yet" end)
-
-    {:extreme, :warn, :non_existing_stream, state.read_params.stream}
-    |> _caught_up(state)
-  end
-
   defp _process_read_response({:ok, %Msg.ReadStreamEventsCompleted{} = response}, state) do
     Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
     response.events |> Enum.each(fn e -> send(state.subscriber, {:on_event, e}) end)
 
-    response.next_event_number
-    |> _send_next_request(state)
+    state =
+      response.next_event_number
+      |> _send_next_request(state)
 
     {:noreply, state}
   end

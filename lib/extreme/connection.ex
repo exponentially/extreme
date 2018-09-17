@@ -11,12 +11,6 @@ defmodule Extreme.Connection do
   def start_link(base_name, configuration),
     do: GenServer.start_link(__MODULE__, {base_name, configuration}, name: _name(base_name))
 
-  def execute(base_name, message) do
-    base_name
-    |> _name()
-    |> GenServer.call({:execute, message})
-  end
-
   def push(base_name, message) do
     :ok =
       base_name
@@ -34,12 +28,6 @@ defmodule Extreme.Connection do
     }
 
     {:ok, state}
-  end
-
-  @impl true
-  def handle_call({:execute, message}, _from, %State{} = state) do
-    :ok = Impl.execute(message, state)
-    {:reply, :ok, state}
   end
 
   @impl true
@@ -77,7 +65,8 @@ defmodule Extreme.Connection do
     do: {:stop, :tcp_closed, state}
 
   defp _connect(configuration) do
-    (configuration[:db_type] || :node)
+    configuration
+    |> Configuration.get_db_type()
     |> Impl.connect(configuration)
   end
 

@@ -171,11 +171,7 @@ defmodule Extreme.RequestManager do
   def handle_cast({:respond_with_server_message, correlation_id, response}, %State{} = state) do
     state =
       case Map.get(state.requests, correlation_id) do
-        nil ->
-          _respond_to_subscription(response, correlation_id, state.subscriptions)
-          state
-
-        from ->
+        from when not is_nil(from) ->
           requests = Map.delete(state.requests, correlation_id)
           :ok = GenServer.reply(from, response)
           %{state | requests: requests}
@@ -231,16 +227,5 @@ defmodule Extreme.RequestManager do
   defp _respond_on({_auth, correlation_id, message}, base_name) do
     response = Response.reply(message, correlation_id)
     :ok = respond_with_server_message(base_name, correlation_id, response)
-  end
-
-  defp _respond_to_subscription(response, correlation_id, subscriptions) do
-    case Map.get(subscriptions, correlation_id) do
-      nil ->
-        # Can't find correlation_id #{inspect(correlation_id)} for message #{inspect(response)}"
-        :ok
-
-      subscription ->
-        GenServer.cast(subscription, response)
-    end
   end
 end

@@ -23,11 +23,30 @@ defmodule ExtremeTest do
         :extreme
         |> Application.get_env(TestConn)
         |> Keyword.put(:password, "wrong")
+        |> Keyword.put(:port, 1113)
         |> ForbiddenConn.start_link()
 
       assert {:error, :not_authenticated} = ForbiddenConn.execute(Helpers.write_events())
     end
   end
+
+  describe "Heartbeat" do
+    defmodule SecondConn, do: use Extreme
+
+    test "works when connection is idle" do
+      {:ok, _} =
+        :extreme
+        |> Application.get_env(TestConn)
+        |> SecondConn.start_link()
+
+      :timer.sleep 5_000
+      assert SecondConn
+             |> Extreme.RequestManager._name()
+             |> Process.whereis()
+             |> Process.alive?()
+    end
+  end
+
 
   describe "Writing events" do
     test "for non existing stream is success" do

@@ -46,6 +46,11 @@ defmodule ExtremeSubscriptionsTest do
       {:noreply, state}
     end
 
+    def handle_info({:extreme, _, _, _} = message, state) do
+      send(state.sender, message)
+      {:noreply, state}
+    end
+
     def handle_info(:caught_up, state) do
       send(state.sender, :caught_up)
       {:noreply, state}
@@ -238,7 +243,6 @@ defmodule ExtremeSubscriptionsTest do
   end
 
   describe "read_and_stay_subscribed/6" do
-    #@tag :skip
     test "read events and stay subscribed for existing stream is ok" do
       stream = Helpers.random_stream_name()
       # prepopulate stream
@@ -252,7 +256,7 @@ defmodule ExtremeSubscriptionsTest do
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
-      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 20)
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
 
       # assert first events are received
       for _ <- 1..3, do: assert_receive({:on_event, _event})
@@ -275,7 +279,207 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events1 ++ events2
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+
+      assert events1 ++ events2 ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      _unsubscribe(subscription)
+    end
+
+    test "read events and stay subscribed for non existing stream is ok" do
+      stream = Helpers.random_stream_name()
+      {:warn, :non_existing_stream} = TestConn.execute(Helpers.read_events(stream))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 20)
+
+      # assert :caught_up is received when existing events are read
+      assert_receive :caught_up
+
+      # write more events after subscription
+      num_additional_events = 100
+
+      events =
+        1..num_additional_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      # assert new events are received as well
+      for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events
+
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+
+      assert events ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      _unsubscribe(subscription)
+    end
+
+    test "read events and stay subscribed for soft deleted stream is ok" do
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.PersonCreated{name: "1"},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
+
+      # assert first events are receiveD
+      for _ <- 1..3, do: refute_receive({:on_event, _event})
+
+      # assert :caught_up is received when existing events are read
+      assert_receive {:extreme, :warn, :stream_soft_deleted, ^stream}
+      assert_receive :caught_up
+
+      # write more events after subscription
+      num_additional_events = 100
+
+      events2 =
+        1..num_additional_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert new events are received as well
+      for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events2
+
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+
+      assert events2 ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      _unsubscribe(subscription)
+    end
+
+    test "read events and stay subscribed for recreated stream is ok" do
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.PersonCreated{name: "1"},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      events2 = [
+        %Event.PersonCreated{name: "4"},
+        %Event.PersonCreated{name: "5"},
+        %Event.PersonCreated{name: "6"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 3)
+
+      # assert first events are receiveD
+      for _ <- 1..3, do: assert_receive({:on_event, _event})
+
+      # assert :caught_up is received when existing events are read
+      refute_receive {:extreme, :warn, :stream_soft_deleted, ^stream}
+      assert_receive :caught_up
+
+      # write more events after subscription
+      num_additional_events = 100
+
+      events3 =
+        1..num_additional_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x + 6}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events3))
+
+      # assert new events are received as well
+      for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events2 ++ events3
+
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+
+      assert events2 ++ events3 ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      _unsubscribe(subscription)
+    end
+
+    test "read events and stay subscribed for hard deleted stream is not ok" do
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.PersonCreated{name: "1"},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
+
+      # assert :caught_up is received when existing events are read
+      assert_receive {:extreme, :error, :stream_hard_deleted, ^stream}
+
+      refute Process.alive?(subscription)
+      Helpers.assert_no_leaks(TestConn)
+    end
+
+    test "events written while reading stream are also pushed to client in correct order" do
+      stream = Helpers.random_stream_name()
+      num_events = 1_000
+      # prepopulate stream
+      events1 =
+        1..num_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      events2 =
+        1..num_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x + num_events}"} end)
+
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 1)
+
+      spawn fn ->
+        {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+        Logger.debug "Second pack of events written"
+      end
+
+      # assert first events are received
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
+      Logger.debug "First pack of events received"
+
+      # assert second pack of events is received as well
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
+
+      # assert :caught_up is received when existing events are read
+      assert_receive :caught_up
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events1 ++ events2
+
+      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 2_000))
 
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
