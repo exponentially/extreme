@@ -337,7 +337,7 @@ defmodule Extreme do
 
   defp connect(host, port, connection_settings, attempt) do
     Logger.info(fn -> "Connecting Extreme to #{host}:#{port}" end)
-    opts = [:binary, active: true]
+    opts = [:binary, active: :once]
 
     case :gen_tcp.connect(String.to_charlist(host), port, opts) do
       {:ok, socket} ->
@@ -398,9 +398,7 @@ defmodule Extreme do
   def handle_call({:execute, protobuf_msg}, from, %{socket: socket} = state) do
     {message, correlation_id} = Request.prepare(protobuf_msg, state.credentials)
     # Logger.debug "Will execute #{inspect protobuf_msg}"
-    # :inet.setopts(socket, active: false)
-    :ok = :gen_tcp.send(state.socket, message)
-    # :inet.setopts(socket, active: true)
+    :ok = :gen_tcp.send(socket, message)
 
     state =
       put_in(state.pending_responses, Map.put(state.pending_responses, correlation_id, from))
@@ -491,6 +489,7 @@ defmodule Extreme do
   end
 
   def handle_info({:tcp, socket, pkg}, state = %{received_data: received_data}) do
+    :inet.setopts(socket, active: :once)
     state = process_package(state, received_data <> pkg)
     {:noreply, state}
   end

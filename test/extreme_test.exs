@@ -1099,7 +1099,7 @@ defmodule ExtremeTest do
 
   defp _write_n_events(
          event_count,
-         stream \\ "extreme_test"
+         stream
        ) do
     events = Enum.map(1..event_count, &%PersonCreated{name: "Pera Peric #{&1}"})
 
