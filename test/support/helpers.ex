@@ -76,6 +76,11 @@ defmodule ExtremeTest.Helpers do
     )
   end
 
+  def unsubscribe(extreme, subscription) do
+    :unsubscribed = extreme.unsubscribe(subscription)
+    assert_no_leaks(extreme)
+  end
+
   def assert_no_leaks(base_name) do
     assert %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state()
 

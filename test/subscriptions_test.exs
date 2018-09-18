@@ -91,7 +91,7 @@ defmodule ExtremeSubscriptionsTest do
       # check if only new events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "subscription to non existing stream is success" do
@@ -112,7 +112,7 @@ defmodule ExtremeSubscriptionsTest do
       # check if only new events came in correct order.
       assert Subscriber.received_events(subscriber) == events
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "subscription to soft deleted stream is success" do
@@ -145,7 +145,7 @@ defmodule ExtremeSubscriptionsTest do
       # check if only new events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "soft deleting stream while subscription exists doesn't affect subscription" do
@@ -173,7 +173,7 @@ defmodule ExtremeSubscriptionsTest do
       assert Process.alive?(subscription)
       assert Process.alive?(subscriber)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "hard deleting stream will close its subscription" do
@@ -225,7 +225,7 @@ defmodule ExtremeSubscriptionsTest do
       for _ <- 1..3, do: assert_receive({:on_event, _event})
 
       # unsubscribe from stream
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
       assert_receive {:extreme, :unsubscribed}
 
       # write more events after unsubscribe
@@ -284,7 +284,7 @@ defmodule ExtremeSubscriptionsTest do
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "read events and stay subscribed for non existing stream is ok" do
@@ -318,7 +318,7 @@ defmodule ExtremeSubscriptionsTest do
       assert events ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "read events and stay subscribed for soft deleted stream is ok" do
@@ -364,7 +364,7 @@ defmodule ExtremeSubscriptionsTest do
       assert events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "read events and stay subscribed for recreated stream is ok" do
@@ -417,7 +417,7 @@ defmodule ExtremeSubscriptionsTest do
       assert events2 ++ events3 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
 
     test "read events and stay subscribed for hard deleted stream is not ok" do
@@ -484,12 +484,7 @@ defmodule ExtremeSubscriptionsTest do
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
-      _unsubscribe(subscription)
+      Helpers.unsubscribe(TestConn, subscription)
     end
-  end
-
-  defp _unsubscribe(subscription) do
-    :unsubscribed = TestConn.unsubscribe(subscription)
-    Helpers.assert_no_leaks(TestConn)
   end
 end
