@@ -459,7 +459,7 @@ defmodule ExtremeSubscriptionsTest do
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
-      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 10)
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 20)
 
       spawn(fn ->
         {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
@@ -467,11 +467,11 @@ defmodule ExtremeSubscriptionsTest do
       end)
 
       # assert first events are received
-      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event}, 500)
       Logger.debug("First pack of events received")
 
       # assert second pack of events is received as well
-      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event}, 500)
 
       # assert :caught_up is received when existing events are read
       assert_receive :caught_up
