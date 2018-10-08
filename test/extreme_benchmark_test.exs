@@ -61,7 +61,7 @@ defmodule ExtremeBenchmarkTest do
 
     @tag :benchmark
     test "reading and writing simultaneously is ok" do
-      num_initial_events = 10_000
+      num_initial_events = 30_000
       num_additional_events = 1_000
       stream = Helpers.random_stream_name()
 
@@ -106,8 +106,7 @@ defmodule ExtremeBenchmarkTest do
         {time, _} =
           :timer.tc(fn ->
             read_events =
-              1..((num_initial_events + num_additional_events)
-                  |> Integer.floor_div(read_batch_size))
+              1..Integer.floor_div(num_total_events, read_batch_size)
               |> Stream.flat_map(fn x ->
                 {:ok, %{events: events}} =
                   TestConn.execute(
