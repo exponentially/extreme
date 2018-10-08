@@ -21,5 +21,5 @@ defmodule Extreme.Supervisor do
     |> Supervisor.init(strategy: :one_for_one)
   end
 
-  defp _name(base_name), do: (to_string(base_name) <> ".Supervisor") |> String.to_atom()
+  defp _name(base_name), do: Module.concat(base_name, Supervisor)
 end

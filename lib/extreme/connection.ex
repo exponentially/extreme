@@ -70,5 +70,5 @@ defmodule Extreme.Connection do
     |> Impl.connect(configuration)
   end
 
-  def _name(base_name), do: (to_string(base_name) <> ".Connection") |> String.to_atom()
+  def _name(base_name), do: Module.concat(base_name, Connection)
 end

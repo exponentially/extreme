@@ -6,10 +6,10 @@ defmodule Extreme.RequestManager do
     defstruct ~w(base_name credentials requests subscriptions)a
   end
 
-  def _name(base_name), do: (to_string(base_name) <> ".RequestManager") |> String.to_atom()
+  def _name(base_name), do: Module.concat(base_name, RequestManager)
 
   def _process_supervisor_name(base_name),
-    do: (to_string(base_name) <> ".MessageProcessingSupervisor") |> String.to_atom()
+    do: Module.concat(base_name, MessageProcessingSupervisor)
 
   def start_link(base_name, configuration),
     do: GenServer.start_link(__MODULE__, {base_name, configuration}, name: _name(base_name))

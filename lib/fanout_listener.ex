@@ -110,9 +110,9 @@ defmodule Extreme.FanoutListener do
         {:noreply, state}
       end
 
-      def handle_info({:on_event, push}, state) do
+      def handle_call({:on_event, push}, _from, state) do
         :ok = process_push(push)
-        {:noreply, state}
+        {:reply, :ok, state}
       end
 
       def handle_info(_msg, state), do: {:noreply, state}

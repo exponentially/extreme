@@ -5,11 +5,11 @@ defmodule Extreme.Mixfile do
     [
       app: :extreme,
       version: "1.0.0+beta1",
-      elixir: "~> 1.6",
+      elixir: "~> 1.5",
       elixirc_paths: _elixirc_paths(Mix.env()),
       source_url: "https://github.com/exponentially/extreme",
       description: """
-      Elixir TCP adapter for EventStore.
+      Elixir TCP client for EventStore.
       """,
       package: _package(),
       start_permanent: Mix.env() == :prod,

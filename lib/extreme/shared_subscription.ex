@@ -50,6 +50,13 @@ defmodule Extreme.SharedSubscription do
   """
   def process_push(fun, state), do: fun.() |> _process_push(state)
 
+  @doc """
+  Calls subscriber with {:on_event, event}, expecting :ok as result
+  in order to apply backpressure.
+  """
+  def on_event(subscriber, event),
+    do: :ok = GenServer.call(subscriber, {:on_event, event})
+
   defp _process_push(
          {_auth, _correlation_id,
           %Msg.StreamEventAppeared{
@@ -66,7 +73,7 @@ defmodule Extreme.SharedSubscription do
          {_auth, _correlation_id, %Msg.StreamEventAppeared{} = e},
          state
        ) do
-    send(state.subscriber, {:on_event, e.event})
+    on_event(state.subscriber, e.event)
     {:noreply, state}
   end
 

@@ -30,17 +30,17 @@ defmodule ExtremeSubscriptionsTest do
       {:reply, result, state}
     end
 
+    def handle_call({:on_event, event} = message, _from, state) do
+      send(state.sender, message)
+      {:reply, :ok, %{state | received: [event | state.received]}}
+    end
+
+    def handle_call({:on_event, event, _correlation_id} = message, _from, state) do
+      send(state.sender, message)
+      {:reply, :ok, %{state | received: [event | state.received]}}
+    end
+
     @impl true
-    def handle_info({:on_event, event} = message, state) do
-      send(state.sender, message)
-      {:noreply, %{state | received: [event | state.received]}}
-    end
-
-    def handle_info({:on_event, event, _correlation_id} = message, state) do
-      send(state.sender, message)
-      {:noreply, %{state | received: [event | state.received]}}
-    end
-
     def handle_info({:extreme, _} = message, state) do
       send(state.sender, message)
       {:noreply, state}

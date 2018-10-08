@@ -3,7 +3,7 @@ defmodule Extreme.SubscriptionsSupervisor do
   alias Extreme.{Subscription, ReadingSubscription}
 
   def _name(base_name),
-    do: (to_string(base_name) <> ".SubscriptionsSupervisor") |> String.to_atom()
+    do: Module.concat(base_name, SubscriptionsSupervisor)
 
   def start_link(base_name),
     do: DynamicSupervisor.start_link(__MODULE__, :ok, name: _name(base_name))

@@ -93,7 +93,7 @@ defmodule Extreme.ReadingSubscription do
   def handle_cast(:push_buffered_messages, state) do
     state.buffered_messages
     |> Enum.reverse()
-    |> Enum.each(fn e -> send(state.subscriber, {:on_event, e}) end)
+    |> Enum.each(&Shared.on_event(state.subscriber, &1))
 
     send(state.subscriber, :caught_up)
     {:noreply, %{state | status: :subscribed, buffered_messages: []}}
@@ -116,7 +116,9 @@ defmodule Extreme.ReadingSubscription do
 
   defp _process_read_response({:ok, %Msg.ReadStreamEventsCompleted{} = response}, state) do
     Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
-    response.events |> Enum.each(fn e -> send(state.subscriber, {:on_event, e}) end)
+
+    response.events
+    |> Enum.each(&Shared.on_event(state.subscriber, &1))
 
     state =
       response.next_event_number
