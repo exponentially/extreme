@@ -41,6 +41,7 @@ defmodule Extreme.FanoutListenerTest do
     assert event3 == :erlang.binary_to_term(event)
 
     :ok = MyListener.unsubscribe(listener)
+    Helpers.assert_no_leaks(TestConn)
   end
 
   test "Listener can resubscribe" do
@@ -81,5 +82,6 @@ defmodule Extreme.FanoutListenerTest do
     assert event4 == :erlang.binary_to_term(event)
 
     :ok = MyListener.unsubscribe(listener)
+    Helpers.assert_no_leaks(TestConn)
   end
 end
