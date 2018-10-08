@@ -18,7 +18,7 @@ defmodule Extreme.ListenerTest do
 
       DB.in_transaction(fn ->
         send(:test, {:processing_push, push.event.event_type, push.event.data})
-        DB.ack_event(MyListener, stream_name, event_number)
+        :ok = DB.ack_event(MyListener, stream_name, event_number)
         Logger.debug(fn -> "Processed event ##{event_number}" end)
       end)
 
