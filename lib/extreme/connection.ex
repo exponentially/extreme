@@ -1,6 +1,6 @@
 defmodule Extreme.Connection do
   use GenServer
-  alias Extreme.{Configuration, RequestManager}
+  alias Extreme.{Configuration, Tcp, RequestManager}
   alias Extreme.ConnectionImpl, as: Impl
   require Logger
 
@@ -20,7 +20,7 @@ defmodule Extreme.Connection do
 
   @impl true
   def init({base_name, configuration}) do
-    GenServer.cast(self(), {:connect, configuration})
+    GenServer.cast(self(), {:connect, configuration, 1})
 
     state = %State{
       base_name: base_name,
@@ -31,9 +31,9 @@ defmodule Extreme.Connection do
   end
 
   @impl true
-  def handle_cast({:connect, configuration}, state) do
+  def handle_cast({:connect, configuration, attempt}, state) do
     configuration
-    |> _connect()
+    |> _connect(attempt)
     |> case do
       {:ok, socket} ->
         Logger.info(fn -> "Successfully connected to EventStore" end)
@@ -64,10 +64,9 @@ defmodule Extreme.Connection do
   def handle_info({:tcp_closed, _port}, state),
     do: {:stop, :tcp_closed, state}
 
-  defp _connect(configuration) do
-    configuration
-    |> Configuration.get_db_type()
-    |> Impl.connect(configuration)
+  defp _connect(configuration, attempt) do
+    {:ok, host, port} = Configuration.get_node(configuration)
+    Tcp.connect(host, port, configuration, attempt)
   end
 
   def _name(base_name), do: Module.concat(base_name, Connection)

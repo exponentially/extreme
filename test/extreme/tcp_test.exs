@@ -6,8 +6,7 @@ defmodule Extreme.TcpTest do
 
   describe "connect/3" do
     test "returns {:ok, socket} for correct host and port" do
-      host = Configuration.get_host(@test_configuration)
-      port = Configuration.get_port(@test_configuration)
+      {:ok, host, port} = Configuration.get_node(@test_configuration)
 
       assert {:ok, _socket} = Tcp.connect(host, port, [])
     end

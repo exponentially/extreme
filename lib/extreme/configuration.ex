@@ -5,31 +5,40 @@ defmodule Extreme.Configuration do
 
   alias Extreme.Tools
 
-  @doc """
-  Returns `:db_type` value from `configuration` as `atom`.
-  If one is not specified, defaults to `:node`.
-  """
-  def get_db_type(configuration) do
+  def get_node(configuration) do
+    configuration
+    |> _get_db_type
+    |> _get_node(configuration)
+  end
+
+  # Returns `:db_type` value from `configuration` as `atom`.
+  # If one is not specified, defaults to `:node`.
+  defp _get_db_type(configuration) do
     configuration
     |> Keyword.get(:db_type, :node)
     |> Tools.cast_to_atom()
   end
 
-  @doc """
-  Returns `:host` value from `configuration` as charlist.
-  If one is not specified raises exception.
-  """
-  def get_host(configuration) do
+  defp _get_node(:node, configuration),
+    do: {:ok, _get_host(configuration), _get_port(configuration)}
+
+  #  defp _get_node(:cluster, configuration) do
+  #  end
+  #
+  #  defp _get_node(:cluster_dns, configuration) do
+  #  end
+
+  # Returns `:host` value from `configuration` as charlist.
+  # If one is not specified raises exception.
+  defp _get_host(configuration) do
     configuration
     |> Keyword.fetch!(:host)
     |> String.to_charlist()
   end
 
-  @doc """
-  Returns `:port` value from `configuration` as `integer`.
-  If one is not specified raises exception.
-  """
-  def get_port(configuration) do
+  # Returns `:port` value from `configuration` as `integer`.
+  # If one is not specified raises exception.
+  defp _get_port(configuration) do
     configuration
     |> Keyword.fetch!(:port)
     |> Tools.cast_to_integer()

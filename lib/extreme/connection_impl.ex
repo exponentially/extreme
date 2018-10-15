@@ -2,20 +2,10 @@ defmodule Extreme.ConnectionImpl do
   @moduledoc """
   Set of connection related functions meant to be used from `Extreme.Connection` only!
   """
-  alias Extreme.{Configuration, Tcp, RequestManager}
+  alias Extreme.RequestManager
   alias Extreme.Connection.State
 
   require Logger
-
-  def connect(db_type, configuration)
-
-  def connect(:node, configuration) do
-    port = Configuration.get_port(configuration)
-
-    configuration
-    |> Configuration.get_host()
-    |> Tcp.connect(port, configuration)
-  end
 
   def execute(message, %State{socket: socket}),
     do: :ok = :gen_tcp.send(socket, message)
