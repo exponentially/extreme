@@ -30,7 +30,9 @@ defmodule Extreme.Mixfile do
   defp _deps do
     [
       {:protobuf, "~> 0.5.3"},
-      {:elixir_uuid, "~> 1.2"}
+      {:elixir_uuid, "~> 1.2"},
+      # needed when connecting to EventStore cluster (node_type: :cluster | :cluster_dns)
+      {:jason, "~> 1.1", optional: true}
       # {:ex_doc, "~> 0.19", only: :test},
       # {:earmark, "~> 1.2", only: :test},
       # {:inch_ex, "~> 1.0", only: :test},
