@@ -459,7 +459,7 @@ defmodule ExtremeSubscriptionsTest do
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
-      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 20)
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
 
       spawn(fn ->
         {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
