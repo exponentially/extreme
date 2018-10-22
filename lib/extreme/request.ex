@@ -9,6 +9,13 @@ defmodule Extreme.Request do
     {:ok, <<size::32-unsigned-little-integer>> <> res}
   end
 
+  def prepare(:ping = cmd, correlation_id) do
+    res = <<Extreme.MessageResolver.encode_cmd(cmd), 0>> <> correlation_id
+    size = byte_size(res)
+
+    {:ok, <<size::32-unsigned-little-integer>> <> res}
+  end
+
   def prepare(:identify_client, connection_name, credentials) do
     Extreme.Messages.IdentifyClient.new(
       version: 1,

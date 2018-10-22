@@ -55,7 +55,7 @@ defmodule Extreme.Configuration do
     |> ClusterConnection.gossip_with(gossip_timeout, mode)
   end
 
-  def get_node(:cluster_dns, configuration) do
+  defp _get_node(:cluster_dns, configuration) do
     {:ok, ips} =
       configuration
       |> _get_host
@@ -66,7 +66,11 @@ defmodule Extreme.Configuration do
       |> Keyword.get(:port, 2113)
       |> Tools.cast_to_integer()
 
-    gossip_timeout = Keyword.get(configuration, :gossip_timeout, 1_000)
+    gossip_timeout =
+      configuration
+      |> Keyword.get(:gossip_timeout, 1_000)
+      |> Tools.cast_to_integer()
+
     mode = Keyword.get(configuration, :mode, :write)
 
     ips

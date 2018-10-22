@@ -1,5 +1,7 @@
 defmodule ExtremeTest do
   use ExUnit.Case, async: true
+  use ExVCR.Mock, adapter: ExVCR.Adapter.Httpc
+
   alias ExtremeTest.Helpers
   alias ExtremeTest.Events, as: Event
   alias Extreme.Messages, as: ExMsg
@@ -10,6 +12,29 @@ defmodule ExtremeTest do
              |> Extreme.RequestManager._name()
              |> Process.whereis()
              |> Process.alive?()
+
+      assert :pong == TestConn.ping()
+    end
+
+    defmodule(ClusterConn, do: use(Extreme))
+
+    test "Connects on EventStore cluster via dns" do
+      use_cassette "gossip_with_clusters_existing_node" do
+        nodes = [
+          %{host: "0.0.0.0", port: 2113}
+        ]
+
+        {:ok, _} =
+          :extreme
+          |> Application.get_env(TestConn)
+          |> Keyword.delete(:host)
+          |> Keyword.put(:db_type, "cluster")
+          |> Keyword.put(:gossip_timeout, 20_000)
+          |> Keyword.put(:nodes, nodes)
+          |> ClusterConn.start_link()
+
+        assert :pong == ClusterConn.ping()
+      end
     end
   end
 

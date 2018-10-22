@@ -1,0 +1,40 @@
+[
+  {
+    "request": {
+      "body": "",
+      "headers": [],
+      "method": "get",
+      "options": {
+        "httpc_options": [],
+        "http_options": {
+          "timeout": "20000"
+        }
+      },
+      "request_body": "",
+      "url": "http://0.0.0.0:2113/gossip?format=json"
+    },
+    "response": {
+      "binary": false,
+      "body": "{\n  \"members\": [\n    {\n      \"instanceId\": \"1c834715-c668-483c-b0fa-64c511567738\",\n      \"timeStamp\": \"2018-10-22T12:29:20.564455Z\",\n      \"state\": \"Slave\",\n      \"isAlive\": true,\n      \"internalTcpIp\": \"172.19.0.4\",\n      \"internalTcpPort\": 1112,\n      \"internalSecureTcpPort\": 0,\n      \"externalTcpIp\": \"172.19.0.4\",\n      \"externalTcpPort\": 1113,\n      \"externalSecureTcpPort\": 0,\n      \"internalHttpIp\": \"172.19.0.4\",\n      \"internalHttpPort\": 2112,\n      \"externalHttpIp\": \"172.19.0.4\",\n      \"externalHttpPort\": 2113,\n      \"lastCommitPosition\": 2838330,\n      \"writerCheckpoint\": 2838822,\n      \"chaserCheckpoint\": 2838822,\n      \"epochPosition\": 2822441,\n      \"epochNumber\": 2,\n      \"epochId\": \"edc96a68-16f9-4b31-9a2e-f03bc1ef5d63\",\n      \"nodePriority\": 0\n    },\n    {\n      \"instanceId\": \"fd4e6c8b-fc1c-468a-8092-aca7ec1fb856\",\n      \"timeStamp\": \"2018-10-22T12:29:20.775641Z\",\n      \"state\": \"Master\",\n      \"isAlive\": true,\n      \"internalTcpIp\": \"localhost\",\n      \"internalTcpPort\": 1112,\n      \"internalSecureTcpPort\": 0,\n      \"externalTcpIp\": \"localhost\",\n      \"externalTcpPort\": 1113,\n      \"externalSecureTcpPort\": 0,\n      \"internalHttpIp\": \"localhost\",\n      \"internalHttpPort\": 2112,\n      \"externalHttpIp\": \"localhost\",\n      \"externalHttpPort\": 2113,\n      \"lastCommitPosition\": 2868073,\n      \"writerCheckpoint\": 2885802,\n      \"chaserCheckpoint\": 2885802,\n      \"epochPosition\": 2822441,\n      \"epochNumber\": 2,\n      \"epochId\": \"edc96a68-16f9-4b31-9a2e-f03bc1ef5d63\",\n      \"nodePriority\": 0\n    },\n    {\n      \"instanceId\": \"d09c90d4-9fdb-4be6-af17-c7bd3ee5181a\",\n      \"timeStamp\": \"2018-10-22T12:29:21.241867Z\",\n      \"state\": \"Slave\",\n      \"isAlive\": true,\n      \"internalTcpIp\": \"172.19.0.2\",\n      \"internalTcpPort\": 1112,\n      \"internalSecureTcpPort\": 0,\n      \"externalTcpIp\": \"172.19.0.2\",\n      \"externalTcpPort\": 1113,\n      \"externalSecureTcpPort\": 0,\n      \"internalHttpIp\": \"172.19.0.2\",\n      \"internalHttpPort\": 2112,\n      \"externalHttpIp\": \"172.19.0.2\",\n      \"externalHttpPort\": 2113,\n      \"lastCommitPosition\": 2868073,\n      \"writerCheckpoint\": 2885802,\n      \"chaserCheckpoint\": 2885802,\n      \"epochPosition\": 2822441,\n      \"epochNumber\": 2,\n      \"epochId\": \"edc96a68-16f9-4b31-9a2e-f03bc1ef5d63\",\n      \"nodePriority\": 0\n    }\n  ],\n  \"serverIp\": \"172.19.0.2\",\n  \"serverPort\": 2112\n}",
+      "headers": {
+        "cache-control": "max-age=0, no-cache, must-revalidate",
+        "date": "Mon, 22 Oct 2018 12:29:21 GMT",
+        "server": "Mono-HTTPAPI/1.0",
+        "vary": "Accept",
+        "content-length": "2346",
+        "content-type": "application/json; charset=utf-8",
+        "access-control-allow-methods": "GET, OPTIONS",
+        "access-control-allow-headers": "Content-Type, X-Requested-With, X-Forwarded-Host, X-Forwarded-Prefix, X-PINGOTHER, Authorization, ES-LongPoll, ES-ExpectedVersion, ES-EventId, ES-EventType, ES-RequiresMaster, ES-HardDelete, ES-ResolveLinkTos",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "Location, ES-Position, ES-CurrentVersion",
+        "keep-alive": "timeout=15,max=100"
+      },
+      "status_code": [
+        "HTTP/1.1",
+        200,
+        "OK"
+      ],
+      "type": "ok"
+    }
+  }
+]

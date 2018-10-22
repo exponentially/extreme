@@ -13,6 +13,12 @@ defmodule Extreme.Mixfile do
       """,
       package: _package(),
       start_permanent: Mix.env() == :prod,
+      preferred_cli_env: [
+        vcr: :test,
+        "vcr.delete": :test,
+        "vcr.check": :test,
+        "vcr.show": :test
+      ],
       deps: _deps()
     ]
   end
@@ -32,7 +38,10 @@ defmodule Extreme.Mixfile do
       {:protobuf, "~> 0.5.3"},
       {:elixir_uuid, "~> 1.2"},
       # needed when connecting to EventStore cluster (node_type: :cluster | :cluster_dns)
-      {:jason, "~> 1.1", optional: true}
+      {:jason, "~> 1.1", optional: true},
+
+      # testing
+      {:exvcr, "~> 0.10", only: :test}
       # {:ex_doc, "~> 0.19", only: :test},
       # {:earmark, "~> 1.2", only: :test},
       # {:inch_ex, "~> 1.0", only: :test},

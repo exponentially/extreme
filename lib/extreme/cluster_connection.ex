@@ -35,7 +35,7 @@ defmodule Extreme.ClusterConnection do
       |> List.first()
 
     Logger.info("We've chosen node: #{inspect(best_candidate)}")
-    {:ok, best_candidate["externalTcpIp"], best_candidate["externalTcpPort"]}
+    {:ok, String.to_charlist(best_candidate["externalTcpIp"]), best_candidate["externalTcpPort"]}
   end
 
   defp _get_alive(members), do: Enum.filter(members, fn m -> m["isAlive"] end)

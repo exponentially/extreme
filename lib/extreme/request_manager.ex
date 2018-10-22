@@ -50,6 +50,12 @@ defmodule Extreme.RequestManager do
     |> GenServer.cast({:respond_with_server_message, correlation_id, response})
   end
 
+  def ping(base_name, correlation_id) do
+    base_name
+    |> _name()
+    |> GenServer.call({:ping, correlation_id})
+  end
+
   def execute(base_name, message, correlation_id) do
     base_name
     |> _name()
@@ -94,6 +100,17 @@ defmodule Extreme.RequestManager do
   end
 
   @impl true
+  def handle_call({:ping, correlation_id}, from, %State{} = state) do
+    state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
+
+    _in_task(state.base_name, fn ->
+      {:ok, message} = Request.prepare(:ping, correlation_id)
+      :ok = Connection.push(state.base_name, message)
+    end)
+
+    {:noreply, state}
+  end
+
   def handle_call({:execute, correlation_id, message}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
@@ -217,6 +234,9 @@ defmodule Extreme.RequestManager do
 
   defp _respond_on({:heartbeat_request, correlation_id}, base_name),
     do: :ok = send_heartbeat_response(base_name, correlation_id)
+
+  defp _respond_on({:pong, correlation_id}, base_name),
+    do: :ok = respond_with_server_message(base_name, correlation_id, :pong)
 
   defp _respond_on({:error, :not_authenticated, correlation_id}, base_name),
     do: :ok = respond_with_server_message(base_name, correlation_id, {:error, :not_authenticated})

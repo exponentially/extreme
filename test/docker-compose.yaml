@@ -1,0 +1,43 @@
+version: '3.4'
+
+services:
+  eventstore1:
+    image: eventstore/eventstore
+    hostname: eventstore1
+    ports:
+    - 2113:2113
+    environment:
+      EVENTSTORE_CLUSTER_DNS: eventstore1
+      EVENTSTORE_CLUSTER_SIZE: 3
+      EVENTSTORE_CLUSTER_GOSSIP_PORT: 2112
+    entrypoint:
+    - /bin/bash
+    command:
+    - -c
+    - 'sed -i "/ExtIpAdvertiseAs\:/d" /etc/eventstore/eventstore.conf && echo "ExtIpAdvertiseAs: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && sed -i "/ExtIp\:/d" /etc/eventstore/eventstore.conf && echo "ExtIp: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && /entrypoint.sh'
+
+  eventstore2:
+    image: eventstore/eventstore
+    hostname: eventstore2
+    environment:
+      EVENTSTORE_CLUSTER_DNS: eventstore1
+      EVENTSTORE_CLUSTER_SIZE: 3
+      EVENTSTORE_CLUSTER_GOSSIP_PORT: 2112
+    entrypoint:
+    - /bin/bash
+    command:
+    - -c
+    - 'sed -i "/ExtIpAdvertiseAs\:/d" /etc/eventstore/eventstore.conf && echo "ExtIpAdvertiseAs: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && sed -i "/ExtIp\:/d" /etc/eventstore/eventstore.conf && echo "ExtIp: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && /entrypoint.sh'
+
+  eventstore3:
+    image: eventstore/eventstore
+    hostname: eventstore3
+    environment:
+      EVENTSTORE_CLUSTER_DNS: eventstore1
+      EVENTSTORE_CLUSTER_SIZE: 3
+      EVENTSTORE_CLUSTER_GOSSIP_PORT: 2112
+    entrypoint:
+    - /bin/bash
+    command:
+    - -c
+    - 'sed -i "/ExtIpAdvertiseAs\:/d" /etc/eventstore/eventstore.conf && echo "ExtIpAdvertiseAs: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && sed -i "/ExtIp\:/d" /etc/eventstore/eventstore.conf && echo "ExtIp: $$(hostname -i)" >> /etc/eventstore/eventstore.conf && /entrypoint.sh'

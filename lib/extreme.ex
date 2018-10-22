@@ -22,6 +22,9 @@ defmodule Extreme do
       def start_link, do: Extreme.Supervisor.start_link(__MODULE__, @config)
       def start_link(config), do: Extreme.Supervisor.start_link(__MODULE__, config)
 
+      def ping,
+        do: Extreme.RequestManager.ping(__MODULE__, Extreme.Tools.generate_uuid())
+
       def execute(message, correlation_id \\ nil) do
         Extreme.RequestManager.execute(
           __MODULE__,
@@ -93,4 +96,9 @@ defmodule Extreme do
               resolve_link_tos :: boolean(),
               require_master :: boolean()
             ) :: {:ok, pid}
+
+  @doc """
+  Pings connected EventStore and should return `:pong` back.
+  """
+  @callback ping() :: :pong
 end
