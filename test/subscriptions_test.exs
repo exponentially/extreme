@@ -482,6 +482,8 @@ defmodule ExtremeSubscriptionsTest do
       # assert :caught_up is received when existing events are read
       assert_receive {:extreme, :error, :stream_deleted, ^stream}
 
+      # wait a bit for process to die
+      :timer.sleep 10
       refute Process.alive?(subscription)
       Helpers.assert_no_leaks(TestConn)
     end
