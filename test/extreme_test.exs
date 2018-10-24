@@ -18,7 +18,7 @@ defmodule ExtremeTest do
 
     defmodule(ClusterConn, do: use(Extreme))
 
-    test "Connects on EventStore cluster via dns" do
+    test "Connects on EventStore cluster with a list of nodes" do
       use_cassette "gossip_with_clusters_existing_node" do
         nodes = [
           %{host: "0.0.0.0", port: 2113}
@@ -39,11 +39,9 @@ defmodule ExtremeTest do
   end
 
   describe "Authentication" do
-    defmodule ForbiddenConn do
-      use Extreme
-    end
+    defmodule(ForbiddenConn, do: use(Extreme))
 
-    test ".execute is not authenticated for wrong credentials" do
+    test ".execute/1 is not authenticated for wrong credentials" do
       {:ok, _} =
         :extreme
         |> Application.get_env(TestConn)
@@ -66,10 +64,7 @@ defmodule ExtremeTest do
 
       :timer.sleep(5_000)
 
-      assert SecondConn
-             |> Extreme.RequestManager._name()
-             |> Process.whereis()
-             |> Process.alive?()
+      assert :pong == SecondConn.ping()
     end
   end
 
@@ -106,7 +101,7 @@ defmodule ExtremeTest do
 
       assert {:ok, %ExMsg.WriteEventsCompleted{}} = TestConn.execute(Helpers.write_events(stream))
 
-      assert {:ok, %Extreme.Messages.DeleteStreamCompleted{}} =
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
                TestConn.execute(Helpers.delete_stream(stream, false))
 
       assert {:ok,
@@ -122,10 +117,11 @@ defmodule ExtremeTest do
 
       assert {:ok, %ExMsg.WriteEventsCompleted{}} = TestConn.execute(Helpers.write_events(stream))
 
-      assert {:ok, %Extreme.Messages.DeleteStreamCompleted{}} =
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
                TestConn.execute(Helpers.delete_stream(stream, true))
 
-      assert {:error, :stream_hard_deleted} = TestConn.execute(Helpers.write_events(stream))
+      assert {:error, :stream_deleted, %ExMsg.WriteEventsCompleted{}} =
+               TestConn.execute(Helpers.write_events(stream))
     end
   end
 
@@ -155,7 +151,8 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
       {:ok, %ExMsg.ReadStreamEventsCompleted{events: read_events, is_end_of_stream: true}} =
         TestConn.execute(Helpers.read_events(stream, 0, 20))
@@ -164,24 +161,31 @@ defmodule ExtremeTest do
                Enum.map(read_events, fn event -> :erlang.binary_to_term(event.event.data) end)
     end
 
-    test "from non existing stream returns {:warn, :non_existing_stream}" do
-      {:warn, :non_existing_stream} =
+    test "from non existing stream returns {:error, :no_stream, %ReadStreamEventsCompleted{}}" do
+      {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
         TestConn.execute(Helpers.read_events(Helpers.random_stream_name()))
     end
 
-    test "from soft deleted stream returns {:warn, :stream_soft_deleted, last_event_number}" do
+    test "from soft deleted stream returns {:error, :no_stream, %ReadStreamEventsCompleted{}}" do
       stream = Helpers.random_stream_name()
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream))
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.WriteEventsCompleted{}} = TestConn.execute(Helpers.write_events(stream))
 
-      {:warn, :stream_soft_deleted, 1} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
+        TestConn.execute(Helpers.read_events(stream))
     end
 
-    test "from hard deleted stream returns {:error, :stream_hard_deleted}" do
+    test "from hard deleted stream returns {:error, :stream_deleted, %ReadStreamEventsCompleted{}}" do
       stream = Helpers.random_stream_name()
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream))
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
-      {:error, :stream_hard_deleted} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, %ExMsg.WriteEventsCompleted{}} = TestConn.execute(Helpers.write_events(stream))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, true))
+
+      {:error, :stream_deleted, %ExMsg.ReadStreamEventsCompleted{}} =
+        TestConn.execute(Helpers.read_events(stream))
     end
 
     test "backward is success" do
@@ -193,8 +197,11 @@ defmodule ExtremeTest do
           %Event.PersonChangedName{name: "Reading Test"}
         ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      {:ok, response} = TestConn.execute(Helpers.read_events_backward(stream, -1, 100))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events_backward(stream, -1, 100))
 
       assert %{is_end_of_stream: true, last_event_number: 1, next_event_number: -1} = response
       assert [ev2, ev1] = response.events
@@ -213,9 +220,11 @@ defmodule ExtremeTest do
           %Event.PersonChangedName{name: "Reading Test"}
         ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
-      assert {:ok, response} = TestConn.execute(Helpers.read_events_backward(stream, -1, 1))
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+               TestConn.execute(Helpers.read_events_backward(stream, -1, 1))
 
       assert %{is_end_of_stream: false, last_event_number: 1, next_event_number: 0} = response
       assert [ev2] = response.events
@@ -233,8 +242,12 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadEventCompleted{} = response} =
+               TestConn.execute(Helpers.read_event(stream, 0))
+
       assert expected_event == :erlang.binary_to_term(response.event.event.data)
     end
 
@@ -247,12 +260,16 @@ defmodule ExtremeTest do
         expected_event = %Event.PersonChangedName{name: "Reading Test 2"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, -1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadEventCompleted{} = response} =
+               TestConn.execute(Helpers.read_event(stream, -1))
+
       assert expected_event == :erlang.binary_to_term(response.event.event.data)
     end
 
-    test "returns {:error, :not_found} for non existing event" do
+    test "returns {:error, :not_found, %ReadEventCompleted{}} for non existing event" do
       stream = Helpers.random_stream_name()
 
       events = [
@@ -260,9 +277,11 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
-      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 2))
+      assert {:error, :not_found, %ExMsg.ReadEventCompleted{}} =
+               TestConn.execute(Helpers.read_event(stream, 2))
     end
 
     test "returns {:error, :bad_request} for position < -1" do
@@ -273,18 +292,20 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
       assert {:error, :bad_request} = TestConn.execute(Helpers.read_event(stream, -2))
     end
 
-    test "returns {:error, :not_found} for non existing stream" do
+    test "returns {:error, :no_stream, %ReadEventCompleted{}} for non existing stream" do
       stream = Helpers.random_stream_name()
 
-      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert {:error, :no_stream, %ExMsg.ReadEventCompleted{}} =
+               TestConn.execute(Helpers.read_event(stream, 0))
     end
 
-    test "returns {:error, :not_found} for soft deleted event" do
+    test "returns {:error, :no_stream, %ExMsg.ReadEventCompleted} for soft deleted event" do
       stream = Helpers.random_stream_name()
 
       events = [
@@ -292,19 +313,22 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test 2"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
       assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
       assert expected_event == :erlang.binary_to_term(response.event.event.data)
 
       # soft delete stream
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert {:error, :no_stream, %ExMsg.ReadEventCompleted{}} =
+               TestConn.execute(Helpers.read_event(stream, 0))
     end
 
-    test "returns {:error, :not_found} for hard deleted event" do
+    test "returns {:error, :stream_deleted, %ExMsg.ReadEventCompleted} for hard deleted event" do
       stream = Helpers.random_stream_name()
 
       events = [
@@ -312,16 +336,21 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Reading Test 2"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
-      assert {:ok, response} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert {:ok, %ExMsg.ReadEventCompleted{} = response} =
+               TestConn.execute(Helpers.read_event(stream, 0))
+
       assert expected_event == :erlang.binary_to_term(response.event.event.data)
 
       # hard delete stream
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, true))
 
-      assert {:error, :not_found} = TestConn.execute(Helpers.read_event(stream, 0))
+      assert {:error, :stream_deleted, %ExMsg.ReadEventCompleted{}} =
+               TestConn.execute(Helpers.read_event(stream, 0))
     end
   end
 
@@ -334,19 +363,24 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Name Changed 1"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # soft delete stream
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:warn, :stream_soft_deleted, 1} =
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
                TestConn.execute(Helpers.read_events(stream, 0, 2))
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:warn, :stream_soft_deleted, 1} =
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
                TestConn.execute(Helpers.read_events(stream, 0, 2))
     end
 
@@ -358,35 +392,44 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Name Changed 1"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # soft delete stream
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:warn, :stream_soft_deleted, 1} =
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
                TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # write again events
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # soft delete stream again
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:warn, :stream_soft_deleted, 3} =
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
                TestConn.execute(Helpers.read_events(stream, 0, 2))
     end
 
     test "that doesn't exist is ok" do
       stream = Helpers.random_stream_name()
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
     end
 
-    test "can be done after stream is hard deleted" do
+    test "can't be done after stream is hard deleted" do
       stream = Helpers.random_stream_name()
 
       events = [
@@ -394,22 +437,29 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Name Changed 1"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # hard delete stream
 
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
-      assert {:error, :stream_hard_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, true))
+
+      assert {:error, :stream_deleted, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # soft delete stream
 
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:error, :stream_deleted, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, false))
     end
   end
 
   describe "Hard deleting stream" do
-    test "multiple times in a row is ok" do
+    test "multiple times in a row is not ok" do
       stream = Helpers.random_stream_name()
 
       events = [
@@ -417,14 +467,22 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Name Changed 1"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # hard delete stream
 
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
-      assert {:error, :stream_hard_deleted} = TestConn.execute(Helpers.read_events(stream, 0, 2))
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, true))
+
+      assert {:error, :stream_deleted, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
+
+      assert {:error, :stream_deleted, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, true))
     end
 
     test "can be done after stream is soft deleted" do
@@ -435,25 +493,31 @@ defmodule ExtremeTest do
         %Event.PersonChangedName{name: "Name Changed 1"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
-      assert {:ok, _response} = TestConn.execute(Helpers.read_events(stream, 0, 2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # soft delete stream
 
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, false))
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, false))
 
-      assert {:warn, :stream_soft_deleted, 1} =
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
                TestConn.execute(Helpers.read_events(stream, 0, 2))
 
       # hard delete stream
 
-      assert {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      assert {:ok, %ExMsg.DeleteStreamCompleted{}} =
+               TestConn.execute(Helpers.delete_stream(stream, true))
     end
 
     test "that doesn't exist is ok" do
       stream = Helpers.random_stream_name()
 
-      {:ok, _es_response} = TestConn.execute(Helpers.delete_stream(stream, true))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, true))
     end
   end
 end

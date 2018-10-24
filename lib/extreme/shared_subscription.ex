@@ -78,15 +78,15 @@ defmodule Extreme.SharedSubscription do
   end
 
   defp _process_push(
-         {_auth, _correlation_id, %Msg.SubscriptionDropped{reason: :Unsubscribed}},
+         {_auth, _correlation_id, %Msg.SubscriptionDropped{reason: reason}},
          state
        ) do
-    send(state.subscriber, {:extreme, :unsubscribed})
+    send(state.subscriber, {:extreme, reason})
     RequestManager._unregister_subscription(state.base_name, state.correlation_id)
 
     Process.get(:reply_to)
-    |> GenServer.reply(:unsubscribed)
+    |> GenServer.reply(reason)
 
-    {:stop, {:shutdown, :unsubscribed}, state}
+    {:stop, {:shutdown, reason}, state}
   end
 end

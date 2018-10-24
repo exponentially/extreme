@@ -99,15 +99,15 @@ defmodule Extreme.ReadingSubscription do
     {:noreply, %{state | status: :subscribed, buffered_messages: []}}
   end
 
-  defp _process_read_response({:error, :stream_hard_deleted}, state) do
+  defp _process_read_response({:error, :stream_deleted, _}, state) do
     Logger.error(fn -> "Stream is hard deleted" end)
 
-    send(state.subscriber, {:extreme, :error, :stream_hard_deleted, state.read_params.stream})
+    send(state.subscriber, {:extreme, :error, :stream_deleted, state.read_params.stream})
     RequestManager._unregister_subscription(state.base_name, state.correlation_id)
-    {:stop, {:shutdown, :stream_hard_deleted}, state}
+    {:stop, {:shutdown, :stream_deleted}, state}
   end
 
-  defp _process_read_response({:warn, :stream_soft_deleted, _}, state) do
+  defp _process_read_response({:error, :no_stream, _}, state) do
     Logger.warn(fn -> "Stream doesn't exist yet" end)
 
     {:extreme, :warn, :stream_soft_deleted, state.read_params.stream}

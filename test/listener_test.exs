@@ -2,6 +2,7 @@ defmodule Extreme.ListenerTest do
   use ExUnit.Case, async: false
   alias ExtremeTest.{Helpers, DB}
   alias ExtremeTest.Events, as: Event
+  alias Extreme.Messages, as: ExMsg
   require Logger
 
   defmodule MyListener do
@@ -44,7 +45,8 @@ defmodule Extreme.ListenerTest do
     assert DB.get_last_event(MyListener, stream) == -1
 
     # write 2 events to stream
-    {:ok, _} = TestConn.execute(Helpers.write_events(stream, [event1, event2]))
+    {:ok, %ExMsg.WriteEventsCompleted{}} =
+      TestConn.execute(Helpers.write_events(stream, [event1, event2]))
 
     # run listener and expect it to read them
     {:ok, listener} = MyListener.start_link(TestConn, stream, read_per_page: 2)
@@ -56,7 +58,8 @@ defmodule Extreme.ListenerTest do
     assert event2 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListener, stream) == 1
 
-    {:ok, _} = TestConn.execute(Helpers.write_events(stream, [event3]))
+    {:ok, %ExMsg.WriteEventsCompleted{}} =
+      TestConn.execute(Helpers.write_events(stream, [event3]))
 
     assert_receive {:processing_push, event_type, event}
     assert event_type == "Elixir.ExtremeTest.Events.PersonChangedName"

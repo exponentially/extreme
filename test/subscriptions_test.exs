@@ -2,6 +2,7 @@ defmodule ExtremeSubscriptionsTest do
   use ExUnit.Case, async: false
   alias ExtremeTest.Helpers
   alias ExtremeTest.Events, as: Event
+  alias Extreme.Messages, as: ExMsg
   require Logger
 
   defmodule Subscriber do
@@ -67,7 +68,8 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -83,7 +85,8 @@ defmodule ExtremeSubscriptionsTest do
         1..num_additional_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert rest events have arrived
       for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
@@ -97,7 +100,7 @@ defmodule ExtremeSubscriptionsTest do
     test "subscription to non existing stream is success" do
       # subscribe to stream
       stream = Helpers.random_stream_name()
-      {:warn, :non_existing_stream} = TestConn.execute(Helpers.read_events(stream))
+      {:error, :no_stream, _} = TestConn.execute(Helpers.read_events(stream))
       {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.subscribe_to(stream, subscriber)
 
@@ -124,11 +127,15 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
 
       # soft delete stream
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
-      {:warn, :stream_soft_deleted, 2} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
+        TestConn.execute(Helpers.read_events(stream))
 
       # subscribe to stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -136,7 +143,9 @@ defmodule ExtremeSubscriptionsTest do
 
       # write two more events after subscription
       events2 = [%Event.PersonCreated{name: "4"}, %Event.PersonCreated{name: "5"}]
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert rest events have arrived
       assert_receive {:on_event, _event}
@@ -157,15 +166,20 @@ defmodule ExtremeSubscriptionsTest do
 
       # write two events after subscription
       events2 = [%Event.PersonCreated{name: "1"}, %Event.PersonCreated{name: "2"}]
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert events have arrived
       assert_receive {:on_event, _event}
       assert_receive {:on_event, _event}
 
       # soft delete stream
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
-      assert {:warn, :stream_soft_deleted, 1} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      assert {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream))
 
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
@@ -185,15 +199,20 @@ defmodule ExtremeSubscriptionsTest do
 
       # write two events after subscription
       events2 = [%Event.PersonCreated{name: "1"}, %Event.PersonCreated{name: "2"}]
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert events have arrived
       assert_receive {:on_event, _event}
       assert_receive {:on_event, _event}
 
       # hard delete stream
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
-      assert {:error, :stream_hard_deleted} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, true))
+
+      assert {:error, :stream_deleted, %ExMsg.ReadStreamEventsCompleted{}} =
+               TestConn.execute(Helpers.read_events(stream))
 
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
@@ -219,7 +238,8 @@ defmodule ExtremeSubscriptionsTest do
         1..3
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
 
       # ensure events are received
       for _ <- 1..3, do: assert_receive({:on_event, _event})
@@ -233,7 +253,8 @@ defmodule ExtremeSubscriptionsTest do
         4..8
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert new events are not received
       for _ <- 1..5, do: refute_receive({:on_event, _event})
@@ -252,7 +273,8 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -271,7 +293,8 @@ defmodule ExtremeSubscriptionsTest do
         1..num_additional_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert new events are received as well
       for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
@@ -279,7 +302,8 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events1 ++ events2
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 200))
 
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -289,7 +313,9 @@ defmodule ExtremeSubscriptionsTest do
 
     test "read events and stay subscribed for non existing stream is ok" do
       stream = Helpers.random_stream_name()
-      {:warn, :non_existing_stream} = TestConn.execute(Helpers.read_events(stream))
+
+      {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{}} =
+        TestConn.execute(Helpers.read_events(stream))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -305,7 +331,8 @@ defmodule ExtremeSubscriptionsTest do
         1..num_additional_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
 
       # assert new events are received as well
       for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
@@ -313,7 +340,8 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 200))
 
       assert events ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -330,8 +358,11 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -351,7 +382,8 @@ defmodule ExtremeSubscriptionsTest do
         1..num_additional_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # assert new events are received as well
       for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
@@ -359,7 +391,8 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 200))
 
       assert events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -382,9 +415,14 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "6"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, false))
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
@@ -404,7 +442,8 @@ defmodule ExtremeSubscriptionsTest do
         1..num_additional_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x + 6}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events3))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events3))
 
       # assert new events are received as well
       for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
@@ -412,7 +451,8 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events2 ++ events3
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 200))
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 200))
 
       assert events2 ++ events3 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
@@ -429,15 +469,18 @@ defmodule ExtremeSubscriptionsTest do
         %Event.PersonCreated{name: "3"}
       ]
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
-      {:ok, _} = TestConn.execute(Helpers.delete_stream(stream, true))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, true))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
 
       # assert :caught_up is received when existing events are read
-      assert_receive {:extreme, :error, :stream_hard_deleted, ^stream}
+      assert_receive {:extreme, :error, :stream_deleted, ^stream}
 
       refute Process.alive?(subscription)
       Helpers.assert_no_leaks(TestConn)
@@ -455,14 +498,17 @@ defmodule ExtremeSubscriptionsTest do
         1..num_events
         |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x + num_events}"} end)
 
-      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events1))
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
 
       spawn(fn ->
-        {:ok, _} = TestConn.execute(Helpers.write_events(stream, events2))
+        {:ok, %ExMsg.WriteEventsCompleted{}} =
+          TestConn.execute(Helpers.write_events(stream, events2))
+
         Logger.debug("Second pack of events written")
       end)
 
@@ -479,7 +525,8 @@ defmodule ExtremeSubscriptionsTest do
       # check if events came in correct order.
       assert Subscriber.received_events(subscriber) == events1 ++ events2
 
-      {:ok, response} = TestConn.execute(Helpers.read_events(stream, 0, 2_000))
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 2_000))
 
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
