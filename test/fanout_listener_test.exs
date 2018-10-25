@@ -8,7 +8,12 @@ defmodule Extreme.FanoutListenerTest do
     use Extreme.FanoutListener
 
     defp process_push(push) do
-      IO.puts "pushing event ##{push.event.event_number} to test #{inspect Process.whereis(:fanout_test)}"
+      IO.puts(
+        "pushing event ##{push.event.event_number} to test #{
+          inspect(Process.whereis(:fanout_test))
+        }"
+      )
+
       send(:fanout_test, {:processing_push, push.event.event_type, push.event.data})
       :ok
     end
