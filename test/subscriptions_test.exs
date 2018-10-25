@@ -504,11 +504,9 @@ defmodule ExtremeSubscriptionsTest do
         TestConn.execute(Helpers.write_events(stream, events1))
 
       # subscribe to existing stream
-      read_per_batch = 2
       {:ok, subscriber} = Subscriber.start_link()
 
-      {:ok, subscription} =
-        TestConn.read_and_stay_subscribed(stream, subscriber, 0, read_per_batch)
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2)
 
       spawn(fn ->
         {:ok, %ExMsg.WriteEventsCompleted{}} =
@@ -518,11 +516,7 @@ defmodule ExtremeSubscriptionsTest do
       end)
 
       # assert first events are received
-      for _ <- 1..num_events do
-        {:message_queue_len, len} = Process.info(subscriber, :message_queue_len)
-        assert len < read_per_batch
-        assert_receive({:on_event, _event}, 500)
-      end
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event}, 500)
 
       Logger.debug("First pack of events received")
 
@@ -540,6 +534,51 @@ defmodule ExtremeSubscriptionsTest do
 
       assert events1 ++ events2 ==
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      Helpers.unsubscribe(TestConn, subscription)
+    end
+
+    test "backpressure" do
+      stream = Helpers.random_stream_name()
+      num_events = 10_000
+      # prepopulate stream
+      events =
+        1..num_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events))
+
+      # subscribe to existing stream
+      read_per_batch = 100
+      {:ok, subscriber} = Subscriber.start_link()
+
+      {:ok, subscription} =
+        TestConn.read_and_stay_subscribed(stream, subscriber, 0, read_per_batch)
+
+      connection =
+        Extreme.Connection._name(TestConn)
+        |> Process.whereis()
+
+      request_manager =
+        Extreme.RequestManager._name(TestConn)
+        |> Process.whereis()
+
+      for _ <- 1..num_events do
+        {:message_queue_len, len} = Process.info(subscriber, :message_queue_len)
+        assert len < 2
+        {:message_queue_len, len} = Process.info(subscription, :message_queue_len)
+        assert len < 2
+        {:message_queue_len, len} = Process.info(connection, :message_queue_len)
+        assert len < 2
+        {:message_queue_len, len} = Process.info(request_manager, :message_queue_len)
+        assert len < 2
+
+        assert_receive({:on_event, _event}, 500)
+      end
+
+      # assert :caught_up is received when all events are read
+      assert_receive :caught_up
 
       Helpers.unsubscribe(TestConn, subscription)
     end
