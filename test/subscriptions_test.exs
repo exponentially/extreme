@@ -516,12 +516,12 @@ defmodule ExtremeSubscriptionsTest do
       end)
 
       # assert first events are received
-      for _ <- 1..num_events, do: assert_receive({:on_event, _event}, 500)
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
 
       Logger.debug("First pack of events received")
 
       # assert second pack of events is received as well
-      for _ <- 1..num_events, do: assert_receive({:on_event, _event}, 500)
+      for _ <- 1..num_events, do: assert_receive({:on_event, _event})
 
       # assert :caught_up is received when existing events are read
       assert_receive :caught_up
@@ -574,7 +574,7 @@ defmodule ExtremeSubscriptionsTest do
         {:message_queue_len, len} = Process.info(request_manager, :message_queue_len)
         assert len < 2
 
-        assert_receive({:on_event, _event}, 500)
+        assert_receive({:on_event, _event})
       end
 
       # assert :caught_up is received when all events are read
