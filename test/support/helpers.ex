@@ -82,26 +82,32 @@ defmodule ExtremeTest.Helpers do
   end
 
   def assert_no_leaks(base_name) do
-    assert %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state()
+    assert(
+      %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state(),
+      "There are unprocessed received data in connection process"
+    )
 
     %{requests: requests, subscriptions: subscriptions} =
       Extreme.RequestManager._name(base_name) |> :sys.get_state()
 
-    assert Enum.empty?(requests)
-    assert Enum.empty?(subscriptions)
+    assert Enum.empty?(requests),
+           "There are #{Enum.count(requests)} waiting requests in request manager"
+
+    assert Enum.empty?(subscriptions),
+           "There are #{Enum.count(subscriptions)} opened subscriptions in request manager"
 
     children_count =
       Extreme.RequestManager._process_supervisor_name(base_name)
       |> Supervisor.which_children()
       |> Enum.count()
 
-    assert 0 == children_count, "There are #{children_count} hanging requests"
+    assert 0 == children_count, "There are #{children_count} hanging request processes"
 
     children_count =
       Extreme.SubscriptionsSupervisor._name(base_name)
       |> Supervisor.which_children()
       |> Enum.count()
 
-    assert 0 == children_count, "There are #{children_count} hanging subscriptions"
+    assert 0 == children_count, "There are #{children_count} hanging subscription processes"
   end
 end
