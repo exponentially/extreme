@@ -1,8 +1,9 @@
 use Mix.Config
 
 config :logger, :console,
+  format: "$time $metadata[$level] $message\n",
   level: :debug,
-  format: "$time [$level] $message\n"
+  metadata: [:pid, :module, :function]
 
 config :ex_unit,
   assert_receive_timeout: 10_000,

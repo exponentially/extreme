@@ -98,6 +98,7 @@ defmodule Extreme.FanoutListener do
       @impl true
       def handle_cast(:subscribe, state) do
         {:ok, subscription, ref} = _subscribe(state)
+        Logger.debug("Subscription created: #{inspect({subscription, ref})}")
         {:noreply, %{state | subscription: subscription, subscription_ref: ref}}
       end
 
@@ -118,6 +119,7 @@ defmodule Extreme.FanoutListener do
       def handle_info(_msg, state), do: {:noreply, state}
 
       defp _subscribe(%{subscription: nil, subscription_ref: nil} = state) do
+        Logger.debug("There's no active subscription")
         {:ok, subscription} = state.extreme.subscribe_to(state.stream_name, self())
         ref = Process.monitor(subscription)
         {:ok, subscription, ref}
