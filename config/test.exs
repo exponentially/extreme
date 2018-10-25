@@ -5,7 +5,7 @@ config :logger, :console,
   format: "$time [$level] $message\n"
 
 config :ex_unit,
-  assert_receive_timeout: 30_000,
+  assert_receive_timeout: 10_000,
   capture_log: true
 
 config :extreme, TestConn,

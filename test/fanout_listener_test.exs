@@ -13,12 +13,8 @@ defmodule Extreme.FanoutListenerTest do
     end
   end
 
-  setup do
-    Process.register(self(), :fanout_test)
-    :ok
-  end
-
   test "Listener doesn't read existing events but keeps listening for new ones" do
+    true = Process.register(self(), :fanout_test)
     stream = Helpers.random_stream_name()
     event1 = %Event.PersonCreated{name: "Pera"}
     event2 = %Event.PersonChangedName{name: "Zika"}
@@ -45,6 +41,7 @@ defmodule Extreme.FanoutListenerTest do
   end
 
   test "Listener can resubscribe" do
+    true = Process.register(self(), :fanout_test)
     stream = Helpers.random_stream_name()
     {:ok, listener} = MyListener.start_link(TestConn, stream)
 
