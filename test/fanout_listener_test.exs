@@ -14,7 +14,7 @@ defmodule Extreme.FanoutListenerTest do
   end
 
   setup do
-    :timer.sleep 10
+    :timer.sleep(10)
     true = Process.register(self(), :fanout_test)
     :ok
   end
