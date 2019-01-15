@@ -1,6 +1,7 @@
 defmodule ExtremeTest.Events do
   defmodule(PersonCreated, do: defstruct([:name]))
   defmodule(PersonChangedName, do: defstruct([:name]))
+  defmodule(SlowProcessingEventHappened, do: defstruct([:sleep]))
 end
 
 defmodule ExtremeTest.Helpers do

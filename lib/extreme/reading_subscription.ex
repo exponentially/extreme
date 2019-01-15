@@ -22,14 +22,15 @@ defmodule Extreme.ReadingSubscription do
   @impl true
   def init(
         {base_name, correlation_id, subscriber,
-         {stream, from_event_number, per_page, resolve_link_tos, require_master}}
+         {stream, from_event_number, per_page, resolve_link_tos, require_master, ack_timeout}}
       ) do
     read_params = %{
       stream: stream,
       from_event_number: from_event_number,
       per_page: per_page,
       resolve_link_tos: resolve_link_tos,
-      require_master: require_master
+      require_master: require_master,
+      ack_timeout: ack_timeout
     }
 
     state = %State{
@@ -93,7 +94,7 @@ defmodule Extreme.ReadingSubscription do
   def handle_cast(:push_buffered_messages, state) do
     state.buffered_messages
     |> Enum.reverse()
-    |> Enum.each(&Shared.on_event(state.subscriber, &1))
+    |> Enum.each(&Shared.on_event(state.subscriber, &1, state.read_params.ack_timeout))
 
     send(state.subscriber, :caught_up)
     {:noreply, %{state | status: :subscribed, buffered_messages: []}}
@@ -118,7 +119,7 @@ defmodule Extreme.ReadingSubscription do
     Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
 
     response.events
-    |> Enum.each(&Shared.on_event(state.subscriber, &1))
+    |> Enum.each(&Shared.on_event(state.subscriber, &1, state.read_params.ack_timeout))
 
     state =
       response.next_event_number

@@ -22,10 +22,11 @@ defmodule Extreme.Listener do
         read_per_page = Keyword.get(opts, :read_per_page, @default_read_per_page)
         resolve_link_tos = Keyword.get(opts, :resolve_link_tos, true)
         require_master = Keyword.get(opts, :require_master, false)
+        ack_timeout = Keyword.get(opts, :ack_timeout, 5_000)
 
         GenServer.start_link(
           __MODULE__,
-          {extreme, stream_name, read_per_page, resolve_link_tos, require_master},
+          {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout},
           opts
         )
       end
@@ -33,7 +34,9 @@ defmodule Extreme.Listener do
       def unsubscribe(server), do: GenServer.call(server, :unsubscribe)
 
       @impl true
-      def init({extreme, stream_name, read_per_page, resolve_link_tos, require_master}) do
+      def init(
+            {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout}
+          ) do
         state = %{
           extreme: extreme,
           subscription: nil,
@@ -43,7 +46,8 @@ defmodule Extreme.Listener do
           mode: :init,
           per_page: read_per_page,
           resolve_link_tos: resolve_link_tos,
-          require_master: require_master
+          require_master: require_master,
+          ack_timeout: ack_timeout
         }
 
         GenServer.cast(self(), :subscribe)
@@ -118,7 +122,8 @@ defmodule Extreme.Listener do
             last_event + 1,
             state.per_page,
             state.resolve_link_tos,
-            state.require_master
+            state.require_master,
+            state.ack_timeout
           )
 
         ref = Process.monitor(subscription)

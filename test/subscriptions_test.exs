@@ -31,6 +31,22 @@ defmodule ExtremeSubscriptionsTest do
       {:reply, result, state}
     end
 
+    def handle_call(
+          {:on_event,
+           %{event: %{event_type: "Elixir.ExtremeTest.Events.SlowProcessingEventHappened"}} =
+             event} = message,
+          _from,
+          state
+        ) do
+      data =
+        event.event.data
+        |> :erlang.binary_to_term()
+
+      :timer.sleep(data.sleep)
+      send(state.sender, message)
+      {:reply, :ok, %{state | received: [event | state.received]}}
+    end
+
     def handle_call({:on_event, event} = message, _from, state) do
       send(state.sender, message)
       {:reply, :ok, %{state | received: [event | state.received]}}
@@ -260,6 +276,28 @@ defmodule ExtremeSubscriptionsTest do
       for _ <- 1..5, do: refute_receive({:on_event, _event})
 
       Helpers.assert_no_leaks(TestConn)
+    end
+
+    test "timeout for event processing can be adjusted" do
+      sleep = 5_001
+      # subscribe to stream
+      stream = Helpers.random_stream_name()
+      {:error, :no_stream, _} = TestConn.execute(Helpers.read_events(stream))
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.subscribe_to(stream, subscriber, true, sleep + 1_000)
+
+      # write two events after subscription
+      events = [%Event.SlowProcessingEventHappened{sleep: sleep}, %Event.PersonCreated{name: "2"}]
+      {:ok, _} = TestConn.execute(Helpers.write_events(stream, events))
+
+      # assert rest events have arrived
+      assert_receive {:on_event, _event}, sleep + 1_000
+      assert_receive {:on_event, _event}
+
+      # check if only new events came in correct order.
+      assert Subscriber.received_events(subscriber) == events
+
+      Helpers.unsubscribe(TestConn, subscription)
     end
   end
 

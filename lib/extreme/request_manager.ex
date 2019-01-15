@@ -56,16 +56,16 @@ defmodule Extreme.RequestManager do
     |> GenServer.call({:ping, correlation_id})
   end
 
-  def execute(base_name, message, correlation_id) do
+  def execute(base_name, message, correlation_id, timeout \\ 5_000) do
     base_name
     |> _name()
-    |> GenServer.call({:execute, correlation_id, message})
+    |> GenServer.call({:execute, correlation_id, message}, timeout)
   end
 
-  def subscribe_to(base_name, stream, subscriber, resolve_link_tos) do
+  def subscribe_to(base_name, stream, subscriber, resolve_link_tos, ack_timeout) do
     base_name
     |> _name()
-    |> GenServer.call({:subscribe_to, stream, subscriber, resolve_link_tos})
+    |> GenServer.call({:subscribe_to, stream, subscriber, resolve_link_tos, ack_timeout})
   end
 
   def _unregister_subscription(base_name, correlation_id) do
@@ -122,14 +122,19 @@ defmodule Extreme.RequestManager do
     {:noreply, state}
   end
 
-  def handle_call({:subscribe_to, stream, subscriber, resolve_link_tos}, from, %State{} = state) do
+  def handle_call(
+        {:subscribe_to, stream, subscriber, resolve_link_tos, ack_timeout},
+        from,
+        %State{} = state
+      ) do
     _start_subscription(self(), from, state.base_name, fn correlation_id ->
       Extreme.SubscriptionsSupervisor.start_subscription(
         state.base_name,
         correlation_id,
         subscriber,
         stream,
-        resolve_link_tos
+        resolve_link_tos,
+        ack_timeout
       )
     end)
 

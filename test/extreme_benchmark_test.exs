@@ -61,7 +61,7 @@ defmodule ExtremeBenchmarkTest do
 
     @tag :benchmark
     test "reading and writing simultaneously is ok" do
-      num_initial_events = 30_000
+      num_initial_events = 50_000
       num_additional_events = 1_000
       stream = Helpers.random_stream_name()
 
@@ -75,7 +75,7 @@ defmodule ExtremeBenchmarkTest do
 
       {time, _} =
         :timer.tc(fn ->
-          TestConn.execute(Helpers.write_events(stream, initial_events))
+          TestConn.execute(Helpers.write_events(stream, initial_events), nil, 10_000)
         end)
 
       time

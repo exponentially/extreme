@@ -7,10 +7,17 @@ defmodule Extreme.Subscription do
     defstruct ~w(base_name correlation_id subscriber stream read_params status)a
   end
 
-  def start_link(base_name, correlation_id, subscriber, stream, resolve_link_tos) do
+  def start_link(
+        base_name,
+        correlation_id,
+        subscriber,
+        stream,
+        resolve_link_tos,
+        ack_timeout \\ 5_000
+      ) do
     GenServer.start_link(
       __MODULE__,
-      {base_name, correlation_id, subscriber, stream, resolve_link_tos}
+      {base_name, correlation_id, subscriber, stream, resolve_link_tos, ack_timeout}
     )
   end
 
@@ -21,8 +28,8 @@ defmodule Extreme.Subscription do
     do: GenServer.call(server, :unsubscribe)
 
   @impl true
-  def init({base_name, correlation_id, subscriber, stream, resolve_link_tos}) do
-    read_params = %{stream: stream, resolve_link_tos: resolve_link_tos}
+  def init({base_name, correlation_id, subscriber, stream, resolve_link_tos, ack_timeout}) do
+    read_params = %{stream: stream, resolve_link_tos: resolve_link_tos, ack_timeout: ack_timeout}
 
     state = %State{
       base_name: base_name,

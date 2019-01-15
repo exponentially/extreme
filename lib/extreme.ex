@@ -25,17 +25,24 @@ defmodule Extreme do
       def ping,
         do: Extreme.RequestManager.ping(__MODULE__, Extreme.Tools.generate_uuid())
 
-      def execute(message, correlation_id \\ nil) do
+      def execute(message, correlation_id \\ nil, timeout \\ 5_000) do
         Extreme.RequestManager.execute(
           __MODULE__,
           message,
-          correlation_id || Extreme.Tools.generate_uuid()
+          correlation_id || Extreme.Tools.generate_uuid(),
+          timeout
         )
       end
 
-      def subscribe_to(stream, subscriber, resolve_link_tos \\ true)
+      def subscribe_to(stream, subscriber, resolve_link_tos \\ true, ack_timeout \\ 5_000)
           when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) do
-        Extreme.RequestManager.subscribe_to(__MODULE__, stream, subscriber, resolve_link_tos)
+        Extreme.RequestManager.subscribe_to(
+          __MODULE__,
+          stream,
+          subscriber,
+          resolve_link_tos,
+          ack_timeout
+        )
       end
 
       def read_and_stay_subscribed(
@@ -44,7 +51,8 @@ defmodule Extreme do
             from_event_number \\ 0,
             per_page \\ 1_000,
             resolve_link_tos \\ true,
-            require_master \\ false
+            require_master \\ false,
+            ack_timeout \\ 5_000
           )
           when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) and
                  is_boolean(require_master) and from_event_number > -2 and per_page >= 0 and
@@ -52,7 +60,7 @@ defmodule Extreme do
         Extreme.RequestManager.read_and_stay_subscribed(
           __MODULE__,
           subscriber,
-          {stream, from_event_number, per_page, resolve_link_tos, require_master}
+          {stream, from_event_number, per_page, resolve_link_tos, require_master, ack_timeout}
         )
       end
 
