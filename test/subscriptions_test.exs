@@ -576,6 +576,54 @@ defmodule ExtremeSubscriptionsTest do
       Helpers.unsubscribe(TestConn, subscription)
     end
 
+    test "ack timeout can be adjusted" do
+      sleep = 5_001
+      stream = Helpers.random_stream_name()
+      # prepopulate stream
+      events1 = [
+        %Event.SlowProcessingEventHappened{sleep: sleep},
+        %Event.PersonCreated{name: "2"},
+        %Event.PersonCreated{name: "3"}
+      ]
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events1))
+
+      # subscribe to existing stream
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2, true, false, sleep + 10)
+
+      # assert first events are received
+      for _ <- 1..3, do: assert_receive({:on_event, _event})
+
+      # assert :caught_up is received when existing events are read
+      assert_receive :caught_up
+
+      # write more events after subscription
+      num_additional_events = 100
+
+      events2 =
+        1..num_additional_events
+        |> Enum.map(fn x -> %Event.PersonCreated{name: "Name #{x}"} end)
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, events2))
+
+      # assert new events are received as well
+      for _ <- 1..num_additional_events, do: assert_receive({:on_event, _event})
+
+      # check if events came in correct order.
+      assert Subscriber.received_events(subscriber) == events1 ++ events2
+
+      {:ok, %ExMsg.ReadStreamEventsCompleted{} = response} =
+        TestConn.execute(Helpers.read_events(stream, 0, 200))
+
+      assert events1 ++ events2 ==
+               Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      Helpers.unsubscribe(TestConn, subscription)
+    end
+
     test "backpressure" do
       stream = Helpers.random_stream_name()
       num_events = 10_000
