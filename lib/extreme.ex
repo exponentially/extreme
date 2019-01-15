@@ -36,7 +36,13 @@ defmodule Extreme do
 
       def subscribe_to(stream, subscriber, resolve_link_tos \\ true, ack_timeout \\ 5_000)
           when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) do
-        Extreme.RequestManager.subscribe_to(__MODULE__, stream, subscriber, resolve_link_tos, ack_timeout)
+        Extreme.RequestManager.subscribe_to(
+          __MODULE__,
+          stream,
+          subscriber,
+          resolve_link_tos,
+          ack_timeout
+        )
       end
 
       def read_and_stay_subscribed(
