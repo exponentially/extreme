@@ -1,14 +1,14 @@
 # Extreme
 
-[![Build Status](https://travis-ci.org/exponentially/extreme.svg?branch=master)](https://travis-ci.org/exponentially/extreme)
+[![Build Status](https://travis-ci.org/exponentially/extreme.svg?branch=v1.0.0)](https://travis-ci.org/exponentially/extreme)
 [![Hex version](https://img.shields.io/hexpm/v/extreme.svg "Hex version")](https://hex.pm/packages/extreme)
-[![InchCI](https://inch-ci.org/github/exponentially/extreme.svg?branch=master)](https://inch-ci.org/github/exponentially/extreme)
-[![Coverage Status](https://coveralls.io/repos/github/exponentially/extreme/badge.svg?branch=master)](https://coveralls.io/github/exponentially/extreme?branch=master)
+[![InchCI](https://inch-ci.org/github/exponentially/extreme.svg?branch=v1.0.0)](https://inch-ci.org/github/exponentially/extreme)
+[![Coverage Status](https://coveralls.io/repos/github/exponentially/extreme/badge.svg?branch=v1.0.0)](https://coveralls.io/github/exponentially/extreme?branch=v1.0.0)
 
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.9.3 - 4.1.1, Elixir 1.5, 1.6, 1.7 and Erlang/OTP 19.3, 20.3 and 21.0
+This version is tested with EventStore 3.9.3 - 4.1.1, Elixir 1.5, 1.6, 1.7, 1.8 and Erlang/OTP 19.3, 20.3 and 21.2
 
 ## INSTALL
 
@@ -16,19 +16,9 @@ Add Extreme as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:extreme, "~> 0.13.1"}]
+  [{:extreme, "~> 1.0.0-rc1"}]
 end
 ```
-
-In order to deploy your app using `exrm` you should also update your application list to include `:extreme`:
-
-```elixir
-def application do
-  [applications: [:extreme]]
-end
-```
-
-Extreme includes all its dependencies so you don't have to name them separately.
 
 After you are done, run `mix deps.get` in your shell to fetch and compile Extreme and its dependencies.
 
