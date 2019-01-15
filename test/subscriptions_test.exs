@@ -591,7 +591,9 @@ defmodule ExtremeSubscriptionsTest do
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
-      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2, true, false, sleep + 10)
+
+      {:ok, subscription} =
+        TestConn.read_and_stay_subscribed(stream, subscriber, 0, 2, true, false, sleep + 10)
 
       # assert first events are received
       for _ <- 1..3, do: assert_receive({:on_event, _event})
