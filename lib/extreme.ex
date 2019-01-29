@@ -19,7 +19,8 @@ defmodule Extreme do
         }
       end
 
-      def start_link, do: Extreme.Supervisor.start_link(__MODULE__, @config)
+      def start_link(config \\ [])
+      def start_link([]), do: Extreme.Supervisor.start_link(__MODULE__, @config)
       def start_link(config), do: Extreme.Supervisor.start_link(__MODULE__, config)
 
       def ping,
