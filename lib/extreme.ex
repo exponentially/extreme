@@ -9,7 +9,6 @@ defmodule Extreme do
   defmacro __using__(opts \\ []) do
     quote do
       @otp_app Keyword.get(unquote(opts), :otp_app, :extreme)
-      @config Application.get_env(@otp_app, __MODULE__)
 
       def child_spec(opts) do
         %{
@@ -20,7 +19,10 @@ defmodule Extreme do
       end
 
       def start_link(config \\ [])
-      def start_link([]), do: Extreme.Supervisor.start_link(__MODULE__, @config)
+      def start_link([]) do 
+        Extreme.Supervisor.start_link(__MODULE__, Application.get_env(@otp_app, __MODULE__))
+      end
+
       def start_link(config), do: Extreme.Supervisor.start_link(__MODULE__, config)
 
       def ping,
