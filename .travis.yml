@@ -1,18 +1,18 @@
 language: elixir
 
 otp_release:
-  - 21.2
+  - 22.0
 elixir:
-  - 1.8.0
+  - 1.9.0
 
 env:
-  - EVENT_STORE_VERSION='14.04-v4.1.1-hotfix1' ES_VERSION=4
+  - ES_TARBALL='ubuntu/EventStore-OSS-Linux-Ubuntu-14.04-v5.0.1.tar.gz' ES_VERSION=4
 
 script:
   - "mix do format --check-formatted, deps.get, test --cover"
 
 before_install:
-  - wget https://eventstore.org/downloads/EventStore-OSS-Ubuntu-${EVENT_STORE_VERSION}.tar.gz
+  - wget https://eventstore.org/downloads/${ES_TARBALL}
   - tar xf EventStore*.tar.gz
   - cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
 
