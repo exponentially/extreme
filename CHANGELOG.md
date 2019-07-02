@@ -1,3 +1,6 @@
+# Changelog for extreme v0.13.4
+  * Allow running on all Elixir versions > 1.0
+
 # Changelog for extreme v0.13.3
   * Fixing read_all_events forward and backward
   * simple benchmark app to test write speed
