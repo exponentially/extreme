@@ -145,7 +145,7 @@ defmodule Extreme.Listener do
       end
 
       defp _read_events_backward(stream, start \\ -1, count \\ 1) do
-        Extreme.Msg.ReadStreamEventsBackward.new(
+        Extreme.Messages.ReadStreamEventsBackward.new(
           event_stream_id: stream,
           from_event_number: start,
           max_count: count,
