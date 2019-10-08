@@ -9,20 +9,29 @@ defmodule Extreme.Listener do
 
       @default_read_per_page 500
 
+      def child_spec([extreme, stream_name | opts]) do
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [extreme, stream_name, opts]}
+        }
+      end
+
       @doc """
       Starts Listener GenServer with `extreme` connection, for particular `stream_name`
       and options:
 
-      * `:name` of listener process.
+      * `:name` of listener process. Defaults to module name.
       * `:read_per_page` - number of events read in batches until all existing evets are processed. Defaults to 500
       * `:resolve_link_tos` - weather to resolve event links. Defaults to true.
       * `:require_master` - check if events are expected from master ES node. Defaults to false.
+      * `:ack_timeout` - Wait time for ack message. Defaults to 5_000 ms.
       """
       def start_link(extreme, stream_name, opts \\ []) do
-        read_per_page = Keyword.get(opts, :read_per_page, @default_read_per_page)
-        resolve_link_tos = Keyword.get(opts, :resolve_link_tos, true)
-        require_master = Keyword.get(opts, :require_master, false)
-        ack_timeout = Keyword.get(opts, :ack_timeout, 5_000)
+        {read_per_page, opts} = Keyword.pop(opts, :read_per_page, @default_read_per_page)
+        {resolve_link_tos, opts} = Keyword.pop(opts, :resolve_link_tos, true)
+        {require_master, opts} = Keyword.pop(opts, :require_master, false)
+        {ack_timeout, opts} = Keyword.pop(opts, :ack_timeout, 5_000)
+        opts = Keyword.put_new(opts, :name, __MODULE__)
 
         GenServer.start_link(
           __MODULE__,

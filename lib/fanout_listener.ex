@@ -63,6 +63,13 @@ defmodule Extreme.FanoutListener do
       use GenServer
       require Logger
 
+      def child_spec(args) do
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, args}
+        }
+      end
+
       def start_link(extreme, stream_name, opts \\ []),
         do: GenServer.start_link(__MODULE__, {extreme, stream_name}, opts)
 
