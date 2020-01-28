@@ -14,6 +14,7 @@ defmodule Extreme.ListenerTest do
 
     defp process_push(push, stream_name) do
       event_number = push.event.event_number
+
       # for indexed stream we need to follow link event_number:
       # event_number = push.link.event_number
 

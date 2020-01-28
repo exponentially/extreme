@@ -1,9 +1,9 @@
 language: elixir
 
 otp_release:
-  - 22.0
+  - 22.2
 elixir:
-  - 1.9.0
+  - 1.10.0
 
 env:
   - ES_TARBALL='ubuntu/EventStore-OSS-Linux-Ubuntu-14.04-v5.0.1.tar.gz' ES_VERSION=4
