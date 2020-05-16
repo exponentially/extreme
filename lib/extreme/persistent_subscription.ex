@@ -25,6 +25,24 @@ defmodule Extreme.PersistentSubscription do
     )
   end
 
+  def ack(subscription, event, correlation_id) when is_map(event) or is_binary(event) do
+    ack(subscription, [event], correlation_id)
+  end
+
+  def ack(subscription, events, correlation_id) when is_list(events) do
+    GenServer.cast(subscription, {:ack, events, correlation_id})
+  end
+
+  def nack(subscription, event, correlation_id, action, message \\ "")
+
+  def nack(subscription, event, correlation_id, action, message) when is_map(event) or is_binary(event) do
+    nack(subscription, [event], correlation_id, action, message)
+  end
+
+  def nack(subscription, events, correlation_id, action, message) when is_list(events) do
+    GenServer.cast(subscription, {:nack, events, correlation_id, action, message})
+  end
+
   @doc """
   Calls `server` with :unsubscribe message. `server` can be either `Subscription` or `ReadingSubscription`.
   """
@@ -59,25 +77,36 @@ defmodule Extreme.PersistentSubscription do
     process_push(fun, state)
   end
 
-  @impl true
-  def handle_info({:ack, successful, failed}, state) do
-    build_and_send_responses(successful, failed, state)
+  def handle_cast({:ack, events, correlation_id}, state) do
+    Msg.PersistentSubscriptionAckEvents.new(
+      subscription_id: state.subscription_id,
+      processed_event_ids: event_ids(events)
+    )
+    |> cast_request_manager(state.base_name, correlation_id)
 
     {:noreply, state}
   end
 
-  def handle_info(:subscribe, state) do
-    message =
-      Extreme.Messages.ConnectToPersistentSubscription.new(
-        subscription_id: state.group,
-        event_stream_id: state.stream,
-        allowed_in_flight_messages: state.allowed_in_flight_messages
-      )
+  def handle_cast({:nack, events, correlation_id, action, message}, state) do
+    Msg.PersistentSubscriptionNakEvents.new(
+      subscription_id: state.subscription_id,
+      processed_event_ids: event_ids(events),
+      action: action,
+      message: message
+    )
+    |> cast_request_manager(state.base_name, correlation_id)
 
-    :ok =
-      state.base_name
-      |> RequestManager._name()
-      |> GenServer.cast({:execute, state.correlation_id, message})
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:subscribe, state) do
+    Msg.ConnectToPersistentSubscription.new(
+      subscription_id: state.group,
+      event_stream_id: state.stream,
+      allowed_in_flight_messages: state.allowed_in_flight_messages
+    )
+    |> cast_request_manager(state.base_name, state.correlation_id)
 
     {:noreply, state}
   end
@@ -116,48 +145,17 @@ defmodule Extreme.PersistentSubscription do
   def on_event(subscriber, event, correlation_id),
     do: send(subscriber, {:on_event, event, correlation_id})
 
-  defp build_and_send_responses(successful, failed, state) do
-    successful
-    |> Enum.reduce(%{}, fn %{event_id: event_id, correlation_id: correlation_id}, acc ->
-      Map.update(acc, correlation_id, [event_id], &[event_id | &1])
-    end)
-    |> Enum.map(fn {correlation_id, event_ids} ->
-      maybe_respond(event_ids, :ack, state, correlation_id)
-    end)
-
-    failed
-    |> Enum.reduce(%{}, fn %{event_id: event_id, correlation_id: correlation_id}, acc ->
-      Map.update(acc, correlation_id, [event_id], &[event_id | &1])
-    end)
-    |> Enum.map(fn {correlation_id, event_ids} ->
-      maybe_respond(event_ids, :nack, state, correlation_id)
-    end)
+  defp cast_request_manager(message, base_name, correlation_id) do
+    base_name
+    |> RequestManager._name()
+    |> GenServer.cast({:execute, correlation_id, message})
   end
 
-  def maybe_respond([] = _event_ids, _ack_or_nack, _state, _correlation_id), do: :ok
-
-  def maybe_respond(event_ids, :ack, state, correlation_id) do
-    Msg.PersistentSubscriptionAckEvents.new(
-      subscription_id: state.subscription_id,
-      processed_event_ids: event_ids
-    )
-    |> cast_req_manager(state, correlation_id)
+  defp event_ids(events) when is_list(events) do
+    Enum.map(events, &event_id/1)
   end
 
-  def maybe_respond(event_ids, :nack, state, correlation_id) do
-    Msg.PersistentSubscriptionNakEvents.new(
-      subscription_id: state.subscription_id,
-      processed_event_ids: event_ids,
-      message: "3rt$",
-      action: :retry
-    )
-    |> cast_req_manager(state, correlation_id)
-  end
-
-  def cast_req_manager(message, state, correlation_id) do
-    :ok =
-      state.base_name
-      |> RequestManager._name()
-      |> GenServer.cast({:execute, correlation_id, message})
-  end
+  defp event_id(event_id) when is_binary(event_id), do: event_id
+  defp event_id(%Msg.ResolvedIndexedEvent{link: %Msg.EventRecord{event_id: event_id}}), do: event_id
+  defp event_id(%Msg.ResolvedIndexedEvent{event: %Msg.EventRecord{event_id: event_id}}), do: event_id
 end
