@@ -70,7 +70,12 @@ defmodule Extreme do
       def unsubscribe(subscription) when is_pid(subscription),
         do: Extreme.Subscription.unsubscribe(subscription)
 
-      def connect_to_persistent_subscription(stream, group, subscriber, allowed_in_flight_messages) do
+      def connect_to_persistent_subscription(
+            stream,
+            group,
+            subscriber,
+            allowed_in_flight_messages
+          ) do
         Extreme.RequestManager.connect_to_persistent_subscription(
           __MODULE__,
           stream,

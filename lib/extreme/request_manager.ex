@@ -80,10 +80,18 @@ defmodule Extreme.RequestManager do
     |> GenServer.call({:read_and_stay_subscribed, subscriber, params})
   end
 
-  def connect_to_persistent_subscription(base_name, stream, group, subscriber, allowed_in_flight_messages) do
+  def connect_to_persistent_subscription(
+        base_name,
+        stream,
+        group,
+        subscriber,
+        allowed_in_flight_messages
+      ) do
     base_name
     |> _name()
-    |> GenServer.call({:connect_to_persistent_subscription, stream, group, subscriber, allowed_in_flight_messages})
+    |> GenServer.call(
+      {:connect_to_persistent_subscription, stream, group, subscriber, allowed_in_flight_messages}
+    )
   end
 
   ## Server callbacks
@@ -160,7 +168,12 @@ defmodule Extreme.RequestManager do
     {:noreply, state}
   end
 
-  def handle_call({:connect_to_persistent_subscription, stream, group, subscriber, allowed_in_flight_messages}, from, %State{} = state) do
+  def handle_call(
+        {:connect_to_persistent_subscription, stream, group, subscriber,
+         allowed_in_flight_messages},
+        from,
+        %State{} = state
+      ) do
     _start_subscription(self(), from, state.base_name, fn correlation_id ->
       Extreme.SubscriptionsSupervisor.start_persistent_subscription(
         state.base_name,

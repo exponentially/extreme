@@ -35,7 +35,8 @@ defmodule Extreme.PersistentSubscription do
 
   def nack(subscription, event, correlation_id, action, message \\ "")
 
-  def nack(subscription, event, correlation_id, action, message) when is_map(event) or is_binary(event) do
+  def nack(subscription, event, correlation_id, action, message)
+      when is_map(event) or is_binary(event) do
     nack(subscription, [event], correlation_id, action, message)
   end
 
@@ -114,7 +115,8 @@ defmodule Extreme.PersistentSubscription do
   def process_push(fun, state), do: fun.() |> _process_push(state)
 
   defp _process_push(
-         {_auth, _correlation_id, %Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id} = confirmation},
+         {_auth, _correlation_id,
+          %Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id} = confirmation},
          state
        ) do
     Logger.debug(fn -> "Successfully subscribed #{inspect(confirmation)}" end)
@@ -156,6 +158,10 @@ defmodule Extreme.PersistentSubscription do
   end
 
   defp event_id(event_id) when is_binary(event_id), do: event_id
-  defp event_id(%Msg.ResolvedIndexedEvent{link: %Msg.EventRecord{event_id: event_id}}), do: event_id
-  defp event_id(%Msg.ResolvedIndexedEvent{event: %Msg.EventRecord{event_id: event_id}}), do: event_id
+
+  defp event_id(%Msg.ResolvedIndexedEvent{link: %Msg.EventRecord{event_id: event_id}}),
+    do: event_id
+
+  defp event_id(%Msg.ResolvedIndexedEvent{event: %Msg.EventRecord{event_id: event_id}}),
+    do: event_id
 end

@@ -42,19 +42,21 @@ defmodule Extreme.SubscriptionsSupervisor do
   end
 
   def start_persistent_subscription(
-    base_name,
-    correlation_id,
-    stream,
-    group,
-    subscriber,
-    allowed_in_flight_messages
-  ) when is_binary(stream) and is_binary(group) and is_integer(allowed_in_flight_messages) do
+        base_name,
+        correlation_id,
+        stream,
+        group,
+        subscriber,
+        allowed_in_flight_messages
+      )
+      when is_binary(stream) and is_binary(group) and is_integer(allowed_in_flight_messages) do
     base_name
     |> _name()
     |> DynamicSupervisor.start_child(%{
       id: PersistentSubscription,
       start:
-        {PersistentSubscription, :start_link, [base_name, correlation_id, stream, group, subscriber, allowed_in_flight_messages]},
+        {PersistentSubscription, :start_link,
+         [base_name, correlation_id, stream, group, subscriber, allowed_in_flight_messages]},
       restart: :temporary
     })
   end
