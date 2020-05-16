@@ -8,20 +8,29 @@ defmodule Extreme.PersistentSubscription do
   alias Extreme.Messages, as: Msg
 
   defmodule State do
-    defstruct ~w(base_name correlation_id stream group subscriber allowed_in_flight_messages status subscription_id)a
+    defstruct ~w(
+      base_name
+      correlation_id
+      subscriber
+      stream
+      group
+      allowed_in_flight_messages
+      status
+      subscription_id
+    )a
   end
 
   def start_link(
         base_name,
         correlation_id,
+        subscriber,
         stream,
         group,
-        subscriber,
         allowed_in_flight_messages
       ) do
     GenServer.start_link(
       __MODULE__,
-      {base_name, correlation_id, stream, group, subscriber, allowed_in_flight_messages}
+      {base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages}
     )
   end
 
@@ -51,13 +60,13 @@ defmodule Extreme.PersistentSubscription do
   end
 
   @impl true
-  def init({base_name, correlation_id, stream, group, subscriber, allowed_in_flight_messages}) do
+  def init({base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages}) do
     state = %State{
       base_name: base_name,
       correlation_id: correlation_id,
+      subscriber: subscriber,
       stream: stream,
       group: group,
-      subscriber: subscriber,
       allowed_in_flight_messages: allowed_in_flight_messages,
       status: :initialized
     }

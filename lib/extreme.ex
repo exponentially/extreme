@@ -71,16 +71,16 @@ defmodule Extreme do
         do: Extreme.Subscription.unsubscribe(subscription)
 
       def connect_to_persistent_subscription(
+            subscriber,
             stream,
             group,
-            subscriber,
             allowed_in_flight_messages
           ) do
         Extreme.RequestManager.connect_to_persistent_subscription(
           __MODULE__,
+          subscriber,
           stream,
           group,
-          subscriber,
           allowed_in_flight_messages
         )
       end
@@ -127,4 +127,14 @@ defmodule Extreme do
   Pings connected EventStore and should return `:pong` back.
   """
   @callback ping() :: :pong
+
+  @doc """
+  TODO
+  """
+  @callback connect_to_persistent_subscription(
+              subscriber :: pid(),
+              stream :: String.t(),
+              group :: String.t(),
+              allowed_in_flight_messages :: integer()
+            ) :: {:ok, pid}
 end

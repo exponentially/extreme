@@ -44,9 +44,9 @@ defmodule Extreme.SubscriptionsSupervisor do
   def start_persistent_subscription(
         base_name,
         correlation_id,
+        subscriber,
         stream,
         group,
-        subscriber,
         allowed_in_flight_messages
       )
       when is_binary(stream) and is_binary(group) and is_integer(allowed_in_flight_messages) do
@@ -56,7 +56,7 @@ defmodule Extreme.SubscriptionsSupervisor do
       id: PersistentSubscription,
       start:
         {PersistentSubscription, :start_link,
-         [base_name, correlation_id, stream, group, subscriber, allowed_in_flight_messages]},
+         [base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages]},
       restart: :temporary
     })
   end

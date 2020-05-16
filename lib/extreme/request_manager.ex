@@ -82,15 +82,15 @@ defmodule Extreme.RequestManager do
 
   def connect_to_persistent_subscription(
         base_name,
+        subscriber,
         stream,
         group,
-        subscriber,
         allowed_in_flight_messages
       ) do
     base_name
     |> _name()
     |> GenServer.call(
-      {:connect_to_persistent_subscription, stream, group, subscriber, allowed_in_flight_messages}
+      {:connect_to_persistent_subscription, subscriber, stream, group, allowed_in_flight_messages}
     )
   end
 
@@ -169,7 +169,7 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_call(
-        {:connect_to_persistent_subscription, stream, group, subscriber,
+        {:connect_to_persistent_subscription, subscriber, stream, group,
          allowed_in_flight_messages},
         from,
         %State{} = state
@@ -178,9 +178,9 @@ defmodule Extreme.RequestManager do
       Extreme.SubscriptionsSupervisor.start_persistent_subscription(
         state.base_name,
         correlation_id,
+        subscriber,
         stream,
         group,
-        subscriber,
         allowed_in_flight_messages
       )
     end)
