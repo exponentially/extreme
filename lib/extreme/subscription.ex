@@ -51,7 +51,6 @@ defmodule Extreme.Subscription do
   end
 
   @impl true
-  def handle_cast({:process_push, fun}, state) do
-    Shared.process_push(fun, state)
-  end
+  def handle_cast({:process_push, fun}, state),
+    do: Shared.process_push(fun, state)
 end
