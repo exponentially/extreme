@@ -274,9 +274,8 @@ defmodule Extreme.RequestManager do
   end
 
   # message is for subscription, decoding needs to be done there so we keep the order of incoming messages
-  defp _process_server_message(subscription, message, _state) do
-    GenServer.cast(subscription, {:process_push, fn -> Response.parse(message) end})
-  end
+  defp _process_server_message(subscription, message, _state),
+    do: GenServer.cast(subscription, {:process_push, fn -> Response.parse(message) end})
 
   defp _respond_on({:client_identified, _correlation_id}, _),
     do: :ok
