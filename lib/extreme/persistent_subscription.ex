@@ -59,6 +59,13 @@ defmodule Extreme.PersistentSubscription do
     GenServer.cast(subscription, {:nack, events, correlation_id, action, message})
   end
 
+  @doc """
+  Unsubscribes and shuts down a subscription process
+  """
+  def unsubscribe(subscription) do
+    GenServer.cast(subscription, :unsubscribe)
+  end
+
   @impl true
   def init({base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages}) do
     state = %State{
@@ -110,6 +117,13 @@ defmodule Extreme.PersistentSubscription do
       message: message
     )
     |> cast_request_manager(state.base_name, correlation_id)
+
+    {:noreply, state}
+  end
+
+  def handle_cast(:unsubscribe, state) do
+    Msg.UnsubscribeFromStream.new()
+    |> cast_request_manager(state.base_name, state.correlation_id)
 
     {:noreply, state}
   end

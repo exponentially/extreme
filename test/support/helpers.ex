@@ -128,7 +128,7 @@ defmodule ExtremeTest.Helpers do
       checkpoint_after_time: 1_000,
       checkpoint_max_count: 500,
       checkpoint_min_count: 1,
-      subscriber_max_count: 2
+      subscriber_max_count: 1
     )
   end
 

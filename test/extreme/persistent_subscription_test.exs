@@ -1,5 +1,5 @@
 defmodule Extreme.PersistentSubscriptionTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ExtremeTest.{Events, Helpers}
   alias Extreme.PersistentSubscription
@@ -27,6 +27,12 @@ defmodule Extreme.PersistentSubscriptionTest do
 
     def handle_cast({:on_event, _event, _correlation_id} = message, state) do
       send(state.subscriber, message)
+
+      {:noreply, state}
+    end
+
+    def handle_cast(:unsubscribe, state) do
+      :ok = PersistentSubscription.unsubscribe(state.subscription_pid)
 
       {:noreply, state}
     end
@@ -80,7 +86,7 @@ defmodule Extreme.PersistentSubscriptionTest do
          then the subscriber receives the events in stream
          """,
          c do
-      {:ok, _pid} =
+      {:ok, subscriber} =
         c
         |> Map.take([:stream, :group])
         |> Map.put(:allowed_in_flight_messages, length(c.events))
@@ -91,6 +97,8 @@ defmodule Extreme.PersistentSubscriptionTest do
         assert_receive {:on_event, received_event, _correlation_id}
         assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, n - 1)
       end
+
+      :ok = GenServer.stop(subscriber)
     end
 
     test """
@@ -110,6 +118,8 @@ defmodule Extreme.PersistentSubscriptionTest do
         assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, n - 1)
         send(subscriber, {:ack, received_event, correlation_id})
       end
+
+      :ok = GenServer.stop(subscriber)
     end
 
     test """
@@ -129,12 +139,14 @@ defmodule Extreme.PersistentSubscriptionTest do
         assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, n - 1)
         send(subscriber, {:ack, received_event.event.event_id, correlation_id})
       end
+
+      :ok = GenServer.stop(subscriber)
     end
 
     test """
          when reconnecting to an existing persistent subscription
          then the remaining events should be delivered
-         then the positively acknowledged events should not be delivered
+         then the positively acknowledged events should not be redelivered
          """,
          c do
       opts =
@@ -145,15 +157,26 @@ defmodule Extreme.PersistentSubscriptionTest do
 
       {:ok, subscriber} = Subscriber.start_link(opts)
 
+      Process.unlink(subscriber)
+
       assert_receive {:on_event, received_event, correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 0)
-      send(subscriber, {:ack, received_event.event.event_id, correlation_id})
+      send(subscriber, {:ack, received_event, correlation_id})
 
       assert_receive {:on_event, received_event, correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 1)
-      send(subscriber, {:ack, received_event.event.event_id, correlation_id})
+      send(subscriber, {:ack, received_event, correlation_id})
 
-      :ok = GenServer.stop(subscriber)
+      assert_receive {:on_event, received_event, correlation_id}
+      assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 2)
+
+      # N.B. the event is _not_ acked
+
+      true = Process.unlink(subscriber)
+      subscriber_ref = Process.monitor(subscriber)
+      GenServer.cast(subscriber, :unsubscribe)
+
+      assert_receive {:DOWN, ^subscriber_ref, _, _, _}
 
       {:ok, subscriber} = Subscriber.start_link(opts)
 
@@ -168,6 +191,8 @@ defmodule Extreme.PersistentSubscriptionTest do
       assert_receive {:on_event, received_event, correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 4)
       send(subscriber, {:ack, received_event.event.event_id, correlation_id})
+
+      :ok = GenServer.stop(subscriber)
     end
 
     test """
@@ -189,6 +214,8 @@ defmodule Extreme.PersistentSubscriptionTest do
       assert_receive {:on_event, received_event, correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 0)
       send(subscriber, {:ack, received_event.event.event_id, correlation_id})
+
+      :ok = GenServer.stop(subscriber)
     end
 
     test """
@@ -210,6 +237,8 @@ defmodule Extreme.PersistentSubscriptionTest do
       assert_receive {:on_event, received_event, correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 1)
       send(subscriber, {:ack, received_event.event.event_id, correlation_id})
+
+      :ok = GenServer.stop(subscriber)
     end
   end
 
