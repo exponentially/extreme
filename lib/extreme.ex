@@ -98,7 +98,7 @@ defmodule Extreme do
   @doc """
   TODO
   """
-  @callback execute(message :: term, correlation_id :: UUID.t()) :: term
+  @callback execute(message :: term(), correlation_id :: binary(), timeout :: integer()) :: term()
 
   @doc """
   TODO
@@ -121,7 +121,7 @@ defmodule Extreme do
               per_page :: integer(),
               resolve_link_tos :: boolean(),
               require_master :: boolean()
-            ) :: {:ok, pid}
+            ) :: {:ok, pid()}
 
   @doc """
   Pings connected EventStore and should return `:pong` back.
@@ -129,12 +129,18 @@ defmodule Extreme do
   @callback ping() :: :pong
 
   @doc """
-  TODO
+  Spawns a persistent subscription.
+
+  The persistent subscription will send events to the `subscriber` process in
+  the form of `GenServer.cast/2`s in the shape of `{:on_event, event,
+  correlation_id}`.
+
+  See `Extreme.PersistentSubscription` for full details.
   """
   @callback connect_to_persistent_subscription(
               subscriber :: pid(),
               stream :: String.t(),
               group :: String.t(),
               allowed_in_flight_messages :: integer()
-            ) :: {:ok, pid}
+            ) :: {:ok, pid()}
 end

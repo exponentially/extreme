@@ -41,8 +41,8 @@ defmodule Extreme.Mixfile do
       {:jason, "~> 1.1", optional: true},
 
       # testing
-      {:exvcr, "~> 0.10", only: :test}
-      # {:ex_doc, "~> 0.19", only: :test},
+      {:exvcr, "~> 0.10", only: :test},
+      {:ex_doc, ">= 0.0.0", only: :dev}
       # {:earmark, "~> 1.2", only: :test},
       # {:inch_ex, "~> 1.0", only: :test},
       # {:excoveralls, "~> 0.9", only: :test},
@@ -51,7 +51,7 @@ defmodule Extreme.Mixfile do
 
   defp _package do
     [
-      files: ["lib", "mix.exs", "README*", "LICENSE*"],
+      files: ["lib", "mix.exs", "README*", "LICENSE*", "include"],
       maintainers: ["Milan Burmaja", "Milan Jaric"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/exponentially/extreme"}
