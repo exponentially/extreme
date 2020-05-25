@@ -89,4 +89,23 @@ defmodule Extreme.SharedSubscription do
 
     {:stop, {:shutdown, reason}, state}
   end
+
+  defp _process_push(
+         {_auth, _correlation_id,
+          %Msg.PersistentSubscriptionConfirmation{subscription_id: subscription_id} = confirmation},
+         state
+       ) do
+    Logger.debug(fn -> "Successfully subscribed #{inspect(confirmation)}" end)
+
+    {:noreply, %{state | status: :subscribed, subscription_id: subscription_id}}
+  end
+
+  defp _process_push(
+         {_auth, correlation_id, %Msg.PersistentSubscriptionStreamEventAppeared{} = e},
+         state
+       ) do
+    :ok = GenServer.cast(state.subscriber, {:on_event, e.event, correlation_id})
+
+    {:noreply, state}
+  end
 end

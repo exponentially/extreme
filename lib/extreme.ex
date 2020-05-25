@@ -69,6 +69,21 @@ defmodule Extreme do
 
       def unsubscribe(subscription) when is_pid(subscription),
         do: Extreme.Subscription.unsubscribe(subscription)
+
+      def connect_to_persistent_subscription(
+            subscriber,
+            stream,
+            group,
+            allowed_in_flight_messages
+          ) do
+        Extreme.RequestManager.connect_to_persistent_subscription(
+          __MODULE__,
+          subscriber,
+          stream,
+          group,
+          allowed_in_flight_messages
+        )
+      end
     end
   end
 
@@ -83,7 +98,7 @@ defmodule Extreme do
   @doc """
   TODO
   """
-  @callback execute(message :: term, correlation_id :: UUID.t()) :: term
+  @callback execute(message :: term(), correlation_id :: binary(), timeout :: integer()) :: term()
 
   @doc """
   TODO
@@ -106,10 +121,26 @@ defmodule Extreme do
               per_page :: integer(),
               resolve_link_tos :: boolean(),
               require_master :: boolean()
-            ) :: {:ok, pid}
+            ) :: {:ok, pid()}
 
   @doc """
   Pings connected EventStore and should return `:pong` back.
   """
   @callback ping() :: :pong
+
+  @doc """
+  Spawns a persistent subscription.
+
+  The persistent subscription will send events to the `subscriber` process in
+  the form of `GenServer.cast/2`s in the shape of `{:on_event, event,
+  correlation_id}`.
+
+  See `Extreme.PersistentSubscription` for full details.
+  """
+  @callback connect_to_persistent_subscription(
+              subscriber :: pid(),
+              stream :: String.t(),
+              group :: String.t(),
+              allowed_in_flight_messages :: integer()
+            ) :: {:ok, pid()}
 end

@@ -1,6 +1,6 @@
 defmodule Extreme.SubscriptionsSupervisor do
   use DynamicSupervisor
-  alias Extreme.{Subscription, ReadingSubscription}
+  alias Extreme.{Subscription, ReadingSubscription, PersistentSubscription}
 
   def _name(base_name),
     do: Module.concat(base_name, SubscriptionsSupervisor)
@@ -37,6 +37,26 @@ defmodule Extreme.SubscriptionsSupervisor do
       id: ReadingSubscription,
       start:
         {ReadingSubscription, :start_link, [base_name, correlation_id, subscriber, read_params]},
+      restart: :temporary
+    })
+  end
+
+  def start_persistent_subscription(
+        base_name,
+        correlation_id,
+        subscriber,
+        stream,
+        group,
+        allowed_in_flight_messages
+      )
+      when is_binary(stream) and is_binary(group) and is_integer(allowed_in_flight_messages) do
+    base_name
+    |> _name()
+    |> DynamicSupervisor.start_child(%{
+      id: PersistentSubscription,
+      start:
+        {PersistentSubscription, :start_link,
+         [base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages]},
       restart: :temporary
     })
   end

@@ -111,4 +111,31 @@ defmodule ExtremeTest.Helpers do
 
     assert 0 == children_count, "There are #{children_count} hanging subscription processes"
   end
+
+  def create_persistent_subscription(stream, group) do
+    ExMsg.CreatePersistentSubscription.new(
+      subscription_group_name: group,
+      event_stream_id: stream,
+      resolve_link_tos: true,
+      start_from: 0,
+      message_timeout_milliseconds: 500,
+      record_statistics: false,
+      live_buffer_size: 500,
+      read_batch_size: 20,
+      buffer_size: 500,
+      max_retry_count: 10,
+      prefer_round_robin: true,
+      checkpoint_after_time: 1_000,
+      checkpoint_max_count: 500,
+      checkpoint_min_count: 1,
+      subscriber_max_count: 1
+    )
+  end
+
+  def delete_persistent_subscription(stream, group) do
+    ExMsg.DeletePersistentSubscription.new(
+      subscription_group_name: group,
+      event_stream_id: stream
+    )
+  end
 end
