@@ -2,8 +2,17 @@ defmodule Extreme.RequestManager do
   use GenServer
   alias Extreme.{Tools, Configuration, Request, Response, Connection}
 
+  @read_only_message_types [
+    Extreme.Messages.ReadEvent,
+    Extreme.Messages.ReadStreamEvents,
+    Extreme.Messages.ReadStreamEventsBackward,
+    Extreme.Messages.ReadAllEvents,
+    Extreme.Messages.ConnectToPersistentSubscription,
+    Extreme.Messages.SubscribeToStream
+  ]
+
   defmodule State do
-    defstruct ~w(base_name credentials requests subscriptions)a
+    defstruct ~w(base_name credentials requests subscriptions read_only)a
   end
 
   def _name(base_name), do: Module.concat(base_name, RequestManager)
@@ -95,7 +104,8 @@ defmodule Extreme.RequestManager do
        base_name: base_name,
        credentials: Configuration.prepare_credentials(configuration),
        requests: %{},
-       subscriptions: %{}
+       subscriptions: %{},
+       read_only: Keyword.get(configuration, :read_only, false)
      }}
   end
 
@@ -109,6 +119,15 @@ defmodule Extreme.RequestManager do
     end)
 
     {:noreply, state}
+  end
+
+  def handle_call(
+        {:execute, _correlation_id, %message_type{} = _message},
+        _from,
+        %State{read_only: true} = state
+      )
+      when not (message_type in @read_only_message_types) do
+    {:reply, {:error, :read_only}, state}
   end
 
   def handle_call({:execute, correlation_id, message}, from, %State{} = state) do

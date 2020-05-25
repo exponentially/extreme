@@ -24,9 +24,9 @@ After you are done, run `mix deps.get` in your shell to fetch and compile Extrem
 
 ### EventStore v4 and later note
 
-Starting from EventStore version 4.0 there are some upgrades to communication protocol. Event number size is changed to 64bits 
-and there is new messages `IdentifyClient` and `ClientIdentified`. Since we would like to keep backward compatibility with older v3 protocol, 
-we introduced new configuration for `:extreme` application, where you have to set `:protocol_version` equal to `4` if you want to use new protocol, default is `3`. 
+Starting from EventStore version 4.0 there are some upgrades to communication protocol. Event number size is changed to 64bits
+and there is new messages `IdentifyClient` and `ClientIdentified`. Since we would like to keep backward compatibility with older v3 protocol,
+we introduced new configuration for `:extreme` application, where you have to set `:protocol_version` equal to `4` if you want to use new protocol, default is `3`.
 Below is exact line you have to add in you application config file in order to activate new protocol:
 
 ```elixir
@@ -156,6 +156,38 @@ defp rank_state("Slave", _),          do: 1
 Note that above will work with same procedure with `cluster_dns` mode turned on, since internally it will get ip addresses to which the same connection procedure will be used.
 
 Once client is disconnected from EventStore, supervisor should respawn it and connection starts over again.
+
+### Read-only clients
+
+Extreme modules may be configured as read-only with the `:read_only` option
+(default: `false`)
+
+```elixir
+config :extreme, :event_store,
+  db_type: :node,
+  host: "localhost",
+  port: 1113,
+  username: "admin",
+  password: "changeit",
+  reconnect_delay: 2_000,
+  connection_name: :my_app,
+  max_attempts: :infinity,
+  read_only: true # <- marked as read-only
+```
+
+Read-only modules are not allowed to perform write operations like writing
+events or deleting streams. Read-only clients may execute the following
+messages:
+
+- `ReadEvent`
+- `ReadStreamEvents`
+- `ReadStreamEventsBackward`
+- `ReadAllEvents`
+- `ConnectToPersistentSubscription`
+- `SubscribeToStream`
+
+Use read-only clients to ensure that a listener does not commit writes. This is
+particularly useful for Read Models.
 
 ### Communication
 
@@ -296,7 +328,7 @@ defmodule MyApp.MyListener do
       :ok = push.event.data
              |> :erlang.binary_to_term
              |> process_event(push.event.event_type)
-      DB.ack_event(MyListener, stream_name, event_number)  
+      DB.ack_event(MyListener, stream_name, event_number)
     end
     {:ok, event_number}
   end
