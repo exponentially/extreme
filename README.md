@@ -185,6 +185,7 @@ messages:
 - `ReadAllEvents`
 - `ConnectToPersistentSubscription`
 - `SubscribeToStream`
+- `UnsubscribeFromStream`
 
 Use read-only clients to ensure that a listener does not commit writes. This is
 particularly useful for Read Models.

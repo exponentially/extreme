@@ -8,7 +8,8 @@ defmodule Extreme.RequestManager do
     Extreme.Messages.ReadStreamEventsBackward,
     Extreme.Messages.ReadAllEvents,
     Extreme.Messages.ConnectToPersistentSubscription,
-    Extreme.Messages.SubscribeToStream
+    Extreme.Messages.SubscribeToStream,
+    Extreme.Messages.UnsubscribeFromStream
   ]
 
   defmodule State do
