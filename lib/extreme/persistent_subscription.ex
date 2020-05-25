@@ -75,10 +75,10 @@ defmodule Extreme.PersistentSubscription do
       {:noreply, state}
     end
 
-    def handle_cast(:unsubscribe, state) do
-      :ok = PersistentSubscription.unsubscribe(state.subscription_pid)
+    def handle_call(:unsubscribe, _from, state) do
+      :unsubscribed = MyExtremeClientModule.unsubscribe(state.subscription_pid)
 
-      {:noreply, state}
+      {:reply, :ok, state}
     end
 
     def handle_info(_, state), do: {:noreply, state}
@@ -217,31 +217,6 @@ defmodule Extreme.PersistentSubscription do
     GenServer.cast(subscription, {:nack, events, correlation_id, action, message})
   end
 
-  @doc """
-  Unsubscribes and shuts down a subscription process.
-
-  Note that unsubscription is asynchronous: the subscription process will shut
-  down when the EventStore tells the client that the subscription has been
-  dropped, so this function may return before the process has been terminated.
-
-  To ensure ordering, one must monitor the subscription process and wait for
-  its `:DOWN` message. E.g.:
-
-      iex> subscription_ref = Process.monitor my_subscription_id
-      #Reference<0.1.2.3>
-      iex> Extreme.PersistentSubscription.unsubscribe my_subscription_pid)
-      :ok
-      iex> receive do
-      ...>   {:DOWN, ^subscription_ref, _, _, _} -> :ok
-      ...> end
-      :ok
-      # now the subscription has terminated
-
-  """
-  def unsubscribe(subscription) do
-    GenServer.cast(subscription, :unsubscribe)
-  end
-
   @doc false
   @impl true
   def init({base_name, correlation_id, subscriber, stream, group, allowed_in_flight_messages}) do
@@ -258,6 +233,12 @@ defmodule Extreme.PersistentSubscription do
     GenServer.cast(self(), :subscribe)
 
     {:ok, state}
+  end
+
+  @impl true
+  def handle_call(:unsubscribe, from, state) do
+    :ok = Shared.unsubscribe(from, state)
+    {:noreply, state}
   end
 
   @impl true

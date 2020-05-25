@@ -20,8 +20,6 @@ defmodule Extreme.PersistentSubscriptionTest do
           args.allowed_in_flight_messages
         )
 
-      true = Process.link(subscription_pid)
-
       {:ok, Map.put(args, :subscription_pid, subscription_pid)}
     end
 
@@ -31,10 +29,10 @@ defmodule Extreme.PersistentSubscriptionTest do
       {:noreply, state}
     end
 
-    def handle_cast(:unsubscribe, state) do
-      :ok = PersistentSubscription.unsubscribe(state.subscription_pid)
+    def handle_call(:unsubscribe, _from, state) do
+      :unsubscribed = TestConn.unsubscribe(state.subscription_pid)
 
-      {:noreply, state}
+      {:reply, :ok, state}
     end
 
     def handle_info({:ack, event_or_event_ids, correlation_id}, state) do
@@ -174,7 +172,8 @@ defmodule Extreme.PersistentSubscriptionTest do
 
       true = Process.unlink(subscriber)
       subscriber_ref = Process.monitor(subscriber)
-      GenServer.cast(subscriber, :unsubscribe)
+      :ok = GenServer.call(subscriber, :unsubscribe)
+      :ok = GenServer.stop(subscriber)
 
       assert_receive {:DOWN, ^subscriber_ref, _, _, _}
 
