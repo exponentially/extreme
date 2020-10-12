@@ -63,7 +63,7 @@ defmodule Extreme.FanoutListenerTest do
     {:ok, _} = TestConn.execute(Helpers.write_events(stream, [event1]))
 
     # expect that listener got new event
-    assert_receive {:processing_push, event_type, event}
+    assert_receive {:processing_push, _event_type, event}
     assert event1 == :erlang.binary_to_term(event)
 
     # Unsubscribe from further pushes
@@ -84,7 +84,7 @@ defmodule Extreme.FanoutListenerTest do
     {:ok, _} = TestConn.execute(Helpers.write_events(stream, [event4]))
 
     # expect that listener got new event
-    assert_receive {:processing_push, event_type, event}
+    assert_receive {:processing_push, _event_type, event}
     assert event4 == :erlang.binary_to_term(event)
 
     :ok = MyListener.unsubscribe(listener)
