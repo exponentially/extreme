@@ -2,14 +2,16 @@ language: elixir
 
 otp_release:
   - 22.2
+  - 23.1
 elixir:
-  - 1.10.0
+  - 1.10.4
+  - 1.11.0
 
 env:
-  - ES_TARBALL='ubuntu/EventStore-OSS-Linux-Ubuntu-14.04-v5.0.1.tar.gz' ES_VERSION=4
+  - ES_TARBALL='ubuntu/EventStore-OSS-Linux-Ubuntu-18.04-v5.0.8.tar.gz' ES_VERSION=4
 
 script:
-  - "mix do format --check-formatted, deps.get, test --cover"
+  - "mix do deps.get, format --check-formatted, compile --force --warnings-as-errors, test --cover"
 
 before_install:
   - wget https://eventstore.org/downloads/${ES_TARBALL}
