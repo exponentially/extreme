@@ -12,13 +12,21 @@ env:
   ES_VERSION: 4
 
 jobs:
-  graph_conn:
+  extreme:
     name: Build and test
     runs-on: ubuntu-latest
     strategy:
       matrix:
         elixir: ['1.9.4', '1.10.4', '1.11.0']
         erlang: ['22.3', '23.1']
+    services:
+      eventstore:
+        image: eventstore/eventstore:release-5.0.8
+        ports: ['1113:1113']
+        env:
+          EVENTSTORE_RUN_PROJECTIONS: all
+          EVENTSTORE_START_STANDARD_PROJECTIONS: "true"
+          EVENTSTORE_MEM_DB: "true"
 
     steps:
     - uses: actions/checkout@v2
