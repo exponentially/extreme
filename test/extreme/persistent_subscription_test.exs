@@ -165,7 +165,7 @@ defmodule Extreme.PersistentSubscriptionTest do
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 1)
       send(subscriber, {:ack, received_event, correlation_id})
 
-      assert_receive {:on_event, received_event, correlation_id}
+      assert_receive {:on_event, received_event, _correlation_id}
       assert :erlang.binary_to_term(received_event.event.data) == Enum.at(c.events, 2)
 
       # N.B. the event is _not_ acked
