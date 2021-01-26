@@ -60,4 +60,14 @@ defmodule Extreme.SubscriptionsSupervisor do
       restart: :temporary
     })
   end
+
+  def kill_all_subscriptions(base_name) do
+    name = _name(base_name)
+
+    name
+    |> Supervisor.which_children()
+    |> Enum.each(fn
+      {_, pid, :worker, _} -> DynamicSupervisor.terminate_child(name, pid)
+    end)
+  end
 end

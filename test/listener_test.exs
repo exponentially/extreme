@@ -41,6 +41,7 @@ defmodule Extreme.ListenerTest do
   end
 
   setup do
+    Process.sleep(100)
     {:ok, _db} = DB.start_link()
     Process.register(self(), :test)
     :ok
