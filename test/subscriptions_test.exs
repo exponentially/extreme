@@ -628,7 +628,7 @@ defmodule ExtremeSubscriptionsTest do
 
     test "backpressure" do
       stream = Helpers.random_stream_name()
-      num_events = 10_000
+      num_events = 1_000
       # prepopulate stream
       events =
         1..num_events
@@ -663,6 +663,7 @@ defmodule ExtremeSubscriptionsTest do
         assert len < 2
 
         assert_receive({:on_event, _event})
+        Process.sleep(10)
       end
 
       # assert :caught_up is received when all events are read

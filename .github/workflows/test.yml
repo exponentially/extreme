@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        elixir: ['1.9.4', '1.10.4', '1.11.0']
-        erlang: ['22.3', '23.1']
+        elixir: ['1.9.4', '1.10.4', '1.11.3']
+        erlang: ['22.3', '23.2']
 
     steps:
     - uses: actions/checkout@v2
@@ -48,7 +48,8 @@ jobs:
     - name: Prepare EventStore
       run: |
         wget https://raw.githubusercontent.com/EventStore/Downloads/master/${ES_TARBALL}
-        tar xf EventStore*.tar.gz
+        tar xzvf EventStore*.tar.gz
+        rm EventStore*.tar.gz
         cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
     - name: Run tests
       run: mix test --cover
