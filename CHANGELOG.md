@@ -1,3 +1,6 @@
+# Changelog for extreme v1.0.0-beta2
+  * Restart all subscriptions and subscribers/listeners when connection receives :tcp_closed
+
 # Changelog for extreme v0.13.1
   * Dependency version upgrades
 

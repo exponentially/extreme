@@ -1,6 +1,7 @@
 defmodule Extreme.RequestManager do
   use GenServer
   alias Extreme.{Tools, Configuration, Request, Response, Connection}
+  require Logger
 
   @read_only_message_types [
     Extreme.Messages.ReadEvent,
@@ -102,6 +103,12 @@ defmodule Extreme.RequestManager do
     |> GenServer.call(
       {:connect_to_persistent_subscription, subscriber, stream, group, allowed_in_flight_messages}
     )
+  end
+
+  def kill_all_subscriptions(base_name) do
+    base_name
+    |> _name()
+    |> GenServer.cast(:kill_all_subscriptions)
   end
 
   ## Server callbacks
@@ -274,6 +281,15 @@ defmodule Extreme.RequestManager do
     subscriptions = Map.delete(state.subscriptions, correlation_id)
     requests = Map.delete(state.requests, correlation_id)
     {:noreply, %State{state | requests: requests, subscriptions: subscriptions}}
+  end
+
+  def handle_cast(:kill_all_subscriptions, %State{} = state) do
+    Logger.warn("Killing all subscriptions")
+
+    state.base_name
+    |> Extreme.SubscriptionsSupervisor.kill_all_subscriptions()
+
+    {:noreply, %State{state | subscriptions: %{}}}
   end
 
   ## Helper functions

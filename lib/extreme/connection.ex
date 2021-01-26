@@ -61,8 +61,10 @@ defmodule Extreme.Connection do
     {:noreply, state}
   end
 
-  def handle_info({:tcp_closed, _port}, state),
-    do: {:stop, :tcp_closed, state}
+  def handle_info({:tcp_closed, _port}, state) do
+    RequestManager.kill_all_subscriptions(state.base_name)
+    {:stop, :tcp_closed, state}
+  end
 
   defp _connect(configuration, attempt) do
     {:ok, host, port} = Configuration.get_node(configuration)
