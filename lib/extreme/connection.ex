@@ -61,9 +61,13 @@ defmodule Extreme.Connection do
     {:noreply, state}
   end
 
-  def handle_info({:tcp_closed, _port}, state) do
+  def handle_info({:tcp_closed, _port}, state),
+    do: {:stop, :tcp_closed, state}
+
+  @impl true
+  def terminate(reason, state) do
+    Logger.warn("[Extreme] Connection terminated: #{inspect(reason)}")
     RequestManager.kill_all_subscriptions(state.base_name)
-    {:stop, :tcp_closed, state}
   end
 
   defp _connect(configuration, attempt) do

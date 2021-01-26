@@ -284,7 +284,7 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_cast(:kill_all_subscriptions, %State{} = state) do
-    Logger.warn("Killing all subscriptions")
+    Logger.warn("[Extreme] Killing all subscriptions")
 
     state.base_name
     |> Extreme.SubscriptionsSupervisor.kill_all_subscriptions()
