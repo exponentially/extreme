@@ -4,8 +4,8 @@ defmodule Extreme.Mixfile do
   def project do
     [
       app: :extreme,
-      version: "1.0.0+beta2",
-      elixir: "~> 1.5",
+      version: "1.0.0",
+      elixir: "~> 1.7",
       elixirc_paths: _elixirc_paths(Mix.env()),
       source_url: "https://github.com/exponentially/extreme",
       description: """

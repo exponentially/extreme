@@ -51,8 +51,10 @@ defmodule Extreme.Connection do
   end
 
   def handle_cast({:execute, message}, %State{} = state) do
-    :ok = Impl.execute(message, state)
-    {:noreply, state}
+    case Impl.execute(message, state) do
+      :ok -> {:noreply, state}
+      other -> {:stop, {:execution_error, other}, state}
+    end
   end
 
   @impl true

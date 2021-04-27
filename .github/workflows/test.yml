@@ -8,7 +8,7 @@ on:
         - v1.0.0
 env:
   MIX_ENV: test
-  ES_TARBALL: "ubuntu/EventStore-OSS-Linux-Ubuntu-18.04-v5.0.9.tar.gz"
+  ES_TARBALL: "ubuntu/EventStore-OSS-Linux-Ubuntu-18.04-v5.0.10.tar.gz"
   ES_VERSION: 4
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir
-      uses: actions/setup-elixir@v1
+      uses: erlef/setup-elixir@v1
       with:
         elixir-version: ${{ matrix.elixir }}
         otp-version: ${{ matrix.erlang }}

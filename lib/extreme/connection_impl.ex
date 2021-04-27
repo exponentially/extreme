@@ -8,7 +8,7 @@ defmodule Extreme.ConnectionImpl do
   require Logger
 
   def execute(message, %State{socket: socket}),
-    do: :ok = :gen_tcp.send(socket, message)
+    do: :gen_tcp.send(socket, message)
 
   def receive_package(pkg, %State{socket: socket, received_data: received_data} = state) do
     :inet.setopts(socket, active: :once)

@@ -267,6 +267,9 @@ defmodule Extreme.RequestManager do
           requests = Map.delete(state.requests, correlation_id)
           :ok = GenServer.reply(from, response)
           %{state | requests: requests}
+
+        nil ->
+          state
       end
 
     {:noreply, state}
