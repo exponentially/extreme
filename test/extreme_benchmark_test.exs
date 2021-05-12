@@ -75,7 +75,8 @@ defmodule ExtremeBenchmarkTest do
 
       {time, _} =
         :timer.tc(fn ->
-          TestConn.execute(Helpers.write_events(stream, initial_events), nil, 10_000)
+          {:ok, %Extreme.Messages.WriteEventsCompleted{}} =
+            TestConn.execute(Helpers.write_events(stream, initial_events), nil, 10_000)
         end)
 
       time

@@ -86,8 +86,8 @@ defmodule Extreme.FanoutListener do
           stream_name: stream_name
         }
 
-        GenServer.cast(self(), :subscribe)
-        {:ok, state}
+        {:ok, subscription, ref} = _subscribe(state)
+        {:ok, %{state | subscription: subscription, subscription_ref: ref}}
       end
 
       @impl true
