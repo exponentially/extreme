@@ -37,6 +37,7 @@ defmodule Extreme.Mixfile do
     [
       {:exprotobuf, "~> 1.2.9"},
       {:elixir_uuid, "~> 1.2"},
+      {:telemetry, "~> 0.4"},
       # needed when connecting to EventStore cluster (node_type: :cluster | :cluster_dns)
       {:jason, "~> 1.1", optional: true},
 
@@ -52,7 +53,7 @@ defmodule Extreme.Mixfile do
   defp _package do
     [
       files: ["lib", "mix.exs", "README*", "LICENSE*", "include"],
-      maintainers: ["Milan Burmaja", "Milan Jaric"],
+      maintainers: ["Milan Burmaja"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/exponentially/extreme"}
     ]
