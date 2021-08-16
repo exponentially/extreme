@@ -8,7 +8,6 @@ on:
         - v1.0.0
 env:
   MIX_ENV: test
-  ES_TARBALL: "ubuntu/EventStore-OSS-Linux-Ubuntu-18.04-v5.0.10.tar.gz"
   ES_VERSION: 4
 
 jobs:
@@ -17,8 +16,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        elixir: ['1.9.4', '1.10.4', '1.11.4']
-        erlang: ['22.3', '23.3']
+        elixir: ['1.11.4', '1.12.2']
+        erlang: ['22.3', '23.3', '24.0']
+
+    services:
+      es:
+        image: eventstore/eventstore:release-5.0.10
+        ports: ['1113:1113']
+        env:
+          EVENTSTORE_RUN_PROJECTIONS: "All"
+          EVENTSTORE_START_STANDARD_PROJECTIONS: "true"
+          EVENTSTORE_CLUSTER_SIZE: 1
+          EVENTSTORE_EXT_TCP_PORT: 1113
+          EVENTSTORE_INSECURE: "true"
+          EVENTSTORE_ENABLE_EXTERNAL_TCP: "true"
 
     steps:
     - uses: actions/checkout@v2
@@ -43,13 +54,5 @@ jobs:
         restore-keys: ${{ runner.os }}-build_test-${{ matrix.elixir }}-${{ matrix.erlang }}-
     - name: Check warnings
       run: mix compile --warnings-as-errors --force
-    - name: Check formatting
-      run: mix format --check-formatted
-    - name: Prepare EventStore
-      run: |
-        wget https://raw.githubusercontent.com/EventStore/Downloads/master/${ES_TARBALL}
-        tar xzvf EventStore*.tar.gz
-        rm EventStore*.tar.gz
-        cd EventStore* && ./run-node.sh --run-projections=all --start-standard-projections=true --mem-db 2>&1> eventstore.log &
     - name: Run tests
       run: mix test --cover
