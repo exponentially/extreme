@@ -4,7 +4,7 @@ defmodule Extreme.Mixfile do
   def project do
     [
       app: :extreme,
-      version: "1.0.0",
+      version: "1.0.1",
       elixir: "~> 1.7",
       elixirc_paths: _elixirc_paths(Mix.env()),
       source_url: "https://github.com/exponentially/extreme",
@@ -37,7 +37,7 @@ defmodule Extreme.Mixfile do
     [
       {:exprotobuf, "~> 1.2.9"},
       {:elixir_uuid, "~> 1.2"},
-      {:telemetry, "~> 0.4"},
+      {:telemetry, "~> 0.4 or ~> 1.0"},
       # needed when connecting to EventStore cluster (node_type: :cluster | :cluster_dns)
       {:jason, "~> 1.1", optional: true},
 
