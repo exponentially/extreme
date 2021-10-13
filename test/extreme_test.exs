@@ -41,6 +41,7 @@ defmodule ExtremeTest do
   describe "Authentication" do
     defmodule(ForbiddenConn, do: use(Extreme))
 
+    @tag :authentication
     test ".execute/1 is not authenticated for wrong credentials" do
       {:ok, _} =
         :extreme

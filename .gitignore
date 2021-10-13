@@ -24,3 +24,5 @@ extra-*.tar
 
 # asdf settings
 .tool-versions*
+
+/volumes/
