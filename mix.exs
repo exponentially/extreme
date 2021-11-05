@@ -25,7 +25,7 @@ defmodule Extreme.Mixfile do
 
   def application do
     [
-      extra_applications: [:logger, :inets]
+      extra_applications: [:logger, :inets, :ssl]
     ]
   end
 
