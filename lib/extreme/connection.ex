@@ -112,9 +112,7 @@ defmodule Extreme.Connection do
 
     opts = Keyword.get(configuration, :transport_opts, []) ++ [:binary, active: :once]
 
-    host
-    |> transport_module.connect(port, opts)
-    |> case do
+    case transport_module.connect(host, port, opts) do
       {:ok, socket} ->
         {:ok, socket}
 
