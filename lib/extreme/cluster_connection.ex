@@ -5,15 +5,23 @@ defmodule Extreme.ClusterConnection do
 
   require Logger
 
-  def gossip_with(nodes, gossip_timeout, mode)
+  def gossip_with(nodes, opts)
 
-  def gossip_with([], _, _), do: {:error, :no_more_gossip_seeds}
+  def gossip_with([], _opts), do: {:error, :no_more_gossip_seeds}
 
-  def gossip_with([node | rest_nodes], gossip_timeout, mode) do
-    url = 'http://#{node.host}:#{node.port}/gossip?format=json'
+  def gossip_with([node | rest_nodes], opts) do
+    mode = Keyword.fetch!(opts, :mode)
+    scheme = if Keyword.fetch!(opts, :transport) == :ssl, do: 'https', else: 'http'
+    url = '#{scheme}://#{node.host}:#{node.port}/gossip?format=json'
+
+    request_opts = [
+      timeout: Keyword.fetch!(opts, :timeout),
+      ssl: Keyword.fetch!(opts, :transport_opts)
+    ]
+
     Logger.info("Gossip with #{url}")
 
-    case :httpc.request(:get, {url, []}, [timeout: gossip_timeout], []) do
+    case :httpc.request(:get, {url, []}, request_opts, []) do
       {:ok, {{_version, 200, _status}, _headers, body}} ->
         body
         |> Jason.decode!()
@@ -21,7 +29,7 @@ defmodule Extreme.ClusterConnection do
 
       error ->
         Logger.error("Error getting gossip: #{inspect(error)}")
-        gossip_with(rest_nodes, gossip_timeout, mode)
+        gossip_with(rest_nodes, opts)
     end
   end
 

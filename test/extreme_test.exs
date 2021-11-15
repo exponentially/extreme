@@ -18,6 +18,7 @@ defmodule ExtremeTest do
 
     defmodule(ClusterConn, do: use(Extreme))
 
+    @tag :gossip
     test "Connects on EventStore cluster with a list of nodes" do
       use_cassette "gossip_with_clusters_existing_node" do
         nodes = [
