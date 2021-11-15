@@ -85,7 +85,7 @@ defmodule Extreme.Connection do
   end
 
   @impl true
-  def handle_info({:tcp, socket, pkg}, %State{socket: socket} = state) do
+  def handle_info({tag, socket, pkg}, %State{socket: socket} = state) when tag in [:tcp, :ssl] do
     {:ok, state} = Impl.receive_package(pkg, state)
     {:noreply, state}
   end
