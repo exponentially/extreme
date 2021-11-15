@@ -7,14 +7,25 @@ defmodule Extreme.ConnectionImpl do
 
   require Logger
 
-  def execute(message, %State{socket: socket}),
-    do: :gen_tcp.send(socket, message)
+  def execute(message, %State{transport: :tcp, socket: socket}) do
+    :gen_tcp.send(socket, message)
+  end
 
-  def receive_package(pkg, %State{socket: socket, received_data: received_data} = state) do
-    :inet.setopts(socket, active: :once)
+  def execute(message, %State{transport: :ssl, socket: socket}) do
+    :ssl.send(socket, message)
+  end
+
+  def receive_package(pkg, %State{received_data: received_data} = state) do
+    set_active_once(state)
     state = _process_package(state, received_data <> pkg)
     {:ok, state}
   end
+
+  defp set_active_once(%State{transport: :tcp, socket: socket}),
+    do: :inet.setopts(socket, active: :once)
+
+  defp set_active_once(%State{transport: :ssl, socket: socket}),
+    do: :ssl.setopts(socket, active: :once)
 
   defp _process_package(
          state,

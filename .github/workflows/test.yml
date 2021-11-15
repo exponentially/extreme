@@ -58,26 +58,39 @@ jobs:
       run: mix test --cover
 
   ES-21:
-    name: ES 21.6.0
+    name: ES 21.6.0 with SSL
     runs-on: ubuntu-latest
     strategy:
       matrix:
         elixir: ['1.12.3']
         erlang: ['24.1']
-
-    services:
-      es:
-        image: eventstore/eventstore:21.6.0-buster-slim
-        ports: ['1113:1113']
-        env:
-          EVENTSTORE_RUN_PROJECTIONS: "All"
-          EVENTSTORE_START_STANDARD_PROJECTIONS: "true"
-          EVENTSTORE_CLUSTER_SIZE: 1
-          EVENTSTORE_EXT_TCP_PORT: 1113
-          EVENTSTORE_INSECURE: "true"
-          EVENTSTORE_ENABLE_EXTERNAL_TCP: "true"
+    env:
+      EXTREME_CACERTFILE: /certs/ca/ca.crt
 
     steps:
+    - name: Generate EventStoreDB SSL certificates
+      run: |
+        sudo mkdir -p /certs
+        sudo chmod a+rw /certs
+        docker run \
+          --entrypoint /bin/bash \
+          --mount type=bind,source=/certs,target=/certs \
+          eventstore/es-gencert-cli:1.0.2 \
+          -c "mkdir -p ./certs && cd /certs && es-gencert-cli create-ca && es-gencert-cli create-node -out ./node -ip-addresses 127.0.0.1 -dns-names localhost"
+    - name: Start the EventStoreDB container
+      run: |
+        docker run \
+          --name eventstore \
+          --detach \
+          --mount type=bind,source=/certs,target=/etc/eventstore/certs \
+          --publish 1113:1113 \
+          eventstore/eventstore:21.6.0-buster-slim \
+          --run-projections=All \
+          --enable-external-tcp=true \
+          --trusted-root-certificates-path=/etc/eventstore/certs/ca \
+          --certificate-file=/etc/eventstore/certs/node/node.crt \
+          --certificate-private-key-file=/etc/eventstore/certs/node/node.key \
+          --advertise-host-to-client-as=127.0.0.1
     - uses: actions/checkout@v2
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
@@ -103,4 +116,4 @@ jobs:
     - name: Check formatting
       run: mix format --check-formatted
     - name: Run tests
-      run: mix test --cover --exclude=authentication
+      run: mix test --cover --exclude=gossip

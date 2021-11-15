@@ -10,8 +10,10 @@ defmodule Extreme.ClusterConnectionTest do
         assert {:ok, 'localhost', 1113} =
                  Extreme.ClusterConnection.gossip_with(
                    [%{host: "0.0.0.0", port: "2113"}],
-                   20_000,
-                   :write
+                   timeout: 20_000,
+                   mode: :write,
+                   transport: :tcp,
+                   transport_opts: []
                  )
       end
     end

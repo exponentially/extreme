@@ -47,12 +47,9 @@ defmodule Extreme.Configuration do
     do: {:ok, _get_host(configuration), _get_port(configuration)}
 
   defp _get_node(:cluster, configuration) do
-    gossip_timeout = Keyword.get(configuration, :gossip_timeout, 1_000)
-    mode = Keyword.get(configuration, :mode, :write)
-
     configuration
     |> Keyword.fetch!(:nodes)
-    |> ClusterConnection.gossip_with(gossip_timeout, mode)
+    |> ClusterConnection.gossip_with(gossip_opts(configuration))
   end
 
   defp _get_node(:cluster_dns, configuration) do
@@ -66,18 +63,11 @@ defmodule Extreme.Configuration do
       |> Keyword.get(:port, 2113)
       |> Tools.cast_to_integer()
 
-    gossip_timeout =
-      configuration
-      |> Keyword.get(:gossip_timeout, 1_000)
-      |> Tools.cast_to_integer()
-
-    mode = Keyword.get(configuration, :mode, :write)
-
     ips
     |> Enum.map(fn ip ->
       %{host: to_string(:inet.ntoa(ip)), port: gossip_port}
     end)
-    |> ClusterConnection.gossip_with(gossip_timeout, mode)
+    |> ClusterConnection.gossip_with(gossip_opts(configuration))
   end
 
   # Returns `:host` value from `configuration` as charlist.
@@ -94,5 +84,14 @@ defmodule Extreme.Configuration do
     configuration
     |> Keyword.fetch!(:port)
     |> Tools.cast_to_integer()
+  end
+
+  defp gossip_opts(configuration) do
+    [
+      mode: Keyword.get(configuration, :mode, :write),
+      timeout: Keyword.get(configuration, :gossip_timeout, 1_000) |> Tools.cast_to_integer(),
+      transport: Keyword.get(configuration, :transport, :tcp),
+      transport_opts: Keyword.get(configuration, :transport_opts, [])
+    ]
   end
 end
