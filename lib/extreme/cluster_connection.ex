@@ -63,5 +63,5 @@ defmodule Extreme.ClusterConnection do
   defp _rank_state("Manager", _), do: 0
   defp _rank_state("ShuttingDown", _), do: 0
   defp _rank_state("Shutdown", _), do: 0
-  defp _rank_state(state, _), do: Logger.warn("Unrecognized node state: #{state}")
+  defp _rank_state(state, _), do: Logger.warning("Unrecognized node state: #{state}")
 end

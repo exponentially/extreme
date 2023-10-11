@@ -12,7 +12,7 @@ defmodule Extreme.FanoutListener do
       defmodule MyApp.MyFanoutListener do
         use Extreme.FanoutListener
         import MyApp.MyPusher
-      
+
         defp process_push(push) do
           Logger.info "Forward to web socket event #{inspect push.event.event_type}"
           :ok = push.event.data
@@ -20,7 +20,7 @@ defmodule Extreme.FanoutListener do
                  |> process_event(push.event.event_type)
         end
       end
-      
+
       defmodule MyApp.MyPusher do
         def process_event(data, "Elixir.MyApp.Events.PersonCreated") do
           Logger.debug "Transform and push event with data: #{inspect data}"
@@ -33,14 +33,14 @@ defmodule Extreme.FanoutListener do
 
       defmodule MyApp.Supervisor do
         use Supervisor
-      
+
         def start_link, do: Supervisor.start_link __MODULE__, :ok
-      
+
         @event_store MyApp.EventStore
-        
+
         def init(:ok) do
           event_store_settings = Application.get_env :my_app, :event_store
-      
+
           children = [
             supervisr(MyExtreme, [event_store_settings]),
             worker(MyApp.MyFanoutListener, [MyExtreme, "my_indexed_stream", [name: MyFanoutListener]]),
@@ -112,7 +112,7 @@ defmodule Extreme.FanoutListener do
       @impl true
       def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
-        Logger.warn("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
+        Logger.warning("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
         :timer.sleep(reconnect_delay)
         GenServer.cast(self(), :subscribe)
         {:noreply, state}

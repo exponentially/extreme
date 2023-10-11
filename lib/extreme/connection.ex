@@ -68,7 +68,7 @@ defmodule Extreme.Connection do
 
   @impl true
   def terminate(reason, state) do
-    Logger.warn("[Extreme] Connection terminated: #{inspect(reason)}")
+    Logger.warning("[Extreme] Connection terminated: #{inspect(reason)}")
     RequestManager.kill_all_subscriptions(state.base_name)
   end
 

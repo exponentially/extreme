@@ -109,7 +109,7 @@ defmodule Extreme.Listener do
 
       def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
-        Logger.warn("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
+        Logger.warning("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
         :timer.sleep(reconnect_delay)
         GenServer.cast(self(), :subscribe)
         {:noreply, state}
