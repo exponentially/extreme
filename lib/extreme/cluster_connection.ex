@@ -10,7 +10,7 @@ defmodule Extreme.ClusterConnection do
   def gossip_with([], _, _), do: {:error, :no_more_gossip_seeds}
 
   def gossip_with([node | rest_nodes], gossip_timeout, mode) do
-    url = 'http://#{node.host}:#{node.port}/gossip?format=json'
+    url = ~c"http://#{node.host}:#{node.port}/gossip?format=json"
     Logger.info("Gossip with #{url}")
 
     case :httpc.request(:get, {url, []}, [timeout: gossip_timeout], []) do

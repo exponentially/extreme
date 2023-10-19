@@ -12,7 +12,7 @@ defmodule Extreme.TcpTest do
     end
 
     test "returns {:error, :max_attempt_exceeded} for incorrect port when `max_attempts` exceeds" do
-      host = 'localhost'
+      host = ~c"localhost"
       port = 1609
 
       assert {:error, :max_attempt_exceeded} = Tcp.connect(host, port, max_attempts: 1)
