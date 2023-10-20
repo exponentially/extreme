@@ -1,3 +1,8 @@
+# Changelog for extreme v1.0.4
+
+- Listener.process_push callback can return `:stop`, meaning subscription should be stopped
+  and pushes that are already in mailbox should be purged.
+
 # Changelog for extreme v1.0.3
 
 - Add subscribe/unsubscribe and auto_subscribe? option for starting `Extreme.Listener`

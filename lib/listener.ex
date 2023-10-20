@@ -72,17 +72,29 @@ defmodule Extreme.Listener do
       end
 
       @impl true
+      def handle_call({:on_event, _push}, _from, %{subscription: nil, mode: :live} = state),
+        do: {:reply, :ok, state}
+
       def handle_call(
             {:on_event, push},
             _from,
             %{subscription: subscription, mode: :live} = state
-          )
-          when not is_nil(subscription) do
-        {:ok, event_number} = process_push(push, state.stream_name)
-        {:reply, :ok, %{state | last_event: event_number}}
+          ) do
+        push
+        |> process_push(state.stream_name)
+        |> case do
+          {:ok, event_number} ->
+            {:reply, :ok, %{state | last_event: event_number}}
+
+          :stop ->
+            _unsubscribe(state)
+        end
       end
 
-      def handle_call(:unsubscribe, from, state) do
+      def handle_call(:unsubscribe, _from, state),
+        do: _unsubscribe(state)
+
+      defp _unsubscribe(state) do
         Logger.info(
           "#{__MODULE__} unsubscribed from #{state.stream_name}. Last processed event: #{state.last_event}"
         )
