@@ -148,7 +148,7 @@ defmodule Extreme.RequestManager do
         _from,
         %State{read_only: true} = state
       )
-      when not (message_type in @read_only_message_types) do
+      when message_type not in @read_only_message_types do
     {:reply, {:error, :read_only}, state}
   end
 
@@ -287,7 +287,7 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_cast(:kill_all_subscriptions, %State{} = state) do
-    Logger.warn("[Extreme] Killing all subscriptions")
+    Logger.warning("[Extreme] Killing all subscriptions")
 
     state.base_name
     |> Extreme.SubscriptionsSupervisor.kill_all_subscriptions()

@@ -109,7 +109,7 @@ defmodule Extreme.ReadingSubscription do
   end
 
   defp _process_read_response({:error, :no_stream, _}, state) do
-    Logger.warn(fn -> "Stream doesn't exist yet" end)
+    Logger.warning(fn -> "Stream doesn't exist yet" end)
 
     {:extreme, :warn, :stream_soft_deleted, state.read_params.stream}
     |> _caught_up(state)

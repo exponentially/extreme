@@ -31,20 +31,24 @@ defmodule Extreme.Listener do
         {resolve_link_tos, opts} = Keyword.pop(opts, :resolve_link_tos, true)
         {require_master, opts} = Keyword.pop(opts, :require_master, false)
         {ack_timeout, opts} = Keyword.pop(opts, :ack_timeout, 5_000)
+        {auto_subscribe?, opts} = Keyword.pop(opts, :auto_subscribe?, true)
         opts = Keyword.put_new(opts, :name, __MODULE__)
 
         GenServer.start_link(
           __MODULE__,
-          {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout},
+          {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout,
+           auto_subscribe?},
           opts
         )
       end
 
-      def unsubscribe(server), do: GenServer.call(server, :unsubscribe)
+      def unsubscribe(server \\ __MODULE__), do: GenServer.call(server, :unsubscribe)
+      def subscribe(server \\ __MODULE__), do: GenServer.cast(server, :subscribe)
 
       @impl true
       def init(
-            {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout}
+            {extreme, stream_name, read_per_page, resolve_link_tos, require_master, ack_timeout,
+             auto_subscribe?}
           ) do
         state = %{
           extreme: extreme,
@@ -59,22 +63,42 @@ defmodule Extreme.Listener do
           ack_timeout: ack_timeout
         }
 
-        GenServer.cast(self(), :subscribe)
+        :ok = on_init(state)
+
+        if auto_subscribe?,
+          do: GenServer.cast(self(), :subscribe)
+
         {:ok, state}
       end
 
       @impl true
+      def handle_call({:on_event, _push}, _from, %{subscription: nil, mode: :live} = state),
+        do: {:reply, :ok, state}
+
       def handle_call(
             {:on_event, push},
             _from,
             %{subscription: subscription, mode: :live} = state
-          )
-          when not is_nil(subscription) do
-        {:ok, event_number} = process_push(push, state.stream_name)
-        {:reply, :ok, %{state | last_event: event_number}}
+          ) do
+        push
+        |> process_push(state.stream_name)
+        |> case do
+          {:ok, event_number} ->
+            {:reply, :ok, %{state | last_event: event_number}}
+
+          :stop ->
+            _unsubscribe(state)
+        end
       end
 
-      def handle_call(:unsubscribe, from, state) do
+      def handle_call(:unsubscribe, _from, state),
+        do: _unsubscribe(state)
+
+      defp _unsubscribe(state) do
+        Logger.info(
+          "#{__MODULE__} unsubscribed from #{state.stream_name}. Last processed event: #{state.last_event}"
+        )
+
         true = Process.demonitor(state.subscription_ref)
         :unsubscribed = state.extreme.unsubscribe(state.subscription)
         {:reply, :ok, %{state | subscription: nil, subscription_ref: nil}}
@@ -109,7 +133,7 @@ defmodule Extreme.Listener do
 
       def handle_info({:DOWN, ref, :process, _pid, _reason}, %{subscription_ref: ref} = state) do
         reconnect_delay = 1_000
-        Logger.warn("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
+        Logger.warning("Subscription to EventStore is down. Will retry in #{reconnect_delay} ms.")
         :timer.sleep(reconnect_delay)
         GenServer.cast(self(), :subscribe)
         {:noreply, state}
@@ -138,9 +162,7 @@ defmodule Extreme.Listener do
         ref = Process.monitor(subscription)
 
         Logger.info(fn ->
-          "Listener subscribed to stream #{state.stream_name}. Start processing live events from event no: #{
-            last_event + 1
-          }"
+          "#{__MODULE__} subscribed to stream #{state.stream_name}. Start processing live events from event no: #{last_event + 1}"
         end)
 
         {:ok,
@@ -164,11 +186,16 @@ defmodule Extreme.Listener do
       end
 
       def caught_up, do: Logger.debug(fn -> "We are up to date" end)
+      def on_init(_), do: Logger.info(fn -> "#{__MODULE__} started" end)
       def register_patching_start(_, _, _), do: {:error, :not_implemented}
       def patching_done(_), do: {:error, :not_implemented}
       def process_patch(_, _), do: {:error, :not_implemented}
 
-      defoverridable caught_up: 0, register_patching_start: 3, patching_done: 1, process_patch: 2
+      defoverridable caught_up: 0,
+                     on_init: 1,
+                     register_patching_start: 3,
+                     patching_done: 1,
+                     process_patch: 2
     end
   end
 end

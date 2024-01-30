@@ -42,8 +42,7 @@ defmodule Extreme.Tcp do
         {:ok, socket}
 
       reason ->
-        Logger.warn(fn -> "Error connecting to EventStore: #{inspect(reason)}" end)
-        {:error, reason}
+        Logger.warning(fn -> "Error connecting to EventStore: #{inspect(reason)}" end)
         connect(host, port, configuration, attempt + 1)
     end
   end

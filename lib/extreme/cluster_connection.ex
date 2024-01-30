@@ -10,7 +10,7 @@ defmodule Extreme.ClusterConnection do
   def gossip_with([], _, _), do: {:error, :no_more_gossip_seeds}
 
   def gossip_with([node | rest_nodes], gossip_timeout, mode) do
-    url = 'http://#{node.host}:#{node.port}/gossip?format=json'
+    url = ~c"http://#{node.host}:#{node.port}/gossip?format=json"
     Logger.info("Gossip with #{url}")
 
     case :httpc.request(:get, {url, []}, [timeout: gossip_timeout], []) do
@@ -63,5 +63,5 @@ defmodule Extreme.ClusterConnection do
   defp _rank_state("Manager", _), do: 0
   defp _rank_state("ShuttingDown", _), do: 0
   defp _rank_state("Shutdown", _), do: 0
-  defp _rank_state(state, _), do: Logger.warn("Unrecognized node state: #{state}")
+  defp _rank_state(state, _), do: Logger.warning("Unrecognized node state: #{state}")
 end

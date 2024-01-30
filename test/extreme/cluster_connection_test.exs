@@ -7,7 +7,7 @@ defmodule Extreme.ClusterConnectionTest do
     test "returns master node ip and tcp port when configured for writing" do
       # vcr cassette file is customized after recording to return master as localhost
       use_cassette "gossip_with_clusters_existing_node" do
-        assert {:ok, 'localhost', 1113} =
+        assert {:ok, ~c"localhost", 1113} =
                  Extreme.ClusterConnection.gossip_with(
                    [%{host: "0.0.0.0", port: "2113"}],
                    20_000,
