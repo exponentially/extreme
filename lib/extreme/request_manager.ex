@@ -14,7 +14,7 @@ defmodule Extreme.RequestManager do
   ]
 
   defmodule State do
-    defstruct ~w(base_name credentials requests subscriptions read_only)a
+    defstruct ~w(base_name credentials requests subscriptions read_only stream_event_buffers)a
   end
 
   def _name(base_name), do: Module.concat(base_name, RequestManager)
@@ -127,6 +127,7 @@ defmodule Extreme.RequestManager do
        credentials: Configuration.prepare_credentials(configuration),
        requests: %{},
        subscriptions: %{},
+       stream_event_buffers: %{},
        read_only: Keyword.get(configuration, :read_only, false)
      }}
   end
@@ -248,8 +249,9 @@ defmodule Extreme.RequestManager do
       message
       |> Response.get_correlation_id()
 
-    state.subscriptions[correlation_id]
-    |> _process_server_message(message, state)
+    state =
+      state.subscriptions[correlation_id]
+      |> _process_server_message(message, state)
 
     {:noreply, state}
   end
@@ -303,6 +305,17 @@ defmodule Extreme.RequestManager do
     |> Task.Supervisor.start_child(fun)
   end
 
+  # we got StreamEventAppeared before subscription was registered
+  defp _process_server_message(
+         nil,
+         <<0xC2, _auth, correlation_id::16-binary, _data::binary>> = message,
+         %State{stream_event_buffers: buffers} = state
+       ) do
+    buffer = Map.get(buffers, correlation_id, [])
+
+    %State{state | stream_event_buffers: Map.put(buffers, correlation_id, [message | buffer])}
+  end
+
   # message is response to pending request
   defp _process_server_message(nil, message, state) do
     _in_task(state.base_name, fn ->
@@ -310,11 +323,25 @@ defmodule Extreme.RequestManager do
       |> Response.parse()
       |> _respond_on(state.base_name)
     end)
+
+    state
   end
 
   # message is for subscription, decoding needs to be done there so we keep the order of incoming messages
-  defp _process_server_message(subscription, message, _state),
-    do: GenServer.cast(subscription, {:process_push, fn -> Response.parse(message) end})
+  defp _process_server_message(
+         subscription,
+         message,
+         %State{stream_event_buffers: buffers} = state
+       ) do
+    correlation_id = Response.get_correlation_id(message)
+    buffer = Map.get(buffers, correlation_id, [])
+
+    [message | buffer]
+    |> Enum.reverse()
+    |> Enum.each(&GenServer.cast(subscription, {:process_push, fn -> Response.parse(&1) end}))
+
+    %State{state | stream_event_buffers: Map.delete(buffers, correlation_id)}
+  end
 
   defp _respond_on({:client_identified, _correlation_id}, _),
     do: :ok
