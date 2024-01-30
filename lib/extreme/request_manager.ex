@@ -183,7 +183,7 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_call({:read_and_stay_subscribed, subscriber, read_params}, from, %State{} = state) do
-    _start_subscription(self(), from, state.base_name, fn correlation_id ->
+    _start_subscription(self(), from, state.base_name, true, fn correlation_id ->
       Extreme.SubscriptionsSupervisor.start_subscription(
         state.base_name,
         correlation_id,
@@ -215,7 +215,7 @@ defmodule Extreme.RequestManager do
     {:noreply, state}
   end
 
-  defp _start_subscription(req_manager, from, base_name, fun) do
+  defp _start_subscription(req_manager, from, base_name, delayed_read \\ false, fun) do
     _in_task(base_name, fn ->
       correlation_id = Tools.generate_uuid()
 
@@ -224,6 +224,9 @@ defmodule Extreme.RequestManager do
       GenServer.cast(req_manager, {:register_subscription, correlation_id, subscription})
 
       GenServer.reply(from, {:ok, subscription})
+
+      if delayed_read,
+        do: GenServer.cast(subscription, :read_events)
     end)
   end
 

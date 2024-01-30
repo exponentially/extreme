@@ -1,3 +1,7 @@
+# Changelog for extreme v1.0.5
+
+- Delays read for read_and_stay_subscribed, so it avoids event to appear before subscription is registered.
+
 # Changelog for extreme v1.0.4
 
 - Listener.process_push callback can return `:stop`, meaning subscription should be stopped

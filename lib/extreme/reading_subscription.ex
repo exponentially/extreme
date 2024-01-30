@@ -45,7 +45,7 @@ defmodule Extreme.ReadingSubscription do
 
     {:ok, subscription_confirmation} = Shared.subscribe(state)
     read_until = subscription_confirmation.last_event_number + 1
-    GenServer.cast(self(), :read_events)
+    # GenServer.cast(self(), :read_events)
 
     {:ok, %State{state | read_until: read_until}}
   end
