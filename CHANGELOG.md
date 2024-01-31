@@ -1,3 +1,8 @@
+# Changelog for extreme v1.0.5
+
+- RequestManager buffers live events received after subscription is created,
+  but before it is registered
+
 # Changelog for extreme v1.0.4
 
 - Listener.process_push callback can return `:stop`, meaning subscription should be stopped
