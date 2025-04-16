@@ -475,7 +475,10 @@ defmodule ExtremeTest do
     test "that doesn't exist is ok" do
       stream = Helpers.random_stream_name()
 
-      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+      # newer ES versions return an error:
+      # {:ok, %ExMsg.DeleteStreamCompleted{}} =
+      {:error, :wrong_expected_version,
+       %Extreme.Messages.DeleteStreamCompleted{prepare_position: -1, commit_position: -1}} =
         TestConn.execute(Helpers.delete_stream(stream, false))
     end
 

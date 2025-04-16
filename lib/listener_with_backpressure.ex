@@ -1,5 +1,5 @@
 defmodule Extreme.ListenerWithBackPressure do
-  @moduledoc ~S"""
+  @moduledoc """
   The same as `Extreme.Listener` but uses event_producer functionality which applies backpressure
   on live events as well.
 
@@ -7,7 +7,7 @@ defmodule Extreme.ListenerWithBackPressure do
   and creates new subscription when all buffered events are processed.
   """
 
-  @callback on_init(opts_from_start_link :: Keyword.t()) :: :ok | {:ok, client_state :: any()}
+  @callback on_init(opts_from_start_link :: Keyword.t()) :: {:ok, client_state :: any()}
   @callback get_last_event(stream_name :: String.t(), client_state :: any()) ::
               last_event :: integer()
   @callback process_push(
@@ -18,6 +18,7 @@ defmodule Extreme.ListenerWithBackPressure do
               {:ok, event_number :: non_neg_integer()}
               | :ok
               | :stop
+  @callback on_caught_up(client_state :: any()) :: any()
 
   defmacro __using__(_) do
     quote location: :keep do
@@ -59,13 +60,10 @@ defmodule Extreme.ListenerWithBackPressure do
 
       @impl GenServer
       def init({extreme, opts}) do
-        client_state =
+        {:ok, client_state} =
           opts
+          |> Keyword.put(:extreme, extreme)
           |> on_init()
-          |> case do
-            :ok -> %{}
-            {:ok, client_state} -> client_state
-          end
 
         stream_name = Keyword.fetch!(opts, :stream)
         last_event = fn -> get_last_event(stream_name, client_state) end
@@ -119,13 +117,21 @@ defmodule Extreme.ListenerWithBackPressure do
       end
 
       @impl GenServer
+      def handle_info(:caught_up, %{} = state) do
+        on_caught_up(state.client_state)
+        {:noreply, state}
+      end
+
       def handle_info(_, %{} = state),
         do: {:noreply, state}
 
       @impl Extreme.ListenerWithBackPressure
-      def on_init(_), do: :ok
+      def on_init(_), do: {:ok, %{}}
 
-      defoverridable on_init: 1
+      @impl Extreme.ListenerWithBackPressure
+      def on_caught_up(_), do: :ok
+
+      defoverridable on_init: 1, on_caught_up: 1
     end
   end
 end

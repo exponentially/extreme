@@ -130,6 +130,41 @@ defmodule Extreme.ListenerWithBackPressureTest do
     Helpers.assert_no_leaks(TestConn)
   end
 
+  test "timeout is per event, not per batch" do
+    sleep = 5_001
+    stream = Helpers.random_stream_name()
+    event1 = %Event.SlowProcessingEventHappened{sleep: sleep}
+    event2 = %Event.SlowProcessingEventHappened{sleep: sleep}
+
+    assert DB.get_last_event(MyListenerWithBackPressure, stream) == -1
+
+    # write 2 events to stream
+    {:ok, %ExMsg.WriteEventsCompleted{}} =
+      TestConn.execute(Helpers.write_events(stream, [event1, event2]))
+
+    # run listener and expect it to read them
+    {:ok, listener} =
+      MyListenerWithBackPressure.start_link(TestConn, stream,
+        read_per_page: 2,
+        ack_timeout: sleep + 1_000
+      )
+
+    refute_receive {:processing_push, _event_type, _event}, sleep - 1
+    assert_receive {:processing_push, event_type, event}
+    assert event_type == "Elixir.ExtremeTest.Events.SlowProcessingEventHappened"
+    assert event1 == :erlang.binary_to_term(event)
+
+    refute_receive {:processing_push, _event_type, _event}, sleep - 1
+    assert_receive {:processing_push, event_type, event}
+    assert event_type == "Elixir.ExtremeTest.Events.SlowProcessingEventHappened"
+    assert event2 == :erlang.binary_to_term(event)
+
+    assert DB.get_last_event(MyListenerWithBackPressure, stream) == 1
+
+    :ok = MyListenerWithBackPressure.unsubscribe(listener)
+    Helpers.assert_no_leaks(TestConn)
+  end
+
   test "subscribe/unsubscribe" do
     stream = Helpers.random_stream_name()
     event1 = %Event.PersonCreated{name: "Pera"}
