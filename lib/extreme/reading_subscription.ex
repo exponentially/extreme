@@ -141,23 +141,23 @@ defmodule Extreme.ReadingSubscription do
     Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
 
     response.events
-    |> Enum.any?(fn msg ->
+    |> Enum.reduce_while(false, fn msg, _ ->
       state.subscriber
       |> Shared.on_event(msg, state.read_params.ack_timeout)
       |> case do
         :ok ->
-          false
+          {:cont, false}
 
         :stop ->
           Logger.info("Processing of read message is stopped")
-          true
+          {:halt, true}
 
         error ->
           Logger.warning(
             "Processing of buffered message didn't succeed: #{inspect([msg, error])}"
           )
 
-          true
+          {:halt, true}
       end
     end)
     # One event processing didn't succeed (maybe we got `:stop`)
