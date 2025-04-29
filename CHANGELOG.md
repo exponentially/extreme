@@ -1,4 +1,18 @@
-# Changelog for extreme v1.1.0
+# v1.1.1
+
+## Breaking changes
+
+- `ListenerWithBackPressure.on_init/1` doesn't support `:ok` result anymore, it must return `{:ok, client_state}`
+
+## New
+
+- add `on_caught_up(client_state)` callback to ListenerWithBackPressure
+
+## Improvements
+
+- Stop sending already read events to subscriber, if it returned `:stop` from processing previous one.
+
+# v1.1.0
 
 ## Breaking changes
 
@@ -9,50 +23,50 @@
 - Add event_producer functionality for module that uses `Extreme`.
 - Add option to exclude catch all `handle_info` when using `Extreme.Listener`
 
-# Changelog for extreme v1.0.7
+# v1.0.7
 
 - Fix stoping subscription if `on_event` callback returns `:stop`
 
-# Changelog for extreme v1.0.6
+# v1.0.6
 
 - Add `Listener.subscribed?/1` function
 
-# Changelog for extreme v1.0.5
+# v1.0.5
 
 - RequestManager buffers live events received after subscription is created,
   but before it is registered
 
-# Changelog for extreme v1.0.4
+# v1.0.4
 
 - Listener.process_push callback can return `:stop`, meaning subscription should be stopped
   and pushes that are already in mailbox should be purged.
 
-# Changelog for extreme v1.0.3
+# v1.0.3
 
 - Add subscribe/unsubscribe and auto_subscribe? option for starting `Extreme.Listener`
 
-# Changelog for extreme v1.0.0-beta2
+# v1.0.0-beta2
 
 - Restart all subscriptions and subscribers/listeners when connection receives :tcp_closed
 
-# Changelog for extreme v0.13.1
+# v0.13.1
 
 - Dependency version upgrades
 
-# Changelog for extreme v0.13.0
+# v0.13.0
 
 - Support Elixir 1.7.0 and OTP 21.0
 - Listener reads events in chunks of 500 events (instead of 4096)
 
-# Changelog for extreme v0.11.0
+# v0.11.0
 
 - Added support for EventStore 4
 
-# Changelog for extreme v0.10.4
+# v0.10.4
 
 - Fixed issue with concurrent read and write where messages get stuck into extreme process state
 
-# Changelog for extreme v0.10.3
+# v0.10.3
 
 - Extreme.Listener - if get_last_event/1 returns `:from_now`, catching events will start from current event
 
