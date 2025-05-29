@@ -8,6 +8,8 @@ defmodule Extreme do
   @doc false
   defmacro __using__(opts \\ []) do
     quote do
+      alias Extreme.Messages, as: ExMsg
+
       @otp_app Keyword.get(unquote(opts), :otp_app, :extreme)
 
       defp _default_config,
@@ -35,6 +37,21 @@ defmodule Extreme do
           correlation_id || Extreme.Tools.generate_uuid(),
           timeout
         )
+      end
+
+      @doc """
+      Starts database scavenge on current connection. Pay attention that
+      if cluster is used, scavenge will be executed only on connected node!
+      """
+      @spec scavenge_database() :: :ok | any()
+      def scavenge_database() do
+        ExMsg.ScavengeDatabase.new()
+        |> execute()
+        |> case do
+          {:ok, %Extreme.Messages.ScavengeDatabaseCompleted{result: :success}} -> :ok
+          {:ok, %Extreme.Messages.ScavengeDatabaseCompleted{result: other}} -> {:error, other}
+          other -> other
+        end
       end
 
       def subscribe_to(stream, subscriber, resolve_link_tos \\ true, ack_timeout \\ 5_000)
