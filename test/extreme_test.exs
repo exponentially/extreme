@@ -79,6 +79,71 @@ defmodule ExtremeTest do
               }} = TestConn.execute(Helpers.write_events())
     end
 
+    test "setting metadata works" do
+      # write 2 events
+      stream_name = "extreme_test-" <> to_string(UUID.uuid4())
+      # IO.inspect("http://localhost:2113/web/index.html#/streams/" <> stream_name)
+
+      events_1 = [
+        %Event.PersonCreated{name: "First round"},
+        %Event.PersonChangedName{name: "First round change"}
+      ]
+
+      assert {:ok, %ExMsg.WriteEventsCompleted{result: :success}} =
+               TestConn.execute(Helpers.write_events(stream_name, events_1))
+
+      assert {:error, :no_stream} == TestConn.get_metadata(stream_name)
+
+      # set max age for stream
+      max_age_seconds = 5
+
+      metadata =
+        %{
+          "$maxAge" => max_age_seconds
+          # "$tb" => 3
+        }
+
+      assert :ok = TestConn.set_metadata(stream_name, metadata)
+      assert {:ok, ^metadata} = TestConn.get_metadata(stream_name)
+
+      # make sure events are still evailable
+      {:ok, %ExMsg.ReadStreamEventsCompleted{events: read_events, is_end_of_stream: true}} =
+        TestConn.execute(Helpers.read_events(stream_name, 0, 20))
+
+      assert events_1 ==
+               Enum.map(read_events, fn event -> :erlang.binary_to_term(event.event.data) end)
+
+      # wait for max age to expire and then scavenge db
+      Process.sleep(10_000)
+
+      assert :ok = TestConn.scavenge_database()
+
+      # make sure no events left in stream
+      {:ok, %ExMsg.ReadStreamEventsCompleted{events: [], is_end_of_stream: true}} =
+        TestConn.execute(Helpers.read_events(stream_name, 0, 20))
+
+      # Remove max age is not good idea, because ES eventualy deletes data!
+      # Even scavenge is not guarantee old ones will be deleted immediately
+      # assert {:ok, %ExMsg.WriteEventsCompleted{result: :success}} =
+      #          TestConn.execute(write_metadata(stream_name, %{}))
+
+      # write 2 new events
+      events_2 = [
+        %Event.PersonCreated{name: "Second round"},
+        %Event.PersonChangedName{name: "Second round change"}
+      ]
+
+      assert {:ok, %ExMsg.WriteEventsCompleted{result: :success}} =
+               TestConn.execute(Helpers.write_events(stream_name, events_2))
+
+      # make sure we have only new events
+      {:ok, %ExMsg.ReadStreamEventsCompleted{events: read_events_2, is_end_of_stream: true}} =
+        TestConn.execute(Helpers.read_events(stream_name, 0, 20))
+
+      assert events_2 ==
+               Enum.map(read_events_2, fn event -> :erlang.binary_to_term(event.event.data) end)
+    end
+
     test "for existing stream is success" do
       stream = Helpers.random_stream_name()
 

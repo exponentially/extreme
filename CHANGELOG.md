@@ -1,3 +1,10 @@
+# v1.1.2
+
+## New
+
+- Add Extreme.set/get_metadata
+- Add Extreme.scavenge_database
+
 # v1.1.1
 
 ## Breaking changes

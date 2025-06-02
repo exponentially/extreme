@@ -40,6 +40,72 @@ defmodule Extreme do
       end
 
       @doc """
+      Sets metadata map to stream. To remove metadata, set an empty map.
+
+      Example:
+        metadata = %{ "$maxAge" => max_age_seconds }
+        :ok = MyConn.set_metadata("user-123", metadata)
+      """
+      @spec set_metadata(String.t(), map()) :: :ok | any()
+      def set_metadata(stream, %{} = metadata) do
+        stream
+        |> _write_metadata(metadata)
+        |> execute()
+        |> case do
+          {:ok, %ExMsg.WriteEventsCompleted{result: :success}} -> :ok
+          {:ok, %ExMsg.WriteEventsCompleted{result: result}} -> {:error, result}
+          other -> other
+        end
+      end
+
+      @doc """
+      Gets metadata map from stream.
+
+      Example:
+        > stream = "users-123"
+        > MyConn.get_metadata(stream)
+        {:error, :no_stream}
+
+        > max_age_seconds = 60 * 60 * 24 # keep events 1 day
+        > metadata = %{ "$maxAge" => max_age_seconds }
+        > :ok = MyConn.set_metadata(stream, metadata)
+
+        > MyConn.get_metadata(stream)
+        {:ok, %{ "$maxAge" => 86_400 }}
+      """
+      @spec get_metadata(String.t()) :: {:ok, map()} | {:error, :no_stream}
+      def get_metadata(stream) do
+        stream
+        |> _read_metadata()
+        |> execute()
+        |> case do
+          {:error, :no_stream, %ExMsg.ReadStreamEventsCompleted{result: :no_stream}} ->
+            {:error, :no_stream}
+
+          {:ok,
+           %ExMsg.ReadStreamEventsCompleted{
+             events: [
+               %ExMsg.ResolvedIndexedEvent{
+                 event: %Extreme.Messages.EventRecord{
+                   event_stream_id: "$$" <> ^stream,
+                   event_type: "$metadata",
+                   data: data
+                 }
+               }
+               | _
+             ],
+             result: :success
+           }} ->
+            data
+            |> Jason.decode()
+            |> case do
+              {:ok, decoded} -> {:ok, decoded}
+              _ -> data
+            end
+        end
+      end
+
+      @doc """
       Starts database scavenge on current connection. Pay attention that
       if cluster is used, scavenge will be executed only on connected node!
       """
@@ -52,6 +118,39 @@ defmodule Extreme do
           {:ok, %Extreme.Messages.ScavengeDatabaseCompleted{result: other}} -> {:error, other}
           other -> other
         end
+      end
+
+      defp _write_metadata(stream, %{} = metadata) do
+        metadata_stream_name = "$$" <> stream
+
+        proto_event =
+          ExMsg.NewEvent.new(
+            event_id: Extreme.Tools.generate_uuid(),
+            event_type: "$metadata",
+            data_content_type: 1,
+            metadata_content_type: 1,
+            data: Jason.encode!(metadata),
+            metadata: ""
+          )
+
+        ExMsg.WriteEvents.new(
+          event_stream_id: metadata_stream_name,
+          expected_version: -2,
+          events: [proto_event],
+          require_master: false
+        )
+      end
+
+      defp _read_metadata(stream) do
+        metadata_stream_name = "$$" <> stream
+
+        Extreme.Messages.ReadStreamEventsBackward.new(
+          event_stream_id: metadata_stream_name,
+          from_event_number: -1,
+          max_count: 1,
+          resolve_link_tos: false,
+          require_master: false
+        )
       end
 
       def subscribe_to(stream, subscriber, resolve_link_tos \\ true, ack_timeout \\ 5_000)
