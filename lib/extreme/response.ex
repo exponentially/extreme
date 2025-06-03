@@ -22,7 +22,7 @@ defmodule Extreme.Response do
         {:error, :bad_request, correlation_id}
 
       response_struct ->
-        data = response_struct.decode(data)
+        data = apply(response_struct, :decode, [data])
         # IO.inspect([correlation_id, data.__struct__], label: "Received from ES")
         {auth, correlation_id, data}
     end

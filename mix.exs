@@ -15,7 +15,7 @@ defmodule Extreme.Mixfile do
       start_permanent: Mix.env() == :prod,
       test_coverage: [
         summary: [
-          threshold: 83
+          threshold: 84
         ]
       ],
       preferred_cli_env: [

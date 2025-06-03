@@ -40,6 +40,90 @@ defmodule Extreme do
       end
 
       @doc """
+      Reads events from `stream_name` given `opts` 
+      as keyword list of `Extreme.Reading.Params` keys,
+      and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
+      if further processing of events should be stopped
+      """
+      @spec read_events(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+                                                    :ok
+                                                    | :stop
+                                                    | {:stop, response :: any()})) ::
+              :finished
+              | {:stopped, response :: nil | any()}
+              | {:error, :no_stream | :stream_hard_deleted}
+              | {:error, :unexpected_processing_response, any()}
+      def read_events(stream_name, opts \\ [], fun) do
+        params =
+          [{:stream, stream_name} | opts]
+          |> Enum.into(%{})
+          |> Extreme.Reading.Params.new()
+
+        Extreme.Reading.read_events(__MODULE__, params, fun)
+      end
+
+      @doc """
+      Reads events backwards from `stream_name` given `opts`
+      as keyword list of `Extreme.Reading.Params` keys,
+      and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
+      if further processing of events should be stopped
+      """
+      @spec read_events_backwards(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+                                                              :ok
+                                                              | :stop
+                                                              | {:stop, response :: any()})) ::
+              :finished
+              | {:stopped, response :: any()}
+              | {:error, :no_stream | :stream_hard_deleted}
+              | {:error, :unexpected_processing_response, any()}
+      def read_events_backwards(stream_name, opts \\ [], fun) do
+        params =
+          [{:stream, stream_name} | opts]
+          |> Enum.into(%{})
+          |> Extreme.Reading.Params.new_backwards()
+
+        Extreme.Reading.read_events(__MODULE__, params, fun)
+      end
+
+      @spec reduce_events(acc :: any(), String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t(),
+                                                                  acc :: any() ->
+                                                                    {:ok, acc :: any()}
+                                                                    | {:stop, acc :: any()})) ::
+              {:finished, acc :: any()}
+              | {:stopped, acc :: any()}
+              | {:error, :no_stream | :stream_hard_deleted}
+              | {:error, :unexpected_processing_response, any()}
+      def reduce_events(acc, stream_name, opts \\ [], fun) do
+        params =
+          [{:stream, stream_name} | opts]
+          |> Enum.into(%{})
+          |> Extreme.Reading.Params.new()
+
+        Extreme.Reading.reduce_events(__MODULE__, acc, params, fun)
+      end
+
+      @spec reduce_events_backwards(
+              acc :: any(),
+              String.t(),
+              Keyword.t(),
+              (ExMsg.StreamEventAppeared.t(), acc :: any() ->
+                 {:ok, acc :: any()}
+                 | {:stop, acc :: any()})
+            ) ::
+              {:finished, acc :: any()}
+              | {:stopped, acc :: any()}
+              | {:error, :no_stream | :stream_hard_deleted}
+              | {:error, :unexpected_processing_response, any()}
+      def reduce_events_backwards(acc, stream_name, opts \\ [], fun) do
+        params =
+          [{:stream, stream_name} | opts]
+          |> Enum.into(%{})
+          |> Extreme.Reading.Params.new_backwards()
+
+        Extreme.Reading.reduce_events(__MODULE__, acc, params, fun)
+      end
+
+      @doc """
       Sets metadata map to stream. To remove metadata, set an empty map.
 
       Example:

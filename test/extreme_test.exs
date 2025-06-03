@@ -99,8 +99,11 @@ defmodule ExtremeTest do
 
       metadata =
         %{
-          "$maxAge" => max_age_seconds
-          # "$tb" => 3
+          "$maxAge" => max_age_seconds,
+          # "$tb" => 3,
+          #
+          # custom metadata is ok
+          "processed" => true
         }
 
       assert :ok = TestConn.set_metadata(stream_name, metadata)
