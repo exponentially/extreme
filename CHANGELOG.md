@@ -1,3 +1,11 @@
+# v1.1.2
+
+## New
+
+- Add Extreme.set/get_metadata
+- Add Extreme.scavenge_database
+- Add Extreme.read_events/3 and Extreme.read_events_backwards/3
+
 # v1.1.1
 
 ## Breaking changes

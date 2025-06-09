@@ -186,9 +186,10 @@ defmodule Extreme.ReadingSubscription do
   end
 
   defp _send_next_request(next_event_number, state) do
+    state = %{state | read_params: %{state.read_params | from_event_number: next_event_number}}
     Logger.debug(fn -> "Reading new batch of events #{inspect(state.read_params)}" end)
     GenServer.cast(self(), :read_events)
-    %{state | read_params: %{state.read_params | from_event_number: next_event_number}}
+    state
   end
 
   defp _read_events_message(%{from_event_number: from, per_page: per_page} = params, read_until)

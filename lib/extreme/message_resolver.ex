@@ -49,8 +49,7 @@ defmodule Extreme.MessageResolver do
   def encode_cmd(:update_persistent_subscription), do: 0xCE
   def encode_cmd(:update_persistent_subscription_completed), do: 0xCF
 
-  def encode_cmd(:scavenge_database), do: 0xD0
-  def encode_cmd(:scavenge_database_completed), do: 0xD1
+  def encode_cmd(Msg.ScavengeDatabase), do: 0xD0
 
   def encode_cmd(:not_handled), do: 0xF1
   def encode_cmd(:authenticate), do: 0xF2
@@ -81,6 +80,8 @@ defmodule Extreme.MessageResolver do
 
   def decode_cmd(0xC9), do: Msg.CreatePersistentSubscriptionCompleted
   def decode_cmd(0xCB), do: Msg.DeletePersistentSubscriptionCompleted
+
+  def decode_cmd(0xD1), do: Msg.ScavengeDatabaseCompleted
 
   def decode_cmd(0xF0), do: :bad_request
   def decode_cmd(0xF4), do: :not_authenticated
