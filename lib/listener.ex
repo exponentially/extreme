@@ -2,8 +2,10 @@ defmodule Extreme.Listener do
   @moduledoc ~S"""
   TODO
   """
+  require Logger
+
   defmacro __using__(opts \\ []) do
-    quote do
+    quote location: :keep do
       use GenServer
       require Logger
 
@@ -50,6 +52,10 @@ defmodule Extreme.Listener do
 
       def unsubscribe(server \\ __MODULE__), do: GenServer.call(server, :unsubscribe)
 
+      @doc """
+      Initializes subscription with EventStore if one one does not exist already.
+      If it does, it's a noop.
+      """
       def subscribe(server \\ __MODULE__), do: GenServer.cast(server, :subscribe)
       def subscribed?(server \\ __MODULE__), do: GenServer.call(server, :subscribed?)
 
@@ -122,22 +128,27 @@ defmodule Extreme.Listener do
 
       @impl true
       def handle_cast(:subscribe, state) do
-        {:ok, state} =
-          case get_last_event(state.stream_name) do
-            #            :from_now ->
-            #              {:ok, %{last_event_number: last_event}} =
-            #                Extreme.execute(state.event_store, _read_events_backward(state.stream_name))
-            #
-            #              _start_subscription(last_event, state)
-            #
-            #            {:patch, last_event, patch_until} ->
-            #              start_patching(last_event, patch_until, state)
-            #
-            last_event ->
-              _start_subscription(last_event, state)
-          end
+        if state.subscription && Process.alive?(state.subscription) do
+          Logger.warning("Ignoring subscribe attempt with existing subscriber.")
+          {:noreply, state}
+        else
+          {:ok, state} =
+            case get_last_event(state.stream_name) do
+              #            :from_now ->
+              #              {:ok, %{last_event_number: last_event}} =
+              #                Extreme.execute(state.event_store, _read_events_backward(state.stream_name))
+              #
+              #              _start_subscription(last_event, state)
+              #
+              #            {:patch, last_event, patch_until} ->
+              #              start_patching(last_event, patch_until, state)
+              #
+              last_event ->
+                _start_subscription(last_event, state)
+            end
 
-        {:noreply, state}
+          {:noreply, state}
+        end
       end
 
       @impl true

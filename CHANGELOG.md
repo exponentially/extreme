@@ -1,3 +1,10 @@
+# v1.1.3
+
+## (Breaking) change
+
+- call for subscribe in `Extreme.Listener` will be ignored if there's live subscription,
+  avoiding double subscriptions that result in doubled push messages for the same new live events.
+
 # v1.1.2
 
 ## New

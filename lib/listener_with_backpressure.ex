@@ -11,7 +11,8 @@ defmodule Extreme.ListenerWithBackPressure do
   @callback get_last_event(stream_name :: String.t(), client_state :: any()) ::
               last_event :: integer()
   @callback process_push(
-              push_from_es :: Extreme.Messages.ResolvedEvent.t(),
+              push_from_es ::
+                Extreme.Messages.ResolvedEvent.t() | Extreme.Messages.ResolvedIndexedEvent.t(),
               stream_name :: String.t(),
               client_state :: any()
             ) ::

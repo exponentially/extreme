@@ -1,5 +1,3 @@
-version: '3.4'
-
 services:
   event_store:
     #image: eventstore/eventstore:release-5.0.11
