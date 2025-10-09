@@ -1,3 +1,9 @@
+# v1.1.4
+
+## Fix?
+
+- removed specs from `Extreme.Reading` functions, until they are properly fixed.
+
 # v1.1.3
 
 ## (Breaking) change

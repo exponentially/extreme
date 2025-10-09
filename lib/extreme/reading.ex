@@ -46,12 +46,13 @@ defmodule Extreme.Reading do
     end
   end
 
-  @spec read_events(module(), Params.t(), (ExMsg.StreamEventAppeared.t() ->
-                                             :ok | :stop | {:stop, response :: any()})) ::
-          :finished
-          | {:stopped, response :: any()}
-          | {:error, :no_stream | :stream_hard_deleted}
-          | {:error, :unexpected_processing_response, any()}
+  # needs fixing
+  # @spec read_events(module(), Params.t(), (ExMsg.StreamEventAppeared.t() ->
+  #                                            :ok | :stop | {:stop, response :: any()})) ::
+  #         :finished
+  #         | {:stopped, response :: any()}
+  #         | {:error, :no_stream | :stream_hard_deleted}
+  #         | {:error, :unexpected_processing_response, any()}
   def read_events(base_name, %Params{} = params, fun) do
     base_name
     |> reduce_events(@dont_reduce, params, fun)
@@ -61,13 +62,14 @@ defmodule Extreme.Reading do
     end
   end
 
-  @spec reduce_events(module(), any(), Params.t(), (ExMsg.StreamEventAppeared.t(), acc :: any() ->
-                                                      {:ok, acc :: any}
-                                                      | {:stop, acc :: any()})) ::
-          {:finished, acc :: any()}
-          | {:stopped, acc :: any()}
-          | {:error, :no_stream | :stream_hard_deleted}
-          | {:error, :unexpected_processing_response, any()}
+  # needs fixing
+  # @spec reduce_events(module(), any(), Params.t(), (ExMsg.StreamEventAppeared.t(), acc :: any() ->
+  #                                                     {:ok, acc :: any}
+  #                                                     | {:stop, acc :: any()})) ::
+  #         {:finished, acc :: any()}
+  #         | {:stopped, acc :: any()}
+  #         | {:error, :no_stream | :stream_hard_deleted}
+  #         | {:error, :unexpected_processing_response, any()}
   def reduce_events(base_name, acc, %Params{} = params, fun) do
     params
     |> _build_request()
