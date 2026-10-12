@@ -10,7 +10,6 @@ end
 defmodule ExtremeTest.Helpers do
   alias Extreme.Messages, as: ExMsg
   alias ExtremeTest.Events, as: Event
-  require ExUnit.Assertions
   require Logger
   import ExUnit.Assertions
 
@@ -106,6 +105,21 @@ defmodule ExtremeTest.Helpers do
       resolve_link_tos: true,
       require_master: false
     )
+  end
+
+  # ESDB acks a write to a soft-deleted stream before indexing the metadata event that undeletes it.
+  def read_when_undeleted(extreme, stream, attempts \\ 50) do
+    stream
+    |> read_events(0, 2)
+    |> extreme.execute()
+    |> case do
+      {:error, :no_stream, _response} when attempts > 1 ->
+        Process.sleep(20)
+        read_when_undeleted(extreme, stream, attempts - 1)
+
+      response ->
+        response
+    end
   end
 
   def unsubscribe(extreme, subscription) do

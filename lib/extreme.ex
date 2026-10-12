@@ -258,7 +258,7 @@ defmodule Extreme do
             ack_timeout \\ 5_000
           )
           when is_binary(stream) and is_pid(subscriber) and is_boolean(resolve_link_tos) and
-                 is_boolean(require_master) and from_event_number > -2 and per_page >= 0 and
+                 is_boolean(require_master) and from_event_number >= 0 and per_page > 0 and
                  per_page <= 4096 do
         Extreme.RequestManager.read_and_stay_subscribed(
           __MODULE__,
@@ -339,8 +339,8 @@ defmodule Extreme do
   @callback read_and_stay_subscribed(
               stream :: String.t(),
               subscriber :: pid(),
-              from_event_number :: integer(),
-              per_page :: integer(),
+              from_event_number :: non_neg_integer(),
+              per_page :: pos_integer(),
               resolve_link_tos :: boolean(),
               require_master :: boolean()
             ) :: {:ok, pid()}

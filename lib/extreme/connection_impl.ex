@@ -5,8 +5,6 @@ defmodule Extreme.ConnectionImpl do
   alias Extreme.RequestManager
   alias Extreme.Connection.State
 
-  require Logger
-
   def execute(message, %State{socket: socket}),
     do: :gen_tcp.send(socket, message)
 

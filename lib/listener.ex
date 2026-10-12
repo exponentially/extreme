@@ -2,7 +2,6 @@ defmodule Extreme.Listener do
   @moduledoc ~S"""
   TODO
   """
-  require Logger
 
   defmacro __using__(opts \\ []) do
     quote location: :keep do

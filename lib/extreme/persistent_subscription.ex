@@ -87,7 +87,6 @@ defmodule Extreme.PersistentSubscription do
   """
 
   use GenServer
-  require Logger
   alias Extreme.SharedSubscription, as: Shared
   alias Extreme.RequestManager
   alias Extreme.Messages, as: Msg

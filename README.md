@@ -8,6 +8,6 @@
 
 Erlang/Elixir TCP client for [Event Store](http://geteventstore.com/).
 
-This version is tested with EventStore 3.9.3, 4.1.1 and 5.0.10, Elixir 1.9 - 1.11 and Erlang/OTP 22.3 - 24.0
+This version is tested with EventStore 5.0.11 and 21.10.5, Elixir 1.19 - 1.20 and Erlang/OTP 26 - 29
 
 Documentation is TBD

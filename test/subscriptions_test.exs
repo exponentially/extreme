@@ -280,6 +280,102 @@ defmodule ExtremeSubscriptionsTest do
       Helpers.unsubscribe(TestConn, subscription)
     end
 
+    test "starting ahead of the stream's end catches up and pushes only live events from the start" do
+      stream = Helpers.random_stream_name()
+      [e0, e1, e2, e3, e4, e5, e6, e7] = for n <- 0..7, do: %Event.PersonCreated{name: "#{n}"}
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, [e0, e1, e2]))
+
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 6, 2)
+      _unsubscribe_on_exit(subscription)
+      ref = Process.monitor(subscription)
+
+      assert_receive :caught_up
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, [e3, e4, e5, e6, e7]))
+
+      for _ <- 1..2, do: assert_receive({:on_event, _event})
+      assert [e6, e7] == Subscriber.received_events(subscriber)
+      refute_received {:DOWN, ^ref, :process, _subscription, _reason}
+
+      Helpers.unsubscribe(TestConn, subscription)
+    end
+
+    for resolve_link_tos <- [true, false] do
+      test "starting ahead of a category stream's end skips links below the start (resolve_link_tos: #{resolve_link_tos})" do
+        category = "extremetest" <> String.replace(UUID.uuid4(), "-", "")
+        category_stream = "$ce-" <> category
+
+        {:ok, %ExMsg.WriteEventsCompleted{}} =
+          TestConn.execute(Helpers.write_events(category <> "-one", _people(~w(0 1 2))))
+
+        :ok = _wait_for_events(category_stream, 3)
+
+        {:ok, subscriber} = Subscriber.start_link()
+
+        {:ok, subscription} =
+          TestConn.read_and_stay_subscribed(
+            category_stream,
+            subscriber,
+            5,
+            2,
+            unquote(resolve_link_tos)
+          )
+
+        _unsubscribe_on_exit(subscription)
+        assert_receive :caught_up
+
+        {:ok, %ExMsg.WriteEventsCompleted{}} =
+          TestConn.execute(Helpers.write_events(category <> "-two", _people(~w(3 4 5 6))))
+
+        assert_receive {:on_event, first}
+        assert_receive {:on_event, second}
+        assert [5, 6] == Enum.map([first, second], &_link_number/1)
+
+        Helpers.unsubscribe(TestConn, subscription)
+      end
+    end
+
+    test "rejects per_page 0 at the call" do
+      {:ok, subscriber} = Subscriber.start_link()
+
+      assert %FunctionClauseError{module: TestConn, function: :read_and_stay_subscribed} =
+               assert_raise(FunctionClauseError, fn ->
+                 TestConn.read_and_stay_subscribed(Helpers.random_stream_name(), subscriber, 0, 0)
+               end)
+    end
+
+    test "rejects a negative start at the call" do
+      {:ok, subscriber} = Subscriber.start_link()
+
+      assert %FunctionClauseError{module: TestConn, function: :read_and_stay_subscribed} =
+               assert_raise(FunctionClauseError, fn ->
+                 TestConn.read_and_stay_subscribed(
+                   Helpers.random_stream_name(),
+                   subscriber,
+                   -1,
+                   2
+                 )
+               end)
+    end
+
+    test "RequestManager rejects per_page outside 1..4096 and a negative start for callers bypassing the public guard" do
+      stream = Helpers.random_stream_name()
+
+      for {from, per_page} <- [{0, 0}, {0, 4097}, {-1, 2}] do
+        assert_raise FunctionClauseError, fn ->
+          Extreme.RequestManager.read_and_stay_subscribed(
+            TestConn,
+            self(),
+            {stream, from, per_page, true, false, 5_000}
+          )
+        end
+      end
+    end
+
     test "read events and stay subscribed for non existing stream is ok" do
       stream = Helpers.random_stream_name()
 
@@ -367,6 +463,25 @@ defmodule ExtremeSubscriptionsTest do
                Enum.map(response.events, fn event -> :erlang.binary_to_term(event.event.data) end)
 
       Helpers.unsubscribe(TestConn, subscription)
+    end
+
+    test "unsubscribing while the read of a soft-deleted stream is retried stops it cleanly" do
+      stream = Helpers.random_stream_name()
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, _people(~w(1))))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 3)
+      ref = Process.monitor(subscription)
+
+      :ok = TestConn.unsubscribe(subscription)
+
+      assert_receive {:DOWN, ^ref, :process, _subscription, {:shutdown, :unsubscribed}}
+      refute_received :caught_up
     end
 
     test "read events and stay subscribed for recreated stream is ok" do
@@ -619,4 +734,45 @@ defmodule ExtremeSubscriptionsTest do
       Helpers.unsubscribe(TestConn, subscription)
     end
   end
+
+  defp _people(names), do: for(name <- names, do: %Event.PersonCreated{name: name})
+
+  # The category projection writes links asynchronously.
+  defp _wait_for_events(stream, count, attempts \\ 50)
+
+  defp _wait_for_events(_stream, _count, 0),
+    do: flunk("category projection not running? start ESDB with standard projections")
+
+  defp _wait_for_events(stream, count, attempts) do
+    stream
+    |> Helpers.read_events(0, 100)
+    |> TestConn.execute()
+    |> case do
+      {:ok, %ExMsg.ReadStreamEventsCompleted{events: events}} when length(events) >= count ->
+        :ok
+
+      _not_yet ->
+        Process.sleep(100)
+        _wait_for_events(stream, count, attempts - 1)
+    end
+  end
+
+  defp _unsubscribe_on_exit(subscription) do
+    on_exit(fn ->
+      ref = Process.monitor(subscription)
+      :ok = TestConn.unsubscribe(subscription)
+
+      receive do
+        {:DOWN, ^ref, :process, _subscription, _reason} -> :ok
+      after
+        5_000 -> :ok
+      end
+    end)
+  end
+
+  defp _link_number(%ExMsg.ResolvedEvent{link: %ExMsg.EventRecord{event_number: number}}),
+    do: number
+
+  defp _link_number(%ExMsg.ResolvedEvent{event: %ExMsg.EventRecord{event_number: number}}),
+    do: number
 end

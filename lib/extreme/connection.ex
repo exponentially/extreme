@@ -43,7 +43,7 @@ defmodule Extreme.Connection do
           |> Configuration.get_connection_name()
           |> RequestManager.identify_client(state.base_name)
 
-        {:noreply, %State{state | socket: socket}}
+        {:noreply, %{state | socket: socket}}
 
       error ->
         {:stop, error, state}
