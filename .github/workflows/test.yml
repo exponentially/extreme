@@ -13,11 +13,18 @@ env:
 jobs:
   ES-4:
     name: ES 4.1.0
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        elixir: ['1.15', '1.16']
-        erlang: ['24', '25', '26']
+        elixir: ['1.18', '1.19', '1.20']
+        erlang: ['25', '26', '27', '28', '29']
+        # Officially supported pairs only: 1.18 -> OTP 25-28, 1.19 -> 26-28, 1.20 -> 27-29
+        exclude:
+          - {elixir: '1.18', erlang: '29'}
+          - {elixir: '1.19', erlang: '25'}
+          - {elixir: '1.19', erlang: '29'}
+          - {elixir: '1.20', erlang: '25'}
+          - {elixir: '1.20', erlang: '26'}
 
     services:
       es:
@@ -59,11 +66,18 @@ jobs:
 
   ES-5:
     name: ES 5.0.11
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        elixir: ['1.15', '1.16']
-        erlang: ['24', '25', '26']
+        elixir: ['1.18', '1.19', '1.20']
+        erlang: ['25', '26', '27', '28', '29']
+        # Officially supported pairs only: 1.18 -> OTP 25-28, 1.19 -> 26-28, 1.20 -> 27-29
+        exclude:
+          - {elixir: '1.18', erlang: '29'}
+          - {elixir: '1.19', erlang: '25'}
+          - {elixir: '1.19', erlang: '29'}
+          - {elixir: '1.20', erlang: '25'}
+          - {elixir: '1.20', erlang: '26'}
 
     services:
       es:
@@ -104,16 +118,23 @@ jobs:
       run: mix test --cover
 
   ES-21:
-    name: ES 21.6.0
-    runs-on: ubuntu-20.04
+    name: ES 21.10.5
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        elixir: ['1.15', '1.16']
-        erlang: ['24', '25', '26']
+        elixir: ['1.18', '1.19', '1.20']
+        erlang: ['25', '26', '27', '28', '29']
+        # Officially supported pairs only: 1.18 -> OTP 25-28, 1.19 -> 26-28, 1.20 -> 27-29
+        exclude:
+          - {elixir: '1.18', erlang: '29'}
+          - {elixir: '1.19', erlang: '25'}
+          - {elixir: '1.19', erlang: '29'}
+          - {elixir: '1.20', erlang: '25'}
+          - {elixir: '1.20', erlang: '26'}
 
     services:
       es:
-        image: eventstore/eventstore:21.6.0-buster-slim
+        image: eventstore/eventstore:21.10.5-buster-slim
         ports: ['1113:1113']
         env:
           EVENTSTORE_RUN_PROJECTIONS: "All"

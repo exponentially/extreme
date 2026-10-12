@@ -18,13 +18,18 @@ defmodule Extreme.Mixfile do
           threshold: 84
         ]
       ],
-      preferred_cli_env: [
+      deps: _deps()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         vcr: :test,
         "vcr.delete": :test,
         "vcr.check": :test,
         "vcr.show": :test
-      ],
-      deps: _deps()
+      ]
     ]
   end
 

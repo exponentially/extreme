@@ -329,7 +329,7 @@ defmodule Extreme.RequestManager do
     subscriptions = Map.delete(state.subscriptions, correlation_id)
     requests = Map.delete(state.requests, correlation_id)
 
-    state = %State{
+    state = %{
       state
       | subscriptions: subscriptions,
         pid_to_correlation_id: pid_to_correlation_id,

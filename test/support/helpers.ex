@@ -10,7 +10,6 @@ end
 defmodule ExtremeTest.Helpers do
   alias Extreme.Messages, as: ExMsg
   alias ExtremeTest.Events, as: Event
-  require ExUnit.Assertions
   require Logger
   import ExUnit.Assertions
 

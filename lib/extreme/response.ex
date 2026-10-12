@@ -1,6 +1,4 @@
 defmodule Extreme.Response do
-  require Logger
-
   def get_correlation_id(<<_message_type, _auth, correlation_id::16-binary, _data::binary>>),
     do: correlation_id
 

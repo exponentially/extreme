@@ -1,6 +1,5 @@
 defmodule Extreme.Subscription do
   use GenServer
-  require Logger
   alias Extreme.SharedSubscription, as: Shared
 
   defmodule State do
