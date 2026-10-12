@@ -44,7 +44,13 @@ defmodule Extreme.RequestManager do
     |> GenServer.call({:subscribe_to, stream, subscriber, resolve_link_tos, ack_timeout})
   end
 
-  def read_and_stay_subscribed(base_name, subscriber, params) do
+  def read_and_stay_subscribed(
+        base_name,
+        subscriber,
+        {_stream, from_event_number, per_page, _resolve_link_tos, _require_master, _ack_timeout} =
+          params
+      )
+      when from_event_number >= 0 and per_page > 0 and per_page <= 4096 do
     base_name
     |> _name()
     |> GenServer.call({:read_and_stay_subscribed, subscriber, params})

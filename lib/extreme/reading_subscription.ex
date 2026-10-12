@@ -56,8 +56,13 @@ defmodule Extreme.ReadingSubscription do
     {:noreply, state}
   end
 
-  def handle_cast({:process_push, fun}, %{status: :subscribed} = state),
-    do: Shared.process_push(fun, state)
+  def handle_cast({:process_push, fun}, %{status: :subscribed} = state) do
+    push = fun.()
+
+    push
+    |> _before_start?(state.read_params.from_event_number)
+    |> if(do: {:noreply, state}, else: Shared.process_push(fn -> push end, state))
+  end
 
   def handle_cast({:process_push, fun}, %{buffered_messages: buffered_messages} = state) do
     case fun.() do
@@ -69,8 +74,9 @@ defmodule Extreme.ReadingSubscription do
   # We have read all planned events. Now lets push buffered messages.
   def handle_cast(
         :read_events,
-        %{read_params: %{from_event_number: from}, read_until: from} = state
-      ) do
+        %{read_params: %{from_event_number: from}, read_until: read_until} = state
+      )
+      when from >= read_until do
     GenServer.cast(self(), :push_buffered_messages)
     {:noreply, %{state | status: :pushing_buffered}}
   end
@@ -93,6 +99,7 @@ defmodule Extreme.ReadingSubscription do
   def handle_cast(:push_buffered_messages, state) do
     state.buffered_messages
     |> Enum.reverse()
+    |> Enum.reject(&(_event_number(&1) < state.read_params.from_event_number))
     |> Enum.any?(fn msg ->
       state.subscriber
       |> Shared.on_event(msg, state.read_params.ack_timeout)
@@ -137,6 +144,17 @@ defmodule Extreme.ReadingSubscription do
     |> _caught_up(state)
   end
 
+  defp _process_read_response(
+         {:error, reason, %Msg.ReadStreamEventsCompleted{} = response},
+         state
+       ) do
+    Logger.error(fn -> "Reading events failed: #{inspect([reason, response.error])}" end)
+
+    send(state.subscriber, {:extreme, :error, reason, state.read_params.stream})
+    RequestManager.unregister_subscription(state.base_name, state.correlation_id)
+    {:stop, {:shutdown, reason}, state}
+  end
+
   defp _process_read_response({:ok, %Msg.ReadStreamEventsCompleted{} = response}, state) do
     Logger.debug(fn -> "Last read event: #{inspect(response.next_event_number - 1)}" end)
 
@@ -172,6 +190,18 @@ defmodule Extreme.ReadingSubscription do
       {:noreply, state}
     end
   end
+
+  defp _before_start?({_auth, _correlation_id, %Msg.StreamEventAppeared{} = e}, from),
+    do: _event_number(e.event) < from
+
+  defp _before_start?(_push, _from), do: false
+
+  # A resolved link's position in the subscribed stream is the link's own number.
+  defp _event_number(%Msg.ResolvedEvent{link: %Msg.EventRecord{event_number: number}}),
+    do: number
+
+  defp _event_number(%Msg.ResolvedEvent{event: %Msg.EventRecord{event_number: number}}),
+    do: number
 
   defp _caught_up(message, state) do
     send(state.subscriber, message)
