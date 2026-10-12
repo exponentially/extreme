@@ -543,11 +543,19 @@ defmodule ExtremeTest do
     test "that doesn't exist is ok" do
       stream = Helpers.random_stream_name()
 
-      # newer ES versions return an error:
-      # {:ok, %ExMsg.DeleteStreamCompleted{}} =
-      {:error, :wrong_expected_version,
-       %Extreme.Messages.DeleteStreamCompleted{prepare_position: -1, commit_position: -1}} =
-        TestConn.execute(Helpers.delete_stream(stream, false))
+      stream
+      |> Helpers.delete_stream(false)
+      |> TestConn.execute()
+      |> case do
+        # EventStore 5.0
+        {:ok, %ExMsg.DeleteStreamCompleted{result: :success}} ->
+          :ok
+
+        # EventStoreDB 21.10
+        {:error, :wrong_expected_version,
+         %ExMsg.DeleteStreamCompleted{prepare_position: -1, commit_position: -1}} ->
+          :ok
+      end
     end
 
     test "can't be done after stream is hard deleted" do
