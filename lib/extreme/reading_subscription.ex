@@ -6,8 +6,11 @@ defmodule Extreme.ReadingSubscription do
   alias Extreme.SharedSubscription, as: Shared
 
   defmodule State do
-    defstruct ~w(base_name correlation_id subscriber read_params buffered_messages read_until status)a
+    defstruct ~w(base_name correlation_id subscriber read_params buffered_messages read_until status no_stream_retries)a
   end
+
+  @max_no_stream_retries 50
+  @no_stream_retry_delay 20
 
   @doc """
   Spawns Subscription for read_and_stay_subscribed
@@ -40,7 +43,8 @@ defmodule Extreme.ReadingSubscription do
       read_params: read_params,
       status: :reading_events,
       buffered_messages: [],
-      read_until: -1
+      read_until: -1,
+      no_stream_retries: 0
     }
 
     {:ok, subscription_confirmation} = Shared.subscribe(state)
@@ -64,11 +68,9 @@ defmodule Extreme.ReadingSubscription do
     |> if(do: {:noreply, state}, else: Shared.process_push(fn -> push end, state))
   end
 
-  def handle_cast({:process_push, fun}, %{buffered_messages: buffered_messages} = state) do
-    case fun.() do
-      {_auth, _correlation_id, %Msg.StreamEventAppeared{} = e} ->
-        {:noreply, %{state | buffered_messages: [e.event | buffered_messages]}}
-    end
+  def handle_cast({:process_push, fun}, state) do
+    fun.()
+    |> _buffer_push(state)
   end
 
   # We have read all planned events. Now lets push buffered messages.
@@ -129,12 +131,22 @@ defmodule Extreme.ReadingSubscription do
     end
   end
 
+  @impl GenServer
+  def handle_info(:read_events, state), do: handle_cast(:read_events, state)
+
   defp _process_read_response({:error, :stream_deleted, _}, state) do
     Logger.error(fn -> "Stream is hard deleted" end)
 
     send(state.subscriber, {:extreme, :error, :stream_deleted, state.read_params.stream})
     RequestManager.unregister_subscription(state.base_name, state.correlation_id)
     {:stop, {:shutdown, :stream_deleted}, state}
+  end
+
+  # ESDB acks a write to a soft-deleted stream before the metadata that undeletes it is readable.
+  defp _process_read_response({:error, :no_stream, _}, %{no_stream_retries: retries} = state)
+       when retries < @max_no_stream_retries do
+    Process.send_after(self(), :read_events, @no_stream_retry_delay)
+    {:noreply, %{state | status: :reading_events, no_stream_retries: retries + 1}}
   end
 
   defp _process_read_response({:error, :no_stream, _}, state) do
@@ -185,11 +197,16 @@ defmodule Extreme.ReadingSubscription do
     else
       state =
         response.next_event_number
-        |> _send_next_request(state)
+        |> _send_next_request(%{state | no_stream_retries: 0})
 
       {:noreply, state}
     end
   end
+
+  defp _buffer_push({_auth, _correlation_id, %Msg.StreamEventAppeared{} = e}, state),
+    do: {:noreply, %{state | buffered_messages: [e.event | state.buffered_messages]}}
+
+  defp _buffer_push(push, state), do: Shared.process_push(fn -> push end, state)
 
   defp _before_start?({_auth, _correlation_id, %Msg.StreamEventAppeared{} = e}, from),
     do: _event_number(e.event) < from

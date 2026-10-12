@@ -465,6 +465,25 @@ defmodule ExtremeSubscriptionsTest do
       Helpers.unsubscribe(TestConn, subscription)
     end
 
+    test "unsubscribing while the read of a soft-deleted stream is retried stops it cleanly" do
+      stream = Helpers.random_stream_name()
+
+      {:ok, %ExMsg.WriteEventsCompleted{}} =
+        TestConn.execute(Helpers.write_events(stream, _people(~w(1))))
+
+      {:ok, %ExMsg.DeleteStreamCompleted{}} =
+        TestConn.execute(Helpers.delete_stream(stream, false))
+
+      {:ok, subscriber} = Subscriber.start_link()
+      {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 3)
+      ref = Process.monitor(subscription)
+
+      :ok = TestConn.unsubscribe(subscription)
+
+      assert_receive {:DOWN, ^ref, :process, _subscription, {:shutdown, :unsubscribed}}
+      refute_received :caught_up
+    end
+
     test "read events and stay subscribed for recreated stream is ok" do
       stream = Helpers.random_stream_name()
       # prepopulate stream
@@ -488,8 +507,6 @@ defmodule ExtremeSubscriptionsTest do
 
       {:ok, %ExMsg.WriteEventsCompleted{}} =
         TestConn.execute(Helpers.write_events(stream, events2))
-
-      {:ok, %ExMsg.ReadStreamEventsCompleted{}} = Helpers.read_when_undeleted(TestConn, stream)
 
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()

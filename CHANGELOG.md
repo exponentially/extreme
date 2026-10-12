@@ -4,6 +4,7 @@
 
 - `read_and_stay_subscribed` (and `Extreme.Listener`) no longer crashes when starting beyond the stream's end.
 - `read_and_stay_subscribed` now rejects `per_page` 0 and a negative `from_event_number` at the call.
+- `read_and_stay_subscribed` on a just-recreated soft-deleted stream no longer skips its existing events.
 
 # v1.1.4
 
