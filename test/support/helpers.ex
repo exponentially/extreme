@@ -107,6 +107,21 @@ defmodule ExtremeTest.Helpers do
     )
   end
 
+  # ESDB acks a write to a soft-deleted stream before indexing the metadata event that undeletes it.
+  def read_when_undeleted(extreme, stream, attempts \\ 50) do
+    stream
+    |> read_events(0, 2)
+    |> extreme.execute()
+    |> case do
+      {:error, :no_stream, _response} when attempts > 1 ->
+        Process.sleep(20)
+        read_when_undeleted(extreme, stream, attempts - 1)
+
+      response ->
+        response
+    end
+  end
+
   def unsubscribe(extreme, subscription) do
     :ok = extreme.unsubscribe(subscription)
 

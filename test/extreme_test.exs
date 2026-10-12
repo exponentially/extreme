@@ -529,7 +529,7 @@ defmodule ExtremeTest do
         TestConn.execute(Helpers.write_events(stream, events))
 
       assert {:ok, %ExMsg.ReadStreamEventsCompleted{}} =
-               TestConn.execute(Helpers.read_events(stream, 0, 2))
+               Helpers.read_when_undeleted(TestConn, stream)
 
       # soft delete stream again
 

@@ -489,6 +489,8 @@ defmodule ExtremeSubscriptionsTest do
       {:ok, %ExMsg.WriteEventsCompleted{}} =
         TestConn.execute(Helpers.write_events(stream, events2))
 
+      {:ok, %ExMsg.ReadStreamEventsCompleted{}} = Helpers.read_when_undeleted(TestConn, stream)
+
       # subscribe to existing stream
       {:ok, subscriber} = Subscriber.start_link()
       {:ok, subscription} = TestConn.read_and_stay_subscribed(stream, subscriber, 0, 3)
