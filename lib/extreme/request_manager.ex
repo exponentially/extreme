@@ -129,9 +129,8 @@ defmodule Extreme.RequestManager do
   def handle_call({:ping, correlation_id}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
-    _in_task(state.base_name, fn ->
-      {:ok, message} = Request.prepare(:ping, correlation_id)
-      :ok = Connection.push(state.base_name, message)
+    _prepare_and_push_in_task(state.base_name, correlation_id, fn ->
+      Request.prepare(:ping, correlation_id)
     end)
 
     {:noreply, state}
@@ -149,10 +148,8 @@ defmodule Extreme.RequestManager do
   def handle_call({:execute, correlation_id, message}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
-    _in_task(state.base_name, fn ->
-      {:ok, message} = Request.prepare(message, state.credentials, correlation_id)
-
-      :ok = Connection.push(state.base_name, message)
+    _prepare_and_push_in_task(state.base_name, correlation_id, fn ->
+      Request.prepare(message, state.credentials, correlation_id)
     end)
 
     {:noreply, state}
@@ -356,6 +353,31 @@ defmodule Extreme.RequestManager do
     base_name
     |> _process_supervisor_name()
     |> Task.Supervisor.start_child(fun)
+  end
+
+  # A failed prepare is answered as the pending request's reply,
+  # so the caller isn't left to time out.
+  defp _prepare_and_push_in_task(base_name, correlation_id, prepare) do
+    _in_task(base_name, fn ->
+      prepare
+      |> _safe_prepare()
+      |> case do
+        {:ok, message} ->
+          :ok = Connection.push(base_name, message)
+
+        {:error, _reason} = error ->
+          _respond_with_server_message(base_name, correlation_id, error)
+      end
+    end)
+  end
+
+  defp _safe_prepare(prepare) do
+    case prepare.() do
+      {:ok, _message} = ok -> ok
+      {:error, reason} -> {:error, {:encoding_failed, reason}}
+    end
+  catch
+    _kind, reason -> {:error, {:encoding_failed, reason}}
   end
 
   # we got message for still unregistered subscription so we need to buffer it

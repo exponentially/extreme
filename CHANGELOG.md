@@ -1,3 +1,9 @@
+# v1.2.0
+
+## Fix
+
+- `execute` (and `ping`) with a message that cannot be encoded returns `{:error, {:encoding_failed, reason}}` at once instead of timing out the caller.
+
 # v1.1.5
 
 ## Fix

@@ -79,6 +79,41 @@ defmodule ExtremeTest do
     end
   end
 
+  describe "Executing invalid message" do
+    test "returns error well before call timeout when required field is missing" do
+      message = %{Helpers.write_events() | event_stream_id: nil}
+
+      assert {:error, {:encoding_failed, _reason}} = TestConn.execute(message, nil, 1_000)
+    end
+
+    test "returns error well before call timeout when stream name is not a string" do
+      message = Helpers.write_events(123)
+
+      assert {:error, {:encoding_failed, _reason}} = TestConn.execute(message, nil, 1_000)
+    end
+
+    test "forgets the failed request and keeps connection usable" do
+      correlation_id = Extreme.Tools.generate_uuid()
+      message = %{Helpers.write_events() | event_stream_id: nil}
+
+      assert {:error, {:encoding_failed, _reason}} =
+               TestConn.execute(message, correlation_id, 1_000)
+
+      assert %{requests: %{} = requests} =
+               TestConn
+               |> Extreme.RequestManager._name()
+               |> :sys.get_state()
+
+      refute Map.has_key?(requests, correlation_id)
+      assert :pong == TestConn.ping()
+    end
+
+    test "ping returns error when correlation id is not a binary" do
+      assert {:error, {:encoding_failed, _reason}} =
+               Extreme.RequestManager.ping(TestConn, :not_a_binary)
+    end
+  end
+
   describe "Writing events" do
     test "for non existing stream is success" do
       assert {:ok,
