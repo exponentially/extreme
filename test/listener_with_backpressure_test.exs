@@ -187,8 +187,19 @@ defmodule Extreme.ListenerWithBackPressureTest do
     assert event2 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListenerWithBackPressure, stream) == 1
 
-    # unsubscribe and write new event
+    # unsubscribe, writing only once EventStoreDB dropped the subscription
+    %{subscription: subscription} =
+      MyListenerWithBackPressure
+      |> :sys.get_state()
+      |> Map.fetch!(:producer)
+      |> :sys.get_state()
+      |> Map.fetch!(:buffer_pid)
+      |> :sys.get_state()
+
+    subscription_ref = Process.monitor(subscription)
     :ok = MyListenerWithBackPressure.unsubscribe()
+
+    assert_receive {:DOWN, ^subscription_ref, :process, ^subscription, {:shutdown, :unsubscribed}}
 
     {:ok, %ExMsg.WriteEventsCompleted{}} =
       TestConn.execute(Helpers.write_events(stream, [event3]))

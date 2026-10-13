@@ -64,8 +64,12 @@ defmodule Extreme.FanoutListenerTest do
     assert_receive {:processing_push, _event_type, event}
     assert event1 == :erlang.binary_to_term(event)
 
-    # Unsubscribe from further pushes
+    # Unsubscribe from further pushes, writing only once EventStoreDB dropped the subscription
+    %{subscription: subscription} = :sys.get_state(listener)
+    subscription_ref = Process.monitor(subscription)
     :ok = MyListener.unsubscribe(listener)
+
+    assert_receive {:DOWN, ^subscription_ref, :process, ^subscription, {:shutdown, :unsubscribed}}
 
     # write 2 events to stream
     {:ok, _} = TestConn.execute(Helpers.write_events(stream, [event2, event3]))

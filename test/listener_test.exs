@@ -148,8 +148,12 @@ defmodule Extreme.ListenerTest do
     assert event2 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListener, stream) == 1
 
-    # unsubscribe and write new event
+    # unsubscribe, writing only once EventStoreDB dropped the subscription
+    %{subscription: subscription} = :sys.get_state(MyListener)
+    subscription_ref = Process.monitor(subscription)
     :ok = MyListener.unsubscribe()
+
+    assert_receive {:DOWN, ^subscription_ref, :process, ^subscription, {:shutdown, :unsubscribed}}
 
     {:ok, %ExMsg.WriteEventsCompleted{}} =
       TestConn.execute(Helpers.write_events(stream, [event3]))
