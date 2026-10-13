@@ -68,7 +68,10 @@ defmodule Extreme.Mixfile do
       extras: [{"CHANGELOG.md", title: "Changelog"}],
       filter_modules: fn module, _metadata -> module != Extreme.Messages.Compat end,
       skip_code_autolink_to: &String.starts_with?(&1, "Extreme.Messages."),
-      skip_undefined_reference_warnings_on: ["c:Extreme.ListenerWithBackPressure.process_push/3"]
+      skip_undefined_reference_warnings_on: [
+        "c:Extreme.ListenerWithBackPressure.process_push/3",
+        "t:Extreme.read_event/0"
+      ]
     ]
   end
 

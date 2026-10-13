@@ -5,6 +5,9 @@ defmodule Extreme do
 
   @type t :: module
 
+  @typedoc "An event as read from a stream and passed to `read_events` and `reduce_events` functions."
+  @type read_event :: Extreme.Messages.ResolvedIndexedEvent.t()
+
   @doc false
   defmacro __using__(opts \\ []) do
     quote do
@@ -45,7 +48,7 @@ defmodule Extreme do
       and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
       if further processing of events should be stopped
       """
-      @spec read_events(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+      @spec read_events(String.t(), Keyword.t(), (Extreme.read_event() ->
                                                     :ok
                                                     | :stop
                                                     | {:stop, response :: any()})) ::
@@ -68,7 +71,7 @@ defmodule Extreme do
       and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
       if further processing of events should be stopped
       """
-      @spec read_events_backwards(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+      @spec read_events_backwards(String.t(), Keyword.t(), (Extreme.read_event() ->
                                                               :ok
                                                               | :stop
                                                               | {:stop, response :: any()})) ::
@@ -85,7 +88,7 @@ defmodule Extreme do
         Extreme.Reading.read_events(__MODULE__, params, fun)
       end
 
-      @spec reduce_events(acc :: any(), String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t(),
+      @spec reduce_events(acc :: any(), String.t(), Keyword.t(), (Extreme.read_event(),
                                                                   acc :: any() ->
                                                                     {:ok, acc :: any()}
                                                                     | {:stop, acc :: any()})) ::
@@ -106,7 +109,7 @@ defmodule Extreme do
               acc :: any(),
               String.t(),
               Keyword.t(),
-              (ExMsg.StreamEventAppeared.t(), acc :: any() ->
+              (Extreme.read_event(), acc :: any() ->
                  {:ok, acc :: any()}
                  | {:stop, acc :: any()})
             ) ::
