@@ -13,6 +13,7 @@
 - `connect_to_persistent_subscription` with an invalid stream or group no longer fails silently: it returns `{:error, reason}`, or the subscriber gets `{:extreme, {:encoding_failed, reason}}`.
 - A persistent subscription ack or nack that cannot be encoded stops the subscription and sends the subscriber `{:extreme, {:encoding_failed, reason}}`.
 - A request whose caller timed out waiting for EventStoreDB is no longer kept forever.
+- `use Extreme.Listener` no longer warns on Elixir 1.20 when `process_push` never returns `:stop`.
 
 # v1.1.5
 

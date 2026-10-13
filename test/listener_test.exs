@@ -50,6 +50,28 @@ defmodule Extreme.ListenerTest do
     :ok
   end
 
+  test "a listener whose process_push never returns :stop compiles without warnings" do
+    source = """
+    defmodule Extreme.ListenerTest.NeverStops do
+      use Extreme.Listener
+
+      defp get_last_event(_stream_name), do: -1
+      defp process_push(push, _stream_name), do: {:ok, push.event.event_number}
+    end
+    """
+
+    {_modules, diagnostics} = Code.with_diagnostics(fn -> Code.compile_string(source) end)
+
+    assert [] == diagnostics
+  end
+
+  test "process_push returning :stop drops the subscription" do
+    state = %{subscription: self(), subscription_ref: Process.monitor(self()), last_event: 1}
+
+    assert {:reply, :stop, %{subscription: nil, subscription_ref: nil, last_event: 1}} =
+             Extreme.Listener.__push_processed__(:stop, state)
+  end
+
   test "Listener reads all events if never run before" do
     stream = Helpers.random_stream_name()
     event1 = %Event.PersonCreated{name: "Pera"}
