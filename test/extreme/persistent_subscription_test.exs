@@ -53,6 +53,12 @@ defmodule Extreme.PersistentSubscriptionTest do
       {:noreply, state}
     end
 
+    def handle_info({:extreme, _reason} = message, state) do
+      send(state.subscriber, message)
+
+      {:noreply, state}
+    end
+
     def handle_info(_, state), do: {:noreply, state}
   end
 
@@ -173,6 +179,8 @@ defmodule Extreme.PersistentSubscriptionTest do
       true = Process.unlink(subscriber)
       subscriber_ref = Process.monitor(subscriber)
       :ok = GenServer.call(subscriber, :unsubscribe)
+      # the group admits one subscriber, so reconnect only once EventStoreDB dropped this one
+      assert_receive {:extreme, :unsubscribed}
       :ok = GenServer.stop(subscriber)
 
       assert_receive {:DOWN, ^subscriber_ref, _, _, _}
