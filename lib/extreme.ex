@@ -127,8 +127,11 @@ defmodule Extreme do
       Sets metadata map to stream. To remove metadata, set an empty map.
 
       Example:
-        metadata = %{ "$maxAge" => max_age_seconds }
-        :ok = MyConn.set_metadata("user-123", metadata)
+
+      ```elixir
+      metadata = %{"$maxAge" => max_age_seconds}
+      :ok = MyConn.set_metadata("user-123", metadata)
+      ```
       """
       @spec set_metadata(String.t(), map()) :: :ok | any()
       def set_metadata(stream, %{} = metadata) do
@@ -146,16 +149,20 @@ defmodule Extreme do
       Gets metadata map from stream.
 
       Example:
-        > stream = "users-123"
-        > MyConn.get_metadata(stream)
-        {:error, :no_stream}
 
-        > max_age_seconds = 60 * 60 * 24 # keep events 1 day
-        > metadata = %{ "$maxAge" => max_age_seconds }
-        > :ok = MyConn.set_metadata(stream, metadata)
+      ```elixir
+      stream = "users-123"
+      MyConn.get_metadata(stream)
+      #=> {:error, :no_stream}
 
-        > MyConn.get_metadata(stream)
-        {:ok, %{ "$maxAge" => 86_400 }}
+      # keep events 1 day
+      max_age_seconds = 60 * 60 * 24
+      metadata = %{"$maxAge" => max_age_seconds}
+      :ok = MyConn.set_metadata(stream, metadata)
+
+      MyConn.get_metadata(stream)
+      #=> {:ok, %{"$maxAge" => 86_400}}
+      ```
       """
       @spec get_metadata(String.t()) :: {:ok, map()} | {:error, :no_stream}
       def get_metadata(stream) do
