@@ -65,6 +65,7 @@ defmodule Extreme.Mixfile do
   # Generated message modules are hidden, so references to them stay plain code.
   defp _docs do
     [
+      extras: [{"CHANGELOG.md", title: "Changelog"}],
       filter_modules: fn module, _metadata -> module != Extreme.Messages.Compat end,
       skip_code_autolink_to: &String.starts_with?(&1, "Extreme.Messages."),
       skip_undefined_reference_warnings_on: ["c:Extreme.ListenerWithBackPressure.process_push/3"]
@@ -73,7 +74,7 @@ defmodule Extreme.Mixfile do
 
   defp _package do
     [
-      files: ["lib", "mix.exs", "README*", "LICENSE*", "include"],
+      files: ["lib", "mix.exs", "README*", "CHANGELOG*", "LICENSE*", "include"],
       maintainers: ["Milan Burmaja"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/exponentially/extreme"}
