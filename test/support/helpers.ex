@@ -13,7 +13,17 @@ defmodule ExtremeTest.Helpers do
   require Logger
   import ExUnit.Assertions
 
-  def random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+  def random_stream_name, do: "extreme_test-" <> uuid_string()
+
+  @doc "A fresh `Extreme.Tools.generate_uuid/0` id in its 8-4-4-4-12 string form."
+  def uuid_string do
+    <<a::binary-4, b::binary-2, c::binary-2, d::binary-2, e::binary-6>> =
+      Extreme.Tools.generate_uuid()
+
+    [a, b, c, d, e]
+    |> Enum.map(&Base.encode16(&1, case: :lower))
+    |> Enum.join("-")
+  end
 
   @doc "Recorded gossip response with every member advertising `external_tcp_port`."
   def gossip_response(external_tcp_port) do

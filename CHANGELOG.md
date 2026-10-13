@@ -6,6 +6,8 @@
 - Requires Elixir 1.16 or later.
 - `Extreme.Messages.*` structs have two more keys, `__unknown_fields__` and `__protobuf__`, which `Map.from_struct/1` now includes.
 - No more compile or runtime deprecation warnings from the message modules.
+- Generated correlation and event ids are UUIDv7 (time-ordered).
+- `elixir_uuid` is no longer a dependency; code that calls `UUID` must depend on it itself.
 
 ## Fix
 

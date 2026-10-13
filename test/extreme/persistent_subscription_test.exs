@@ -328,7 +328,7 @@ defmodule Extreme.PersistentSubscriptionTest do
     end
   end
 
-  defp random_subscription_group_name, do: "subscription-#{UUID.uuid4()}"
+  defp random_subscription_group_name, do: "subscription-#{Helpers.uuid_string()}"
 
   defp random_events do
     for n <- 1..5 do

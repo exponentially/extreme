@@ -126,7 +126,7 @@ defmodule ExtremeTest do
 
     test "setting metadata works" do
       # write 2 events
-      stream_name = "extreme_test-" <> to_string(UUID.uuid4())
+      stream_name = "extreme_test-" <> Helpers.uuid_string()
       # IO.inspect("http://localhost:2113/web/index.html#/streams/" <> stream_name)
 
       events_1 = [
