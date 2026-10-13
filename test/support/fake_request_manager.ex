@@ -18,10 +18,14 @@ defmodule FakeRequestManager do
   def init(read_replies), do: {:ok, %{read_replies: read_replies, reads: 0}}
 
   @impl true
-  def handle_call({:execute, _correlation_id, %ExMsg.SubscribeToStream{}}, _from, state),
-    do: {:reply, {:ok, %ExMsg.SubscriptionConfirmation{last_event_number: 2}}, state}
+  def handle_call(
+        {:execute, _correlation_id, %ExMsg.SubscribeToStream{}, _timeout},
+        _from,
+        state
+      ),
+      do: {:reply, {:ok, %ExMsg.SubscriptionConfirmation{last_event_number: 2}}, state}
 
-  def handle_call({:execute, _correlation_id, %ExMsg.ReadStreamEvents{}}, _from, state) do
+  def handle_call({:execute, _correlation_id, %ExMsg.ReadStreamEvents{}, _timeout}, _from, state) do
     {reply, read_replies} = _next_reply(state.read_replies)
     {:reply, reply, %{state | read_replies: read_replies, reads: state.reads + 1}}
   end

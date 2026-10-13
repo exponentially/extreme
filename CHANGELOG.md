@@ -5,6 +5,7 @@
 - `execute` (and `ping`) with a message that cannot be encoded returns `{:error, {:encoding_failed, reason}}` at once instead of timing out the caller.
 - `connect_to_persistent_subscription` with an invalid stream or group no longer fails silently: it returns `{:error, reason}`, or the subscriber gets `{:extreme, {:encoding_failed, reason}}`.
 - A persistent subscription ack or nack that cannot be encoded stops the subscription and sends the subscriber `{:extreme, {:encoding_failed, reason}}`.
+- A request whose caller timed out waiting for EventStoreDB is no longer kept forever.
 
 # v1.1.5
 
