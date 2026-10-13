@@ -3,6 +3,9 @@ defmodule Extreme.Tools do
   Set of tool functions for internal library use.
   """
 
+  # jason is an optional dependency, needed only for metadata and cluster gossip.
+  @compile {:no_warn_undefined, Jason}
+
   @doc """
   Cast the provided value to an atom if appropriate.
   If the provided value is a string, convert it to an atom, otherwise return it as-is.
@@ -26,4 +29,12 @@ defmodule Extreme.Tools do
 
     <<System.os_time(:millisecond)::48, 7::4, rand_a::12, 0b10::2, rand_b::62>>
   end
+
+  @doc "Encodes `term` as JSON with the optional `jason` dependency."
+  @spec encode_json!(term :: term()) :: json :: String.t()
+  def encode_json!(term), do: Jason.encode!(term)
+
+  @doc "Decodes `json` with the optional `jason` dependency."
+  @spec decode_json(json :: String.t()) :: {:ok, decoded :: term()} | {:error, reason :: term()}
+  def decode_json(json), do: Jason.decode(json)
 end

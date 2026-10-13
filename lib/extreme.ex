@@ -191,7 +191,7 @@ defmodule Extreme do
              result: :success
            }} ->
             data
-            |> Jason.decode()
+            |> Extreme.Tools.decode_json()
             |> case do
               {:ok, decoded} -> {:ok, decoded}
               _ -> data
@@ -223,7 +223,7 @@ defmodule Extreme do
             event_type: "$metadata",
             data_content_type: 1,
             metadata_content_type: 1,
-            data: Jason.encode!(metadata),
+            data: Extreme.Tools.encode_json!(metadata),
             metadata: ""
           )
 
