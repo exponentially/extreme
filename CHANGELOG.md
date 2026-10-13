@@ -1,3 +1,10 @@
+# v1.2.1
+
+## Fix
+
+- `use Extreme` no longer makes ex_doc warn in your module: the metadata examples are fenced, and the `read_events` and `reduce_events` specs use the new public `t:Extreme.read_event/0` (they named `StreamEventAppeared`, which these functions never pass).
+- `use Extreme` in a project without `jason` no longer gives undefined-function warnings.
+
 # v1.2.0
 
 This minor release contains breaking changes; Extreme makes breaking changes in minor versions.
