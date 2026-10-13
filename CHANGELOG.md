@@ -5,7 +5,8 @@ This minor release contains breaking changes; Extreme makes breaking changes in 
 ## Breaking changes
 
 - Requires Elixir 1.16 or later.
-- `elixir_uuid` is no longer a dependency. If your project calls `UUID`, directly or through a library that only has it as an optional dependency (for example x3m_system 0.9.7 or earlier), add `{:elixir_uuid, "~> 1.2"}` to your deps.
+- `elixir_uuid` is no longer a dependency. If your project calls `UUID`, directly or through a library that only has it as an optional dependency, add `{:elixir_uuid, "~> 1.2"}` to your deps. With x3m_system 0.9.7 or earlier, add `elixir_uuid` yourself or upgrade to x3m_system 0.10.0.
+- If your dialyzer PLT lists apps explicitly (`plt_add_deps: :apps_direct` or a fixed `plt_add_apps`), add `:protobuf` to it: Extreme's message types reference `t:Protobuf.unknown_field/0`.
 - An unset `event` in `ResolvedIndexedEvent`, `ResolvedEvent`, `ReadEventCompleted`, `StreamEventAppeared` and `PersistentSubscriptionStreamEventAppeared` (e.g. a resolved link whose event was deleted) now decodes as `nil`, not as a struct with all fields `nil`. Add a `%{event: nil}` clause before any clause that binds `event` and reads its fields.
 - exprotobuf-only functions are gone from `Extreme.Messages.*`: `encode_delimited/1`, `decode_delimited/1`, `defs/0,2,3`, `record/0` and `syntax/0` on messages, and `atom/1`, `atoms/0` and `values/0` on enums. Use `encode/1` and `decode/1` (add or strip the varint length prefix yourself where you used the `*_delimited` forms), `key/1` instead of `atom/1`, and `mapping/0` instead of `atoms/0` and `values/0`; `value/1` is unchanged.
 - String and bytes fields of `Extreme.Messages.*` must be binaries; only `NewEvent` `data` and `metadata` still take iodata. Pass binaries, e.g. `IO.iodata_to_binary/1`.
