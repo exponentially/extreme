@@ -1,19 +1,26 @@
 # v1.2.0
 
+This minor release contains breaking changes; Extreme makes breaking changes in minor versions.
+
+## Breaking changes
+
+- Requires Elixir 1.16 or later.
+- `elixir_uuid` is no longer a dependency. If your project calls `UUID`, directly or through a library that only has it as an optional dependency (for example x3m_system 0.9.7 or earlier), add `{:elixir_uuid, "~> 1.2"}` to your deps.
+- An unset `event` in `ResolvedIndexedEvent`, `ResolvedEvent`, `ReadEventCompleted`, `StreamEventAppeared` and `PersistentSubscriptionStreamEventAppeared` (e.g. a resolved link whose event was deleted) now decodes as `nil`, not as a struct with all fields `nil`. Add a `%{event: nil}` clause before any clause that binds `event` and reads its fields.
+- exprotobuf-only functions are gone from `Extreme.Messages.*`: `encode_delimited/1`, `decode_delimited/1`, `defs/0,2,3`, `record/0` and `syntax/0` on messages, and `atom/1`, `atoms/0` and `values/0` on enums. Use `encode/1` and `decode/1` (add or strip the varint length prefix yourself where you used the `*_delimited` forms), `key/1` instead of `atom/1`, and `mapping/0` instead of `atoms/0` and `values/0`; `value/1` is unchanged.
+- String and bytes fields of `Extreme.Messages.*` must be binaries; only `NewEvent` `data` and `metadata` still take iodata. Pass binaries, e.g. `IO.iodata_to_binary/1`.
+- `Extreme.Messages.*` structs have two more keys, `__unknown_fields__` and `__protobuf__`, which `Map.from_struct/1` includes. Drop them before comparing or serializing such maps: `Map.drop(map, [:__unknown_fields__, :__protobuf__])`.
+- `execute` and `ping` with a message that cannot be encoded return `{:error, {:encoding_failed, reason}}` (`reason` is a `Protobuf.EncodeError`) instead of timing out, and `connect_to_persistent_subscription` with an invalid stream or group returns `{:error, reason}` instead of failing silently. Add a clause if you match on their results.
+- A persistent subscription whose ack or nack cannot be encoded now stops, and its subscriber gets `{:extreme, {:encoding_failed, reason}}`, as it also does when connecting cannot be encoded. Handle that message in your subscriber.
+
 ## Change
 
-- `exprotobuf` is replaced by `protobuf` 0.17; the wire format and `Extreme.Messages.*` modules, fields, enum values and `new/0,1` stay the same.
-- Requires Elixir 1.16 or later.
-- `Extreme.Messages.*` structs have two more keys, `__unknown_fields__` and `__protobuf__`, which `Map.from_struct/1` now includes.
+- `exprotobuf` is replaced by `protobuf` 0.17. The wire format, the `Extreme.Messages.*` module names, fields and enum values, and `new/0,1` stay the same; the breaking changes above list what differs.
 - No more compile or runtime deprecation warnings from the message modules.
 - Generated correlation and event ids are UUIDv7 (time-ordered).
-- `elixir_uuid` is no longer a dependency; code that calls `UUID` must depend on it itself.
 
 ## Fix
 
-- `execute` (and `ping`) with a message that cannot be encoded returns `{:error, {:encoding_failed, reason}}` at once instead of timing out the caller.
-- `connect_to_persistent_subscription` with an invalid stream or group no longer fails silently: it returns `{:error, reason}`, or the subscriber gets `{:extreme, {:encoding_failed, reason}}`.
-- A persistent subscription ack or nack that cannot be encoded stops the subscription and sends the subscriber `{:extreme, {:encoding_failed, reason}}`.
 - A request whose caller timed out waiting for EventStoreDB is no longer kept forever.
 - `use Extreme.Listener` no longer warns on Elixir 1.20 when `process_push` never returns `:stop`.
 
