@@ -19,17 +19,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Elixir 1.18 disabled: exprotobuf warnings fail --warnings-as-errors; re-enable after the protobuf migration
-        # elixir: ['1.18', '1.19', '1.20']
-        # erlang: ['25', '26', '27', '28', '29']
-        elixir: ['1.19', '1.20']
-        erlang: ['26', '27', '28', '29']
-        # Officially supported pairs only: 1.19 -> OTP 26-28, 1.20 -> 27-29 (1.18 -> 25-28)
+        elixir: ['1.18', '1.19', '1.20']
+        erlang: ['25', '26', '27', '28', '29']
+        # Officially supported pairs only: 1.18 -> OTP 25-28, 1.19 -> 26-28, 1.20 -> 27-29
         exclude:
-          # - {elixir: '1.18', erlang: '29'}
-          # - {elixir: '1.19', erlang: '25'}
-          # - {elixir: '1.20', erlang: '25'}
+          - {elixir: '1.18', erlang: '29'}
+          - {elixir: '1.19', erlang: '25'}
           - {elixir: '1.19', erlang: '29'}
+          - {elixir: '1.20', erlang: '25'}
           - {elixir: '1.20', erlang: '26'}
 
     services:
@@ -66,10 +63,9 @@ jobs:
         path: _build/test
         key: ${{ runner.os }}-build_test-${{ matrix.elixir }}-${{ matrix.erlang }}-${{ hashFiles('mix.lock') }}
         restore-keys: ${{ runner.os }}-build_test-${{ matrix.elixir }}-${{ matrix.erlang }}-
-    # Disabled with Elixir 1.18: exprotobuf warnings fail --warnings-as-errors; re-enable after the protobuf migration
-    # - name: Check warnings
-    #   if: matrix.elixir == '1.18'
-    #   run: mix compile --warnings-as-errors --force
+    - name: Check warnings
+      if: matrix.elixir == '1.18' || matrix.elixir == '1.20'
+      run: mix compile --warnings-as-errors --force
     - name: Run tests
       run: mix test --cover
 
@@ -79,17 +75,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Elixir 1.18 disabled: exprotobuf warnings fail --warnings-as-errors; re-enable after the protobuf migration
-        # elixir: ['1.18', '1.19', '1.20']
-        # erlang: ['25', '26', '27', '28', '29']
-        elixir: ['1.19', '1.20']
-        erlang: ['26', '27', '28', '29']
-        # Officially supported pairs only: 1.19 -> OTP 26-28, 1.20 -> 27-29 (1.18 -> 25-28)
+        elixir: ['1.18', '1.19', '1.20']
+        erlang: ['25', '26', '27', '28', '29']
+        # Officially supported pairs only: 1.18 -> OTP 25-28, 1.19 -> 26-28, 1.20 -> 27-29
         exclude:
-          # - {elixir: '1.18', erlang: '29'}
-          # - {elixir: '1.19', erlang: '25'}
-          # - {elixir: '1.20', erlang: '25'}
+          - {elixir: '1.18', erlang: '29'}
+          - {elixir: '1.19', erlang: '25'}
           - {elixir: '1.19', erlang: '29'}
+          - {elixir: '1.20', erlang: '25'}
           - {elixir: '1.20', erlang: '26'}
 
     services:
@@ -126,10 +119,9 @@ jobs:
         path: _build/test
         key: ${{ runner.os }}-build_test-${{ matrix.elixir }}-${{ matrix.erlang }}-${{ hashFiles('mix.lock') }}
         restore-keys: ${{ runner.os }}-build_test-${{ matrix.elixir }}-${{ matrix.erlang }}-
-    # Disabled with Elixir 1.18: exprotobuf warnings fail --warnings-as-errors; re-enable after the protobuf migration
-    # - name: Check warnings
-    #   if: matrix.elixir == '1.18'
-    #   run: mix compile --warnings-as-errors --force
+    - name: Check warnings
+      if: matrix.elixir == '1.18' || matrix.elixir == '1.20'
+      run: mix compile --warnings-as-errors --force
     - name: Check formatting
       run: mix format --check-formatted
     - name: Run tests
