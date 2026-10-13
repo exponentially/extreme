@@ -153,8 +153,9 @@ defmodule ExtremeTest.Helpers do
   end
 
   def assert_no_leaks(base_name) do
-    # it takes some time for unsubscribe response from ES
-    Process.sleep(50)
+    # EventStoreDB answers an unsubscribe asynchronously, so wait for it to settle.
+    deadline = System.monotonic_time(:millisecond) + 2_000
+    _wait_until_settled(base_name, deadline)
 
     assert(
       %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state(),
@@ -190,6 +191,34 @@ defmodule ExtremeTest.Helpers do
 
     assert 0 == children_count, "There are #{children_count} hanging subscription processes"
   end
+
+  defp _wait_until_settled(base_name, deadline) do
+    cond do
+      _settled?(base_name) ->
+        :ok
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        :ok
+
+      true ->
+        Process.sleep(10)
+        _wait_until_settled(base_name, deadline)
+    end
+  end
+
+  defp _settled?(base_name) do
+    %{received_data: received_data} = Extreme.Connection._name(base_name) |> :sys.get_state()
+
+    %{requests: requests, subscriptions: subscriptions} =
+      Extreme.RequestManager._name(base_name) |> :sys.get_state()
+
+    received_data == "" and requests == %{} and subscriptions == %{} and
+      _children_count(Extreme.RequestManager._process_supervisor_name(base_name)) == 0 and
+      _children_count(Extreme.SubscriptionsSupervisor._name(base_name)) == 0
+  end
+
+  defp _children_count(supervisor),
+    do: supervisor |> Supervisor.which_children() |> Enum.count()
 
   def create_persistent_subscription(stream, group) do
     ExMsg.CreatePersistentSubscription.new(
