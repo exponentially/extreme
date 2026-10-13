@@ -129,9 +129,9 @@ defmodule Extreme.RequestManager do
   def handle_call({:ping, correlation_id}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
-    _prepare_and_push_in_task(state.base_name, correlation_id, fn ->
-      Request.prepare(:ping, correlation_id)
-    end)
+    prepare = fn -> Request.prepare(:ping, correlation_id) end
+    on_error = _reply_on_error(state.base_name, correlation_id)
+    _prepare_and_push_in_task(state.base_name, prepare, on_error)
 
     {:noreply, state}
   end
@@ -148,9 +148,9 @@ defmodule Extreme.RequestManager do
   def handle_call({:execute, correlation_id, message}, from, %State{} = state) do
     state = %State{state | requests: Map.put(state.requests, correlation_id, from)}
 
-    _prepare_and_push_in_task(state.base_name, correlation_id, fn ->
-      Request.prepare(message, state.credentials, correlation_id)
-    end)
+    prepare = fn -> Request.prepare(message, state.credentials, correlation_id) end
+    on_error = _reply_on_error(state.base_name, correlation_id)
+    _prepare_and_push_in_task(state.base_name, prepare, on_error)
 
     {:noreply, state}
   end
@@ -214,7 +214,7 @@ defmodule Extreme.RequestManager do
       GenServer.cast(req_manager, {:prepare_subscription, correlation_id})
 
       correlation_id
-      |> fun.()
+      |> _safe_start(fun)
       |> case do
         {:ok, subscription} ->
           GenServer.cast(req_manager, {:confirm_subscription, correlation_id, subscription})
@@ -227,12 +227,17 @@ defmodule Extreme.RequestManager do
     end)
   end
 
+  defp _safe_start(correlation_id, fun) do
+    fun.(correlation_id)
+  catch
+    _kind, reason -> {:error, reason}
+  end
+
   @impl GenServer
-  def handle_cast({:execute, correlation_id, message}, %State{} = state) do
-    _in_task(state.base_name, fn ->
-      {:ok, message} = Request.prepare(message, state.credentials, correlation_id)
-      :ok = Connection.push(state.base_name, message)
-    end)
+  def handle_cast({:execute, correlation_id, message, requester}, %State{} = state) do
+    prepare = fn -> Request.prepare(message, state.credentials, correlation_id) end
+    on_error = _notify_on_error(requester)
+    _prepare_and_push_in_task(state.base_name, prepare, on_error)
 
     {:noreply, state}
   end
@@ -287,18 +292,9 @@ defmodule Extreme.RequestManager do
   end
 
   def handle_cast({:confirm_subscription, correlation_id, subscription}, %State{} = state) do
-    Process.monitor(subscription)
-    {:pending, ^correlation_id, buffer} = Map.get(state.subscriptions, correlation_id)
-
-    buffer
-    |> Enum.reverse()
-    |> Enum.each(&GenServer.cast(subscription, {:process_push, fn -> Response.parse(&1) end}))
-
-    subscriptions = Map.put(state.subscriptions, correlation_id, subscription)
-    pid_to_correlation_id = Map.put(state.pid_to_correlation_id, subscription, correlation_id)
-
-    {:noreply,
-     %State{state | subscriptions: subscriptions, pid_to_correlation_id: pid_to_correlation_id}}
+    state.subscriptions
+    |> Map.get(correlation_id)
+    |> _confirm_subscription(correlation_id, subscription, state)
   end
 
   def handle_cast({:unregister_subscription, correlation_id}, %State{} = state) do
@@ -355,21 +351,23 @@ defmodule Extreme.RequestManager do
     |> Task.Supervisor.start_child(fun)
   end
 
-  # A failed prepare is answered as the pending request's reply,
-  # so the caller isn't left to time out.
-  defp _prepare_and_push_in_task(base_name, correlation_id, prepare) do
+  # A failed prepare goes to `on_error`, so its requester isn't left waiting.
+  defp _prepare_and_push_in_task(base_name, prepare, on_error) do
     _in_task(base_name, fn ->
       prepare
       |> _safe_prepare()
       |> case do
-        {:ok, message} ->
-          :ok = Connection.push(base_name, message)
-
-        {:error, _reason} = error ->
-          _respond_with_server_message(base_name, correlation_id, error)
+        {:ok, message} -> :ok = Connection.push(base_name, message)
+        {:error, _reason} = error -> on_error.(error)
       end
     end)
   end
+
+  defp _reply_on_error(base_name, correlation_id),
+    do: &_respond_with_server_message(base_name, correlation_id, &1)
+
+  defp _notify_on_error(requester),
+    do: fn {:error, reason} -> GenServer.cast(requester, {:request_failed, reason}) end
 
   defp _safe_prepare(prepare) do
     case prepare.() do
@@ -379,6 +377,29 @@ defmodule Extreme.RequestManager do
   catch
     _kind, reason -> {:error, {:encoding_failed, reason}}
   end
+
+  defp _confirm_subscription(
+         {:pending, correlation_id, buffer},
+         correlation_id,
+         subscription,
+         %State{} = state
+       ) do
+    Process.monitor(subscription)
+
+    buffer
+    |> Enum.reverse()
+    |> Enum.each(&GenServer.cast(subscription, {:process_push, fn -> Response.parse(&1) end}))
+
+    subscriptions = Map.put(state.subscriptions, correlation_id, subscription)
+    pid_to_correlation_id = Map.put(state.pid_to_correlation_id, subscription, correlation_id)
+
+    {:noreply,
+     %State{state | subscriptions: subscriptions, pid_to_correlation_id: pid_to_correlation_id}}
+  end
+
+  # Unregistered before confirmation: the subscription is already stopping.
+  defp _confirm_subscription(nil, _correlation_id, _subscription, %State{} = state),
+    do: {:noreply, state}
 
   # we got message for still unregistered subscription so we need to buffer it
   defp _process_server_message(
