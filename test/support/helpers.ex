@@ -13,7 +13,31 @@ defmodule ExtremeTest.Helpers do
   require Logger
   import ExUnit.Assertions
 
-  def random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
+  def random_stream_name, do: "extreme_test-" <> uuid_string()
+
+  @doc "A fresh `Extreme.Tools.generate_uuid/0` id in its 8-4-4-4-12 string form."
+  def uuid_string do
+    <<a::binary-4, b::binary-2, c::binary-2, d::binary-2, e::binary-6>> =
+      Extreme.Tools.generate_uuid()
+
+    [a, b, c, d, e]
+    |> Enum.map(&Base.encode16(&1, case: :lower))
+    |> Enum.join("-")
+  end
+
+  @doc "Recorded gossip response with every member advertising `external_tcp_port`."
+  def gossip_response(external_tcp_port) do
+    "fixture/vcr_cassettes/gossip_with_clusters_existing_node.json"
+    |> File.read!()
+    |> Jason.decode!()
+    |> List.first()
+    |> get_in(["response", "body"])
+    |> Jason.decode!()
+    |> Map.update!("members", fn members ->
+      Enum.map(members, &Map.put(&1, "externalTcpPort", external_tcp_port))
+    end)
+    |> Jason.encode!()
+  end
 
   def write_events(
         stream \\ random_stream_name(),
@@ -129,8 +153,9 @@ defmodule ExtremeTest.Helpers do
   end
 
   def assert_no_leaks(base_name) do
-    # it takes some time for unsubscribe response from ES
-    Process.sleep(50)
+    # EventStoreDB answers an unsubscribe asynchronously, so wait for it to settle.
+    deadline = System.monotonic_time(:millisecond) + 2_000
+    _wait_until_settled(base_name, deadline)
 
     assert(
       %{received_data: ""} = Extreme.Connection._name(base_name) |> :sys.get_state(),
@@ -166,6 +191,34 @@ defmodule ExtremeTest.Helpers do
 
     assert 0 == children_count, "There are #{children_count} hanging subscription processes"
   end
+
+  defp _wait_until_settled(base_name, deadline) do
+    cond do
+      _settled?(base_name) ->
+        :ok
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        :ok
+
+      true ->
+        Process.sleep(10)
+        _wait_until_settled(base_name, deadline)
+    end
+  end
+
+  defp _settled?(base_name) do
+    %{received_data: received_data} = Extreme.Connection._name(base_name) |> :sys.get_state()
+
+    %{requests: requests, subscriptions: subscriptions} =
+      Extreme.RequestManager._name(base_name) |> :sys.get_state()
+
+    received_data == "" and requests == %{} and subscriptions == %{} and
+      _children_count(Extreme.RequestManager._process_supervisor_name(base_name)) == 0 and
+      _children_count(Extreme.SubscriptionsSupervisor._name(base_name)) == 0
+  end
+
+  defp _children_count(supervisor),
+    do: supervisor |> Supervisor.which_children() |> Enum.count()
 
   def create_persistent_subscription(stream, group) do
     ExMsg.CreatePersistentSubscription.new(

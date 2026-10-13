@@ -95,14 +95,7 @@ defmodule Extreme.Listener do
           ) do
         push
         |> process_push(state.stream_name)
-        |> case do
-          {:ok, event_number} ->
-            {:reply, :ok, %{state | last_event: event_number}}
-
-          :stop ->
-            true = Process.demonitor(state.subscription_ref)
-            {:reply, :stop, %{state | subscription: nil, subscription_ref: nil}}
-        end
+        |> Extreme.Listener.__push_processed__(state)
       end
 
       def handle_call(:unsubscribe, _from, state),
@@ -225,5 +218,15 @@ defmodule Extreme.Listener do
                      patching_done: 1,
                      process_patch: 2
     end
+  end
+
+  # Outside the macro, so a listener whose process_push never returns :stop compiles without warnings.
+  @doc false
+  def __push_processed__({:ok, event_number}, state),
+    do: {:reply, :ok, %{state | last_event: event_number}}
+
+  def __push_processed__(:stop, state) do
+    true = Process.demonitor(state.subscription_ref)
+    {:reply, :stop, %{state | subscription: nil, subscription_ref: nil}}
   end
 end

@@ -64,6 +64,9 @@ defmodule Extreme.SubscriptionsSupervisor do
   def stop_subscription(_base_name, nil),
     do: :ok
 
+  def stop_subscription(_base_name, {:pending, _correlation_id, _buffer}),
+    do: :ok
+
   def stop_subscription(base_name, pid) do
     base_name
     |> _name()

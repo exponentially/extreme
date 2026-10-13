@@ -1,0 +1,74 @@
+# Publishes the package to hex when a GitHub Release is published (or a prerelease is promoted).
+# The release tag must be the bare mix.exs version (X.Y.Z) on a commit that is on v1.0.0;
+# prereleases are skipped until promoted to a release. Needs the repository secret HEX_API_KEY.
+name: Release to hex
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-24.04
+    env:
+      MIX_ENV: test
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      ELIXIR_VERSION: '1.20'
+      OTP_VERSION: '29'
+
+    services:
+      es:
+        # mirror of eventstore/eventstore from Docker Hub
+        image: ghcr.io/exponentially/eventstore:21.10.5-buster-slim
+        ports: ['1113:1113']
+        env:
+          EVENTSTORE_RUN_PROJECTIONS: "All"
+          EVENTSTORE_START_STANDARD_PROJECTIONS: "true"
+          EVENTSTORE_CLUSTER_SIZE: 1
+          EVENTSTORE_EXT_TCP_PORT: 1113
+          EVENTSTORE_INSECURE: "true"
+          EVENTSTORE_ENABLE_EXTERNAL_TCP: "true"
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Check the tag matches the mix.exs version
+      run: |
+        version=$(sed -n 's/^      version: "\(.*\)",$/\1/p' mix.exs)
+        if [ "$RELEASE_TAG" != "$version" ]; then
+          echo "::error::Release tag '$RELEASE_TAG' does not match mix.exs version '$version' (tags are bare X.Y.Z)"
+          exit 1
+        fi
+    - name: Check the tagged commit is on v1.0.0
+      run: |
+        if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/v1.0.0; then
+          echo "::error::Release tag '$RELEASE_TAG' ($GITHUB_SHA) is not on origin/v1.0.0"
+          exit 1
+        fi
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: ${{ env.ELIXIR_VERSION }}
+        otp-version: ${{ env.OTP_VERSION }}
+    - name: Install dependencies
+      run: mix deps.get
+    - name: Check formatting
+      run: mix format --check-formatted
+    - name: Check warnings
+      run: mix compile --warnings-as-errors --force
+    - name: Run tests
+      run: mix test --cover --exclude=authentication
+    - name: Publish to hex
+      env:
+        MIX_ENV: dev
+        HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+      run: mix hex.publish --yes

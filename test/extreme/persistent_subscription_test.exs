@@ -53,6 +53,12 @@ defmodule Extreme.PersistentSubscriptionTest do
       {:noreply, state}
     end
 
+    def handle_info({:extreme, _reason} = message, state) do
+      send(state.subscriber, message)
+
+      {:noreply, state}
+    end
+
     def handle_info(_, state), do: {:noreply, state}
   end
 
@@ -173,6 +179,8 @@ defmodule Extreme.PersistentSubscriptionTest do
       true = Process.unlink(subscriber)
       subscriber_ref = Process.monitor(subscriber)
       :ok = GenServer.call(subscriber, :unsubscribe)
+      # the group admits one subscriber, so reconnect only once EventStoreDB dropped this one
+      assert_receive {:extreme, :unsubscribed}
       :ok = GenServer.stop(subscriber)
 
       assert_receive {:DOWN, ^subscriber_ref, _, _, _}
@@ -241,7 +249,86 @@ defmodule Extreme.PersistentSubscriptionTest do
     end
   end
 
-  defp random_subscription_group_name, do: "subscription-#{UUID.uuid4()}"
+  describe "given a persistent subscription request that cannot be encoded" do
+    test "subscriber is told the subscription failed with encoding error" do
+      {:ok, _subscription} =
+        TestConn.connect_to_persistent_subscription(
+          self(),
+          <<0xFF>>,
+          random_subscription_group_name(),
+          1
+        )
+
+      assert_receive {:extreme, {:encoding_failed, _reason}}, 1_000
+    end
+
+    test "connecting with stream that is not a string returns error" do
+      assert {:error, _reason} =
+               TestConn.connect_to_persistent_subscription(
+                 self(),
+                 nil,
+                 random_subscription_group_name(),
+                 1
+               )
+    end
+
+    test "subscription stops with encoding error" do
+      Process.flag(:trap_exit, true)
+
+      {:ok, subscription} =
+        PersistentSubscription.start_link(
+          TestConn,
+          Extreme.Tools.generate_uuid(),
+          self(),
+          nil,
+          random_subscription_group_name(),
+          1
+        )
+
+      assert_receive {:EXIT, ^subscription, {:shutdown, {:encoding_failed, _reason}}}, 1_000
+    end
+  end
+
+  describe "given a nack that cannot be encoded" do
+    setup do
+      stream = Helpers.random_stream_name()
+      group = random_subscription_group_name()
+
+      {:ok, %{result: :success}} =
+        stream
+        |> Helpers.write_events(random_events())
+        |> TestConn.execute()
+
+      {:ok, %{result: :success}} =
+        stream
+        |> Helpers.create_persistent_subscription(group)
+        |> TestConn.execute()
+
+      on_exit(fn ->
+        Helpers.delete_persistent_subscription(stream, group) |> TestConn.execute()
+        Helpers.delete_stream(stream, false) |> TestConn.execute()
+      end)
+
+      [stream: stream, group: group]
+    end
+
+    test "subscription stops and subscriber is told about encoding error", c do
+      {:ok, subscription} =
+        TestConn.connect_to_persistent_subscription(self(), c.stream, c.group, 1)
+
+      subscription_ref = Process.monitor(subscription)
+      assert_receive {:"$gen_cast", {:on_event, event, correlation_id}}
+
+      :ok = PersistentSubscription.nack(subscription, event, correlation_id, :not_an_action)
+
+      assert_receive {:extreme, {:encoding_failed, _reason}}
+
+      assert_receive {:DOWN, ^subscription_ref, :process, ^subscription,
+                      {:shutdown, {:encoding_failed, _reason}}}
+    end
+  end
+
+  defp random_subscription_group_name, do: "subscription-#{Helpers.uuid_string()}"
 
   defp random_events do
     for n <- 1..5 do

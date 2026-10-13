@@ -31,8 +31,8 @@ defmodule Extreme.ListenerTest do
 
       DB.in_transaction(fn ->
         :timer.sleep(sleep)
-        send(:test, {:processing_push, push.event.event_type, push.event.data})
         :ok = DB.ack_event(MyListener, stream_name, event_number)
+        send(:test, {:processing_push, push.event.event_type, push.event.data})
         Logger.debug(fn -> "Processed event ##{event_number}" end)
       end)
 
@@ -48,6 +48,28 @@ defmodule Extreme.ListenerTest do
     {:ok, _db} = DB.start_link()
     Process.register(self(), :test)
     :ok
+  end
+
+  test "a listener whose process_push never returns :stop compiles without warnings" do
+    source = """
+    defmodule Extreme.ListenerTest.NeverStops do
+      use Extreme.Listener
+
+      defp get_last_event(_stream_name), do: -1
+      defp process_push(push, _stream_name), do: {:ok, push.event.event_number}
+    end
+    """
+
+    {_modules, diagnostics} = Code.with_diagnostics(fn -> Code.compile_string(source) end)
+
+    assert [] == diagnostics
+  end
+
+  test "process_push returning :stop drops the subscription" do
+    state = %{subscription: self(), subscription_ref: Process.monitor(self()), last_event: 1}
+
+    assert {:reply, :stop, %{subscription: nil, subscription_ref: nil, last_event: 1}} =
+             Extreme.Listener.__push_processed__(:stop, state)
   end
 
   test "Listener reads all events if never run before" do
@@ -148,8 +170,12 @@ defmodule Extreme.ListenerTest do
     assert event2 == :erlang.binary_to_term(event)
     assert DB.get_last_event(MyListener, stream) == 1
 
-    # unsubscribe and write new event
+    # unsubscribe, writing only once EventStoreDB dropped the subscription
+    %{subscription: subscription} = :sys.get_state(MyListener)
+    subscription_ref = Process.monitor(subscription)
     :ok = MyListener.unsubscribe()
+
+    assert_receive {:DOWN, ^subscription_ref, :process, ^subscription, {:shutdown, :unsubscribed}}
 
     {:ok, %ExMsg.WriteEventsCompleted{}} =
       TestConn.execute(Helpers.write_events(stream, [event3]))

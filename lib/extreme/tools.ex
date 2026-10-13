@@ -17,8 +17,13 @@ defmodule Extreme.Tools do
   def cast_to_integer(value), do: value
 
   @doc """
-  Generates new UUID1 as binary.
+  Generates a new UUIDv7 (RFC 9562) as a 16-byte binary: unix time in milliseconds,
+  then random bits, so ids sort by creation time.
   """
-  def generate_uuid,
-    do: UUID.uuid1() |> UUID.string_to_binary!()
+  @spec generate_uuid() :: uuid :: <<_::128>>
+  def generate_uuid do
+    <<rand_a::12, rand_b::62, _unused::6>> = :crypto.strong_rand_bytes(10)
+
+    <<System.os_time(:millisecond)::48, 7::4, rand_a::12, 0b10::2, rand_b::62>>
+  end
 end

@@ -255,6 +255,12 @@ defmodule Extreme.PersistentSubscription do
     Shared.process_push(fun, state)
   end
 
+  def handle_cast({:request_failed, reason}, state) do
+    send(state.subscriber, {:extreme, reason})
+    RequestManager.unregister_subscription(state.base_name, state.correlation_id)
+    {:stop, {:shutdown, reason}, state}
+  end
+
   def handle_cast({:ack, events, correlation_id}, state) do
     Msg.PersistentSubscriptionAckEvents.new(
       subscription_id: state.subscription_id,
@@ -280,7 +286,7 @@ defmodule Extreme.PersistentSubscription do
   defp cast_request_manager(message, base_name, correlation_id) do
     base_name
     |> RequestManager._name()
-    |> GenServer.cast({:execute, correlation_id, message})
+    |> GenServer.cast({:execute, correlation_id, message, self()})
   end
 
   defp event_ids(events) when is_list(events) do

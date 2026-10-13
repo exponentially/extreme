@@ -19,7 +19,17 @@ defmodule ExtremeTest do
     defmodule(ClusterConn, do: use(Extreme))
 
     test "Connects on EventStore cluster with a list of nodes" do
-      use_cassette "gossip_with_clusters_existing_node" do
+      external_tcp_port =
+        :extreme
+        |> Application.get_env(TestConn)
+        |> Keyword.fetch!(:port)
+        |> String.to_integer()
+
+      use_cassette :stub,
+        url: "http://0.0.0.0:2113/gossip?format=json",
+        method: "get",
+        status_code: ["HTTP/1.1", 200, "OK"],
+        body: Helpers.gossip_response(external_tcp_port) do
         nodes = [
           %{host: "0.0.0.0", port: 2113}
         ]
@@ -47,7 +57,7 @@ defmodule ExtremeTest do
         :extreme
         |> Application.get_env(TestConn)
         |> Keyword.put(:password, "wrong")
-        |> Keyword.put(:port, 1113)
+        |> Keyword.update!(:port, &String.to_integer/1)
         |> ForbiddenConn.start_link()
 
       assert {:error, :not_authenticated} = ForbiddenConn.execute(Helpers.write_events())
@@ -69,6 +79,41 @@ defmodule ExtremeTest do
     end
   end
 
+  describe "Executing invalid message" do
+    test "returns error well before call timeout when required field is missing" do
+      message = %{Helpers.write_events() | event_stream_id: nil}
+
+      assert {:error, {:encoding_failed, _reason}} = TestConn.execute(message, nil, 1_000)
+    end
+
+    test "returns error well before call timeout when stream name is not a string" do
+      message = Helpers.write_events(123)
+
+      assert {:error, {:encoding_failed, _reason}} = TestConn.execute(message, nil, 1_000)
+    end
+
+    test "forgets the failed request and keeps connection usable" do
+      correlation_id = Extreme.Tools.generate_uuid()
+      message = %{Helpers.write_events() | event_stream_id: nil}
+
+      assert {:error, {:encoding_failed, _reason}} =
+               TestConn.execute(message, correlation_id, 1_000)
+
+      assert %{requests: %{} = requests} =
+               TestConn
+               |> Extreme.RequestManager._name()
+               |> :sys.get_state()
+
+      refute Map.has_key?(requests, correlation_id)
+      assert :pong == TestConn.ping()
+    end
+
+    test "ping returns error when correlation id is not a binary" do
+      assert {:error, {:encoding_failed, _reason}} =
+               Extreme.RequestManager.ping(TestConn, :not_a_binary)
+    end
+  end
+
   describe "Writing events" do
     test "for non existing stream is success" do
       assert {:ok,
@@ -81,7 +126,7 @@ defmodule ExtremeTest do
 
     test "setting metadata works" do
       # write 2 events
-      stream_name = "extreme_test-" <> to_string(UUID.uuid4())
+      stream_name = "extreme_test-" <> Helpers.uuid_string()
       # IO.inspect("http://localhost:2113/web/index.html#/streams/" <> stream_name)
 
       events_1 = [

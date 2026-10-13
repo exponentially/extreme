@@ -306,7 +306,7 @@ defmodule ExtremeSubscriptionsTest do
 
     for resolve_link_tos <- [true, false] do
       test "starting ahead of a category stream's end skips links below the start (resolve_link_tos: #{resolve_link_tos})" do
-        category = "extremetest" <> String.replace(UUID.uuid4(), "-", "")
+        category = "extremetest" <> String.replace(Helpers.uuid_string(), "-", "")
         category_stream = "$ce-" <> category
 
         {:ok, %ExMsg.WriteEventsCompleted{}} =
