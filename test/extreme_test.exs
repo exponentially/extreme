@@ -19,7 +19,17 @@ defmodule ExtremeTest do
     defmodule(ClusterConn, do: use(Extreme))
 
     test "Connects on EventStore cluster with a list of nodes" do
-      use_cassette "gossip_with_clusters_existing_node" do
+      external_tcp_port =
+        :extreme
+        |> Application.get_env(TestConn)
+        |> Keyword.fetch!(:port)
+        |> String.to_integer()
+
+      use_cassette :stub,
+        url: "http://0.0.0.0:2113/gossip?format=json",
+        method: "get",
+        status_code: ["HTTP/1.1", 200, "OK"],
+        body: Helpers.gossip_response(external_tcp_port) do
         nodes = [
           %{host: "0.0.0.0", port: 2113}
         ]
@@ -47,7 +57,7 @@ defmodule ExtremeTest do
         :extreme
         |> Application.get_env(TestConn)
         |> Keyword.put(:password, "wrong")
-        |> Keyword.put(:port, 1113)
+        |> Keyword.update!(:port, &String.to_integer/1)
         |> ForbiddenConn.start_link()
 
       assert {:error, :not_authenticated} = ForbiddenConn.execute(Helpers.write_events())

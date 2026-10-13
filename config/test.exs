@@ -12,7 +12,7 @@ config :ex_unit,
 config :extreme, TestConn,
   db_type: "node",
   host: System.get_env("EVENTSTORE_HOST") || "localhost",
-  port: "1113",
+  port: System.get_env("EVENTSTORE_PORT") || "1113",
   username: "admin",
   password: "changeit",
   connection_name: "extreme_test"

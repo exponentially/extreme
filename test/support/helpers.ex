@@ -15,6 +15,20 @@ defmodule ExtremeTest.Helpers do
 
   def random_stream_name, do: "extreme_test-" <> to_string(UUID.uuid1())
 
+  @doc "Recorded gossip response with every member advertising `external_tcp_port`."
+  def gossip_response(external_tcp_port) do
+    "fixture/vcr_cassettes/gossip_with_clusters_existing_node.json"
+    |> File.read!()
+    |> Jason.decode!()
+    |> List.first()
+    |> get_in(["response", "body"])
+    |> Jason.decode!()
+    |> Map.update!("members", fn members ->
+      Enum.map(members, &Map.put(&1, "externalTcpPort", external_tcp_port))
+    end)
+    |> Jason.encode!()
+  end
+
   def write_events(
         stream \\ random_stream_name(),
         events \\ [
