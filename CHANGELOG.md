@@ -1,5 +1,12 @@
 # v1.2.0
 
+## Change
+
+- `exprotobuf` is replaced by `protobuf` 0.17; the wire format and `Extreme.Messages.*` modules, fields, enum values and `new/0,1` stay the same.
+- Requires Elixir 1.16 or later.
+- `Extreme.Messages.*` structs have two more keys, `__unknown_fields__` and `__protobuf__`, which `Map.from_struct/1` now includes.
+- No more compile or runtime deprecation warnings from the message modules.
+
 ## Fix
 
 - `execute` (and `ping`) with a message that cannot be encoded returns `{:error, {:encoding_failed, reason}}` at once instead of timing out the caller.
