@@ -21,7 +21,11 @@ Documentation is TBD
 1. On a branch, bump `version` in `mix.exs` and make sure the top CHANGELOG heading is the new
    version (`# vX.Y.Z`); merge the PR into `v1.0.0`.
 2. Publish a GitHub Release whose new tag is the bare version (`X.Y.Z`, no `v`) targeting `v1.0.0`,
-   e.g. `gh release create X.Y.Z --target v1.0.0`.
+   with only that version's CHANGELOG section as its notes:
+
+   ```sh
+   notes=$(awk -v h='# vX.Y.Z' '/^# v/{if(f)exit; f=($0==h); next} f' CHANGELOG.md) && [ -n "$notes" ] && gh release create X.Y.Z --target v1.0.0 --title X.Y.Z --notes "$notes"
+   ```
 3. The release workflow checks that the tag matches `mix.exs` and is on `v1.0.0`, runs the format,
    warnings and test checks against EventStore 21.10.5, and publishes the package and docs to hex.
    It needs the repository secret `HEX_API_KEY`, a hex key scoped to the `extreme` package.

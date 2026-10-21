@@ -5,6 +5,9 @@ defmodule Extreme do
 
   @type t :: module
 
+  @typedoc "An event as read from a stream and passed to `read_events` and `reduce_events` functions."
+  @type read_event :: Extreme.Messages.ResolvedIndexedEvent.t()
+
   @doc false
   defmacro __using__(opts \\ []) do
     quote do
@@ -45,7 +48,7 @@ defmodule Extreme do
       and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
       if further processing of events should be stopped
       """
-      @spec read_events(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+      @spec read_events(String.t(), Keyword.t(), (Extreme.read_event() ->
                                                     :ok
                                                     | :stop
                                                     | {:stop, response :: any()})) ::
@@ -68,7 +71,7 @@ defmodule Extreme do
       and invokes `fun` for each read event. `fun` should return `:ok` or `:stop`
       if further processing of events should be stopped
       """
-      @spec read_events_backwards(String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t() ->
+      @spec read_events_backwards(String.t(), Keyword.t(), (Extreme.read_event() ->
                                                               :ok
                                                               | :stop
                                                               | {:stop, response :: any()})) ::
@@ -85,7 +88,7 @@ defmodule Extreme do
         Extreme.Reading.read_events(__MODULE__, params, fun)
       end
 
-      @spec reduce_events(acc :: any(), String.t(), Keyword.t(), (ExMsg.StreamEventAppeared.t(),
+      @spec reduce_events(acc :: any(), String.t(), Keyword.t(), (Extreme.read_event(),
                                                                   acc :: any() ->
                                                                     {:ok, acc :: any()}
                                                                     | {:stop, acc :: any()})) ::
@@ -106,7 +109,7 @@ defmodule Extreme do
               acc :: any(),
               String.t(),
               Keyword.t(),
-              (ExMsg.StreamEventAppeared.t(), acc :: any() ->
+              (Extreme.read_event(), acc :: any() ->
                  {:ok, acc :: any()}
                  | {:stop, acc :: any()})
             ) ::
@@ -127,8 +130,11 @@ defmodule Extreme do
       Sets metadata map to stream. To remove metadata, set an empty map.
 
       Example:
-        metadata = %{ "$maxAge" => max_age_seconds }
-        :ok = MyConn.set_metadata("user-123", metadata)
+
+      ```elixir
+      metadata = %{"$maxAge" => max_age_seconds}
+      :ok = MyConn.set_metadata("user-123", metadata)
+      ```
       """
       @spec set_metadata(String.t(), map()) :: :ok | any()
       def set_metadata(stream, %{} = metadata) do
@@ -146,16 +152,20 @@ defmodule Extreme do
       Gets metadata map from stream.
 
       Example:
-        > stream = "users-123"
-        > MyConn.get_metadata(stream)
-        {:error, :no_stream}
 
-        > max_age_seconds = 60 * 60 * 24 # keep events 1 day
-        > metadata = %{ "$maxAge" => max_age_seconds }
-        > :ok = MyConn.set_metadata(stream, metadata)
+      ```elixir
+      stream = "users-123"
+      MyConn.get_metadata(stream)
+      #=> {:error, :no_stream}
 
-        > MyConn.get_metadata(stream)
-        {:ok, %{ "$maxAge" => 86_400 }}
+      # keep events 1 day
+      max_age_seconds = 60 * 60 * 24
+      metadata = %{"$maxAge" => max_age_seconds}
+      :ok = MyConn.set_metadata(stream, metadata)
+
+      MyConn.get_metadata(stream)
+      #=> {:ok, %{"$maxAge" => 86_400}}
+      ```
       """
       @spec get_metadata(String.t()) :: {:ok, map()} | {:error, :no_stream}
       def get_metadata(stream) do
@@ -181,7 +191,7 @@ defmodule Extreme do
              result: :success
            }} ->
             data
-            |> Jason.decode()
+            |> Extreme.Tools.decode_json()
             |> case do
               {:ok, decoded} -> {:ok, decoded}
               _ -> data
@@ -213,7 +223,7 @@ defmodule Extreme do
             event_type: "$metadata",
             data_content_type: 1,
             metadata_content_type: 1,
-            data: Jason.encode!(metadata),
+            data: Extreme.Tools.encode_json!(metadata),
             metadata: ""
           )
 

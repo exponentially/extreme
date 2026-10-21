@@ -5,6 +5,9 @@ defmodule Extreme.ClusterConnection do
 
   require Logger
 
+  # jason is an optional dependency, needed only when connecting to a cluster.
+  @compile {:no_warn_undefined, Jason}
+
   def gossip_with(nodes, gossip_timeout, mode)
 
   def gossip_with([], _, _), do: {:error, :no_more_gossip_seeds}
